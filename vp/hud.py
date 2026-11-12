@@ -11,10 +11,16 @@ from PIL import Image, ImageDraw, ImageFont
 from .aspects import Aspect
 
 FONT_CANDIDATES = [
+    # macOS
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
     "/System/Library/Fonts/Supplemental/Impact.ttf",
     "/System/Library/Fonts/Supplemental/Arial Black.ttf",
     "/System/Library/Fonts/Supplemental/Arial.ttf",
+    # Linux (CI and most distributions)
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
 ]
 
 

@@ -1,5 +1,7 @@
 # visualizer-pipeline
 
+[![CI](https://github.com/austinatchley/visualizer-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/austinatchley/visualizer-pipeline/actions/workflows/ci.yml)
+
 Turn a beat plus a few stills into beat-synced visualizers from the command line:
 
 - **16:9** full-track visualizer for YouTube
