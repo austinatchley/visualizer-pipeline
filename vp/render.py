@@ -6,151 +6,15 @@ import math
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-
+from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
+from .hud import build_hud, find_font
 from .plan import full_window, plan_timeline
 from .track import Track
 
-FONT_CANDIDATES = [
-    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-    "/System/Library/Fonts/Supplemental/Impact.ttf",
-    "/System/Library/Fonts/Supplemental/Arial Black.ttf",
-    "/System/Library/Fonts/Supplemental/Arial.ttf",
-]
-
-
-@dataclass(frozen=True)
-class Aspect:
-    key: str
-    width: int
-    height: int
-    label: str
-
-
-VERTICAL = Aspect("vertical", 1080, 1920, "9x16")
-HORIZONTAL = Aspect("horizontal", 1920, 1080, "16x9")
-ASPECTS = {"vertical": VERTICAL, "horizontal": HORIZONTAL}
-
 HUD_FADE_IN = 0.3
 HUD_FADE_DUR = 0.8
-
-
-def _find_font(override: str | None) -> str:
-    if override:
-        if Path(override).is_file():
-            return override
-        raise FileNotFoundError(f"title_font not found: {override}")
-    for candidate in FONT_CANDIDATES:
-        if Path(candidate).is_file():
-            return candidate
-    raise FileNotFoundError("no usable system font found; set style.title_font")
-
-
-def _wrap_to_width(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
-    lines: list[str] = []
-    current = ""
-    for word in text.split():
-        trial = f"{current} {word}".strip()
-        if not current or font.getlength(trial) <= max_width:
-            current = trial
-        else:
-            lines.append(current)
-            current = word
-    if current:
-        lines.append(current)
-    return lines
-
-
-def _draw_text_block(
-    draw: ImageDraw.ImageDraw,
-    lines: list[str],
-    font: ImageFont.FreeTypeFont,
-    x: int,
-    top: int,
-    fill: tuple,
-    shadow: tuple,
-    align: str,
-    shadow_offset: int,
-) -> int:
-    ascent, descent = font.getmetrics()
-    line_h = int((ascent + descent) * 1.12)
-    y = top
-    for line in lines:
-        w = font.getlength(line)
-        tx = x if align == "left" else x - w / 2
-        draw.text((tx + shadow_offset, y + shadow_offset), line, font=font, fill=shadow)
-        draw.text((tx, y), line, font=font, fill=fill)
-        y += line_h
-    return y
-
-
-def _make_overlay(
-    path: Path,
-    width: int,
-    height: int,
-    title: str,
-    artist: str | None,
-    font_path: str,
-    aspect: Aspect,
-) -> None:
-    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(canvas)
-
-    start = int(height * 0.52)
-    ramp = np.linspace(0.0, 1.0, height - start) ** 1.7
-    alpha_vals = (ramp * 190).astype(np.uint8)
-    arr = np.array(canvas)
-    arr[start:, :, 3] = np.maximum(arr[start:, :, 3], alpha_vals[:, None])
-    canvas = Image.fromarray(arr, "RGBA")
-    draw = ImageDraw.Draw(canvas)
-
-    if aspect is VERTICAL:
-        fontsize = int(width * 0.085)
-        max_width = int(width * 0.86)
-        block_bottom = int(height * 0.80)
-        align = "center"
-        x = width // 2
-    else:
-        fontsize = int(height * 0.075)
-        max_width = int(width * 0.55)
-        block_bottom = int(height * 0.87)
-        align = "left"
-        x = int(width * 0.06)
-
-    font = ImageFont.truetype(font_path, fontsize)
-    lines = _wrap_to_width(title, font, max_width)
-
-    ascent, descent = font.getmetrics()
-    line_h = int((ascent + descent) * 1.12)
-    title_h = line_h * len(lines)
-    title_top = block_bottom - title_h
-
-    shadow_offset = max(2, fontsize // 40)
-    _draw_text_block(
-        draw, lines, font, x, title_top,
-        fill=(255, 255, 255, 255),
-        shadow=(0, 0, 0, 150),
-        align=align,
-        shadow_offset=shadow_offset,
-    )
-
-    if artist:
-        afontsize = int(fontsize * 0.42)
-        afont = ImageFont.truetype(font_path, afontsize)
-        ay = title_top - int(fontsize * 0.55)
-        _draw_text_block(
-            draw, [artist], afont, x, ay,
-            fill=(255, 255, 255, 200),
-            shadow=(0, 0, 0, 120),
-            align=align,
-            shadow_offset=max(1, afontsize // 40),
-        )
-
-    canvas.save(path)
 
 
 def render(track: Track, aspect: Aspect, beatmap: dict, out_path: Path) -> Path:
@@ -165,13 +29,13 @@ def render(track: Track, aspect: Aspect, beatmap: dict, out_path: Path) -> Path:
     segments, xfade = plan.segments, plan.xfade
     n = len(segments)
 
-    font = _find_font(style.get("title_font"))
+    font = find_font(style.get("title_font"))
     max_zoom = 1.0 + float(style.get("zoom", 0.10))
 
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
     try:
         hud = tmp / "hud.png"
-        _make_overlay(hud, width, height, track.title, track.artist, font, aspect)
+        build_hud(hud, aspect, track.title, track.artist, track.handle, font)
 
         # ---- inputs: one image per segment, then audio, then HUD overlay ----
         inputs: list[str] = []
