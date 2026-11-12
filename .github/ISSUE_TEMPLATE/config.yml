@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Design document
+    url: https://github.com/austinatchley/visualizer-pipeline/blob/main/DESIGN.md
+    about: Read the locked v1 scope and decisions before proposing changes.

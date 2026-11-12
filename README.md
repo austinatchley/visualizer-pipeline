@@ -206,6 +206,11 @@ pytest                            # unit + CLI + ffprobe integration tests
 The integration tests skip if ffmpeg is missing or `fixtures/` has not been generated.
 `fixtures/` and `out/` are gitignored.
 
+## Contributing
+
+Every change starts with an issue. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
+branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
+
 ## Troubleshooting
 
 - **Tempo detected half/double** — pass `--bpm` or set `overrides.bpm`; alternatively
