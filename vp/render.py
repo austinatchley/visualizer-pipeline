@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from .plan import full_window, plan_timeline
 from .track import Track
 
 FONT_CANDIDATES = [
@@ -152,63 +153,16 @@ def _make_overlay(
     canvas.save(path)
 
 
-def plan_boundaries(
-    beats: list[float],
-    duration: float,
-    beats_per_cut: int,
-    min_first: float = 1.2,
-    min_last: float = 1.5,
-    min_gap: float = 1.0,
-) -> list[float]:
-    cuts: list[float] = []
-    if len(beats) > beats_per_cut:
-        for i in range(beats_per_cut, len(beats), beats_per_cut):
-            cuts.append(beats[i])
-    else:
-        cuts = list(np.arange(8.0, duration - min_last, 8.0))
-
-    bounds = [0.0]
-    for cut in cuts:
-        if cut - bounds[-1] < min_gap:
-            continue
-        if cut > duration - min_last:
-            continue
-        bounds.append(float(cut))
-    bounds.append(float(duration))
-    return bounds
-
-
-def build_timeline(
-    bounds: list[float], xfade: float, duration: float
-) -> tuple[list[tuple[float, float]], float]:
-    n = len(bounds) - 1
-    if n <= 1:
-        return [(0.0, duration)], 0.0
-
-    min_seg = min(bounds[i + 1] - bounds[i] for i in range(n))
-    xfade = max(0.05, min(xfade, min_seg * 0.4))
-    slack = 0.10
-
-    segments: list[tuple[float, float]] = []
-    for i in range(n):
-        offset = 0.0 if i == 0 else bounds[i] - xfade
-        if i == n - 1:
-            seg_dur = duration - offset
-        else:
-            seg_dur = (bounds[i + 1] - bounds[i]) + xfade + slack
-        segments.append((offset, max(seg_dur, xfade + slack)))
-    return segments, xfade
-
-
 def render(track: Track, aspect: Aspect, beatmap: dict, out_path: Path) -> Path:
     style = track.style
     fps = int(style.get("fps", 30))
     width, height = aspect.width, aspect.height
     duration = float(beatmap["duration"])
-    beats = beatmap.get("beats", [])
 
-    bounds = plan_boundaries(beats, duration, int(style.get("beats_per_cut", 8)))
-    segments, xfade = build_timeline(bounds, float(style.get("crossfade", 0.35)), duration)
+    plan = plan_timeline(
+        beatmap, full_window(duration), len(track.images), style, track.overrides
+    )
+    segments, xfade = plan.segments, plan.xfade
     n = len(segments)
 
     font = _find_font(style.get("title_font"))
@@ -221,8 +175,8 @@ def render(track: Track, aspect: Aspect, beatmap: dict, out_path: Path) -> Path:
 
         # ---- inputs: one image per segment, then audio, then HUD overlay ----
         inputs: list[str] = []
-        for i in range(n):
-            inputs += ["-i", str(track.images[i % len(track.images)])]
+        for seg in segments:
+            inputs += ["-i", str(track.images[seg.image_index])]
         audio_idx = n
         inputs += ["-i", str(track.audio)]
         hud_idx = n + 1
@@ -233,8 +187,8 @@ def render(track: Track, aspect: Aspect, beatmap: dict, out_path: Path) -> Path:
 
         parts: list[str] = []
         prev = "v0"
-        for i, (_, seg_dur) in enumerate(segments):
-            frames = max(2, math.ceil(seg_dur * fps) + 2)
+        for i, seg in enumerate(segments):
+            frames = max(2, math.ceil(seg.duration * fps) + 2)
             rate = (max_zoom - 1.0) / max(frames - 1, 1)
             if i % 2 == 0:
                 zexpr = f"min(1+{rate:.6f}*on,{max_zoom:.5f})"
@@ -252,7 +206,7 @@ def render(track: Track, aspect: Aspect, beatmap: dict, out_path: Path) -> Path:
             label = f"x{i}"
             parts.append(
                 f"[{prev}][v{i}]xfade=transition=fade:duration={xfade:.3f}:"
-                f"offset={segments[i][0]:.3f}[{label}]"
+                f"offset={segments[i].offset:.3f}[{label}]"
             )
             prev = label
 
