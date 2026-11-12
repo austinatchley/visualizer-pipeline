@@ -1,4 +1,4 @@
-"""Track discovery: locate audio, title, and images for a beat folder."""
+"""Track discovery: locate audio, title, images, and resolved options."""
 
 from __future__ import annotations
 
@@ -7,19 +7,10 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .config import resolve_hook, resolve_overrides, resolve_style
+
 AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".aiff", ".aif", ".ogg", ".opus"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
-
-DEFAULT_STYLE = {
-    "beats_per_cut": 8,
-    "crossfade": 0.35,
-    "zoom": 0.10,
-    "fps": 30,
-    "title_font": None,
-    "waveform": False,
-    "fade_in": 0.4,
-    "fade_out": 0.8,
-}
 
 
 @dataclass
@@ -29,7 +20,10 @@ class Track:
     title: str
     images: list[Path]
     artist: str | None = None
+    handle: str | None = None
     style: dict = field(default_factory=dict)
+    hook: dict = field(default_factory=dict)
+    overrides: dict = field(default_factory=dict)
 
     @property
     def slug(self) -> str:
@@ -110,10 +104,12 @@ def load_track(root: Path, overrides: dict | None = None) -> Track:
     if not title:
         raise ValueError(f"could not determine a title for {root}")
 
-    style = dict(DEFAULT_STYLE)
-    style.update(manifest.get("style", {}))
-    if overrides:
-        style.update({k: v for k, v in overrides.items() if v is not None})
+    flags = overrides or {}
+    style = resolve_style(
+        manifest.get("style"), preset=flags.get("preset"), flags=flags
+    )
+    hook = resolve_hook(manifest.get("hook"), manifest.get("overrides"), flags=flags)
+    resolved_overrides = resolve_overrides(manifest.get("overrides"), flags)
 
     return Track(
         root=root,
@@ -121,5 +117,8 @@ def load_track(root: Path, overrides: dict | None = None) -> Track:
         title=title,
         images=images,
         artist=manifest.get("artist"),
+        handle=manifest.get("handle"),
         style=style,
+        hook=hook,
+        overrides=resolved_overrides,
     )
