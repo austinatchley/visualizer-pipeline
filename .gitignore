@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# generated output + analysis cache
+out/
+.vp/
+
+# locally generated demo assets
+examples/sample/
+fixtures/
+
+.DS_Store
