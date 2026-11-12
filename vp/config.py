@@ -180,8 +180,8 @@ def resolve_overrides(manifest: dict | None, flags: dict | None = None) -> dict:
         merged["bpm"] = bpm
 
     multiplier = float(merged["tempo_multiplier"])
-    if multiplier <= 0:
-        raise ValueError("tempo_multiplier must be > 0")
+    if multiplier not in (0.5, 1.0, 2.0):
+        raise ValueError("tempo_multiplier must be 0.5, 1, or 2")
     merged["tempo_multiplier"] = multiplier
 
     if merged["cuts"] is not None:

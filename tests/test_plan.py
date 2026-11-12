@@ -1,6 +1,6 @@
 import pytest
 
-from vp.plan import full_window, plan_timeline
+from vp.plan import full_window, plan_timeline, select_hook
 
 STYLE = {"beats_per_cut": 8, "crossfade": 0.35}
 
@@ -105,3 +105,50 @@ def test_window_rebases_times():
     assert plan.boundaries[0].time == 0.0
     assert plan.boundaries[-1].time == pytest.approx(10.0)
     assert plan.duration == pytest.approx(10.0)
+
+
+def hook(mode="auto", target=45.0, start=None, end=None):
+    return {"mode": mode, "target": target, "start": start, "end": end}
+
+
+def test_select_hook_full_mode():
+    assert select_hook(make_beatmap(duration=90), hook(mode="full")) == (0.0, 90.0)
+
+
+def test_select_hook_short_track_returns_full():
+    assert select_hook(make_beatmap(duration=20), hook()) == (0.0, 20.0)
+
+
+def test_select_hook_manual():
+    assert select_hook(
+        make_beatmap(duration=90), hook(mode="manual", start=20, end=65)
+    ) == (20.0, 65.0)
+
+
+def test_select_hook_manual_past_end_raises():
+    with pytest.raises(ValueError, match="past the track"):
+        select_hook(make_beatmap(duration=40), hook(mode="manual", start=10, end=50))
+
+
+def test_select_hook_length_in_range():
+    start, end = select_hook(make_beatmap(duration=120), hook())
+    assert 30 <= end - start <= 60
+    assert 0 <= start < end <= 120
+
+
+def test_select_hook_prefers_high_energy():
+    beatmap = make_beatmap(duration=80, energy=[0.1] * 80 + [0.9] * 80)
+    start, end = select_hook(beatmap, hook(target=30))
+    assert start >= 35
+    assert end > 40
+
+
+def test_select_hook_is_deterministic():
+    beatmap = make_beatmap(duration=120)
+    assert select_hook(beatmap, hook()) == select_hook(beatmap, hook())
+
+
+def test_select_hook_end_snaps_to_downbeat():
+    beatmap = make_beatmap(duration=120)
+    _, end = select_hook(beatmap, hook(target=45))
+    assert any(abs(d - end) < 1e-6 for d in beatmap["downbeats"])

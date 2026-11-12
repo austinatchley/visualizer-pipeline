@@ -81,3 +81,8 @@ def test_overrides_bpm_validation():
 def test_overrides_cuts_sorted():
     overrides = resolve_overrides({"cuts": [10, 4, 7]})
     assert overrides["cuts"] == [4.0, 7.0, 10.0]
+
+
+def test_overrides_tempo_multiplier_validation():
+    with pytest.raises(ValueError, match="tempo_multiplier"):
+        resolve_overrides({"tempo_multiplier": 3})

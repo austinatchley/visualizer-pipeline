@@ -1,4 +1,4 @@
-"""Pure timeline planning: energy-reactive cuts, windows, and crossfade timing."""
+"""Pure timeline planning: energy-reactive cuts, hook windows, crossfade timing."""
 
 from __future__ import annotations
 
@@ -232,3 +232,94 @@ def plan_timeline(
         boundaries=boundaries,
         segments=segments,
     )
+
+
+def _mean_in(values: list, times: list, start: float, end: float) -> float:
+    samples = [float(v) for t, v in zip(times, values) if start <= t < end]
+    return sum(samples) / len(samples) if samples else 0.0
+
+
+def _index_of(values: list[float], target: float) -> int | None:
+    for i, value in enumerate(values):
+        if abs(value - target) < 1e-6:
+            return i
+    return None
+
+
+def select_hook(beatmap: dict, hook: dict) -> tuple[float, float]:
+    """Choose the short-form window for vertical/square exports."""
+    duration = float(beatmap.get("duration") or 0.0)
+    mode = hook.get("mode", "auto")
+
+    if mode == "full":
+        return (0.0, duration)
+
+    if mode == "manual":
+        start = float(hook["start"])
+        end = float(hook["end"])
+        if start < 0 or end <= start:
+            raise ValueError("hook must satisfy 0 <= start < end")
+        if end > duration + 1e-6:
+            raise ValueError(
+                f"hook end {end:.2f}s is past the track ({duration:.2f}s)"
+            )
+        return (start, end)
+
+    target = min(float(hook.get("target", 45.0)), duration)
+    if duration <= 0 or target >= duration - 1e-6:
+        return (0.0, duration)
+
+    beats = [float(b) for b in beatmap.get("beats") or []]
+    if not beats:
+        return (0.0, target)
+
+    downbeats = [float(b) for b in beatmap.get("downbeats") or beats[::4]]
+    energy = list(beatmap.get("beat_energy") or [])
+    novelty = list(beatmap.get("onset_novelty") or [])
+    bar_energy = list(beatmap.get("bar_energy") or [])
+
+    starts = [d for d in downbeats if d + target <= duration + 1e-6]
+    if not starts:
+        starts = [0.0]
+
+    max_energy_time = None
+    if energy:
+        limit = min(len(energy), len(beats))
+        index = max(range(limit), key=lambda i: energy[i])
+        max_energy_time = beats[index]
+
+    best: tuple[float, float] | None = None
+    for start in starts:
+        end = start + target
+        score = _mean_in(energy, beats, start, end)
+        score += 0.5 * _mean_in(novelty, beats, start, end)
+
+        bar_index = _index_of(downbeats, start)
+        if bar_index is not None:
+            if 0 < bar_index < len(bar_energy):
+                score += 0.5 * max(0.0, bar_energy[bar_index] - bar_energy[bar_index - 1])
+            if bar_index % 4 == 0:
+                score += 0.1
+
+        if max_energy_time is not None and start <= max_energy_time < end:
+            score += 0.3
+        if start < 0.08 * duration:
+            score -= 0.15
+
+        if best is None or score > best[0] + 1e-12:
+            best = (score, start)
+
+    start = float(best[1])
+    ideal_end = start + target
+    end = min(duration, ideal_end)
+
+    intervals = np.diff(beats)
+    tolerance = 2.0 * float(np.median(intervals)) if len(intervals) else 1.0
+    near = min(downbeats, key=lambda d: abs(d - ideal_end))
+    if (
+        abs(near - ideal_end) <= tolerance
+        and 30.0 - 1e-6 <= near - start <= 60.0 + 1e-6
+    ):
+        end = min(duration, near)
+
+    return (start, float(end))
