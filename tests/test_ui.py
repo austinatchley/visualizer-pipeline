@@ -244,3 +244,75 @@ def test_cancel_job_endpoint(client):
     assert res.status_code == 200
     job = _wait_job(client, job_id)
     assert job["status"] in ("done", "cancelled")
+
+
+def test_create_track_with_uploads(client):
+    from PIL import Image
+
+    audio_bytes = (np.sin(np.linspace(0, 200, 8000)) * 32000).astype(np.int16).tobytes()
+    img_bytes = b""
+    import io
+
+    buf = io.BytesIO()
+    Image.fromarray(np.zeros((32, 32, 3), dtype=np.uint8)).save(buf, format="PNG")
+    img_bytes = buf.getvalue()
+
+    res = client.post(
+        "/api/tracks",
+        data={"title": "New Beat"},
+        files=[
+            ("audio", ("audio.wav", audio_bytes, "audio/wav")),
+            ("images", ("01.png", img_bytes, "image/png")),
+            ("images", ("02.png", img_bytes, "image/png")),
+        ],
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["slug"] == "new-beat"
+
+    assert (Path(client.app.state.root) / "new-beat" / "audio.wav").is_file()
+    detail = client.get("/api/tracks/new-beat").json()
+    assert detail["title"] == "New Beat"
+    assert detail["image_count"] == 2
+
+
+def test_create_track_rejects_bad_extension(client):
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.fromarray(np.zeros((16, 16, 3), dtype=np.uint8)).save(buf, format="PNG")
+    img_bytes = buf.getvalue()
+    res = client.post(
+        "/api/tracks",
+        data={"title": "Bad"},
+        files=[
+            ("audio", ("a.txt", b"nope", "text/plain")),
+            ("images", ("01.png", img_bytes, "image/png")),
+        ],
+    )
+    assert res.status_code == 400
+    assert "audio" in res.json()["detail"]
+
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.fromarray(np.zeros((16, 16, 3), dtype=np.uint8)).save(buf, format="PNG")
+    res = client.post(
+        "/api/tracks",
+        data={"title": "No audio"},
+        files=[("images", ("01.png", buf.getvalue(), "image/png"))],
+    )
+    assert res.status_code == 400
+    assert "audio" in res.json()["detail"]
+
+    res = client.post(
+        "/api/tracks",
+        data={"title": "Bad images"},
+        files=[("audio", ("a.wav", b"x", "audio/wav")), ("images", ("b.txt", b"x", "text/plain"))],
+    )
+    assert res.status_code == 400
+    assert "images" in res.json()["detail"]

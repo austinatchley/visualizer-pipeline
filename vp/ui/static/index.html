@@ -17,7 +17,10 @@
 
   <div class="layout">
     <aside class="sidebar">
-      <h2>Tracks</h2>
+      <div class="sidebar-head">
+        <h2>Tracks</h2>
+        <button id="new-project" class="btn small">+ New</button>
+      </div>
       <ul id="track-list" class="track-list"></ul>
     </aside>
 
@@ -73,6 +76,29 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>New project</h2>
+        <button id="modal-close" class="btn small">×</button>
+      </div>
+      <label class="field">
+        <span>Title</span>
+        <input id="new-title" type="text" placeholder="e.g. Midnight Drive">
+      </label>
+      <div id="dropzone" class="dropzone">
+        <p>Drag your audio (mp3/wav/flac…) and images here</p>
+        <p class="dim">or <span class="link">browse</span> — need exactly one audio file + at least one image</p>
+        <input id="drop-input" type="file" multiple hidden>
+      </div>
+      <div id="drop-preview" class="drop-preview"></div>
+      <div class="modal-foot">
+        <button id="create-track" class="btn primary" disabled>Create project</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

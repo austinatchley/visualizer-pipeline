@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -25,7 +27,7 @@ from ..aspects import ASPECTS
 from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
 from ..render import RenderCancelled, plan_variants, render, window_for
 from ..status import input_mtime, is_up_to_date
-from ..track import AUDIO_EXTS, load_track
+from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track
 
 STATIC_DIR = Path(__file__).parent / "static"
 _render_lock = threading.Lock()
@@ -41,6 +43,11 @@ def _track_folders(root: Path):
             p.is_file() and p.suffix.lower() in AUDIO_EXTS for p in folder.iterdir()
         ):
             yield folder
+
+
+def _slugify(title: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", (title or "untitled").lower()).strip("-")
+    return slug or "untitled"
 
 
 def _find_track(root: Path, slug: str):
@@ -219,6 +226,67 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
                     }
                 )
         return tracks
+
+    @app.post("/api/tracks")
+    async def create_track(
+        title: str = Form(""),
+        audio: UploadFile | None = File(None),
+        images: list[UploadFile] = File(...),
+    ):
+        root.mkdir(parents=True, exist_ok=True)
+        if audio is None:
+            raise HTTPException(status_code=400, detail="one audio file is required")
+        if audio.filename is None or Path(audio.filename).suffix.lower() not in AUDIO_EXTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"audio must be one of: {', '.join(sorted(AUDIO_EXTS))}",
+            )
+        images = [f for f in images if f.filename]
+        if not images:
+            raise HTTPException(status_code=400, detail="at least one image is required")
+        bad = [
+            f.filename
+            for f in images
+            if Path(f.filename).suffix.lower() not in IMAGE_EXTS
+        ]
+        if bad:
+            raise HTTPException(
+                status_code=400,
+                detail=f"images must be one of: {', '.join(sorted(IMAGE_EXTS))} (got {', '.join(bad)})",
+            )
+
+        base = _slugify(title)
+        folder = root / base
+        n = 2
+        while folder.exists():
+            folder = root / f"{base}-{n}"
+            n += 1
+        folder.mkdir()
+        (folder / "images").mkdir()
+        try:
+            p = folder / f"audio{Path(audio.filename).suffix.lower()}"
+            with p.open("wb") as fh:
+                shutil.copyfileobj(audio.file, fh)
+            for img in images:
+                name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(img.filename).name)
+                with (folder / "images" / name).open("wb") as fh:
+                    shutil.copyfileobj(img.file, fh)
+            (folder / "track.json").write_text(
+                json.dumps({"title": title or _slugify(title).replace("-", " ").title()}, indent=2)
+                + "\n"
+            )
+        except Exception:
+            shutil.rmtree(folder, ignore_errors=True)
+            raise
+
+        track = load_track(folder)
+        return {
+            "slug": track.slug,
+            "title": track.title,
+            "path": str(folder),
+            "audio": track.audio.name,
+            "image_count": len(track.images),
+        }
 
     @app.get("/api/tracks/{slug}")
     def track_detail(slug: str):

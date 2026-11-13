@@ -288,6 +288,9 @@ and exports byte-identical to a headless run. Key constraints:
   as background jobs with the same idempotency as the CLI (shared `vp/status.py`).
 - **Minimal save.** The UI persists only the diff between the edited style and the
   resolved preset baseline, so `track.json` stays minimal and preset changes propagate.
+- **Create projects.** `POST /api/tracks` (multipart: one audio + images + title)
+  scaffolds a valid track folder reusing the DESIGN §3 contract and `track.py`
+  validation, so anything created in the UI is exactly what the CLI accepts.
 - Optional dependency: `pip install -e ".[ui]"`. Base install is unchanged.
 
 ## 6. Outputs

@@ -272,6 +272,123 @@ function startPolling() {
   setInterval(pollJobs, 700);
 }
 
+const AUDIO_EXTS = [".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif", ".ogg", ".opus"];
+const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"];
+
+function ext(name) {
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot).toLowerCase() : "";
+}
+
+function classifyDrop(files) {
+  let audio = null;
+  const images = [];
+  for (const f of files) {
+    const e = ext(f.name);
+    if (AUDIO_EXTS.includes(e)) {
+      if (!audio) audio = f;
+    } else if (IMAGE_EXTS.includes(e)) {
+      images.push(f);
+    }
+  }
+  return { audio, images };
+}
+
+function renderDropPreview() {
+  const wrap = $("#drop-preview");
+  const picks = state.dropFiles;
+  wrap.innerHTML = "";
+  for (const f of picks) {
+    const isAudio = AUDIO_EXTS.includes(ext(f.name));
+    const chip = document.createElement("span");
+    chip.className = "chip " + (isAudio ? "audio" : "");
+    chip.textContent = f.name;
+    const x = document.createElement("span");
+    x.className = "x";
+    x.textContent = "×";
+    x.addEventListener("click", () => {
+      state.dropFiles = state.dropFiles.filter((g) => g !== f);
+      renderDropPreview();
+    });
+    chip.appendChild(x);
+    wrap.appendChild(chip);
+  }
+  $("#create-track").disabled = !state.dropFiles.some((f) => AUDIO_EXTS.includes(ext(f.name))) ||
+    !state.dropFiles.some((f) => IMAGE_EXTS.includes(ext(f.name)));
+}
+
+function openModal() {
+  state.dropFiles = [];
+  renderDropPreview();
+  $("#modal").classList.remove("hidden");
+  $("#new-title").focus();
+}
+function closeModal() {
+  $("#modal").classList.add("hidden");
+}
+
+async function createProject() {
+  const { audio, images } = classifyDrop(state.dropFiles);
+  if (!audio || images.length === 0) {
+    toast("need one audio file and at least one image", "error");
+    return;
+  }
+  const fd = new FormData();
+  fd.append("title", $("#new-title").value.trim());
+  fd.append("audio", audio);
+  images.forEach((img) => fd.append("images", img));
+  setBusy(true, "creating…");
+  try {
+    const res = await fetch("/api/tracks", { method: "POST", body: fd });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.detail || res.statusText);
+    }
+    const track = await res.json();
+    closeModal();
+    await loadTrackList();
+    await selectTrack(track.slug);
+    toast(`created ${track.title}`);
+  } catch (err) {
+    toast(err.message, "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function initDropzone() {
+  const dz = $("#dropzone");
+  const input = $("#drop-input");
+  dz.addEventListener("click", (e) => {
+    if (e.target !== input) input.click();
+  });
+  input.addEventListener("change", () => {
+    if (input.files) {
+      state.dropFiles = state.dropFiles.concat([...input.files]);
+      renderDropPreview();
+    }
+    input.value = "";
+  });
+  ["dragenter", "dragover"].forEach((ev) =>
+    dz.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dz.classList.add("over");
+    })
+  );
+  ["dragleave", "drop"].forEach((ev) =>
+    dz.addEventListener(ev, (e) => {
+      e.preventDefault();
+      dz.classList.remove("over");
+    })
+  );
+  dz.addEventListener("drop", (e) => {
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      state.dropFiles = state.dropFiles.concat([...e.dataTransfer.files]);
+      renderDropPreview();
+    }
+  });
+}
+
 async function init() {
   state.boot = await api("/api/boot");
   $("#aspect").innerHTML = Object.entries(state.boot.aspects)
@@ -303,6 +420,11 @@ async function init() {
     toast("rendering A/B…");
     waitForCompare();
   });
+  $("#new-project").addEventListener("click", openModal);
+  $("#modal-close").addEventListener("click", closeModal);
+  $("#create-track").addEventListener("click", createProject);
+  state.dropFiles = [];
+  initDropzone();
   startPolling();
   await loadTrackList();
   const first = state.tracks.find((t) => !t.error);
