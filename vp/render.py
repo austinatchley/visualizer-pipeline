@@ -6,6 +6,7 @@ import math
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +23,10 @@ HUD_FADE_DUR = 0.8
 GRAIN_SEED = 2024
 PREVIEW_SECONDS = 4.0
 PREVIEW_SCALE = 4
+
+
+class RenderCancelled(RuntimeError):
+    """Raised by render() when the optional cancel hook reports cancellation."""
 
 
 def _cover_image(src: Path, width: int, height: int, out: Path) -> Path:
@@ -72,9 +77,15 @@ def render(
     out_path: Path,
     window: tuple[float, float] | None = None,
     preview: bool = False,
+    progress: Callable[[float, str], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
 ) -> Path:
     """Render an mp4 variant. `preview=True` renders a short, quarter-resolution,
-    audio-less clip (no audio stream) for fast UI iteration."""
+    audio-less clip (no audio stream) for fast UI iteration.
+
+    `progress`, when given, is called with ``(percent 0-100, stage)`` as encoding
+    progresses; `cancel`, when given, is polled and raises `RenderCancelled` early.
+    Both are optional and change nothing when omitted."""
     style = track.style
     fps = int(style.get("fps", 30))
     width, height = aspect.width, aspect.height
@@ -261,10 +272,53 @@ def render(
             "-t", f"{clip_duration:.3f}",
             str(out_path),
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode != 0:
-            tail = "\n".join(proc.stderr.strip().splitlines()[-40:])
-            raise RuntimeError(f"ffmpeg failed (exit {proc.returncode}):\n{tail}")
+        def _run_with_progress() -> tuple[int, str]:
+            if cancel is not None and cancel():
+                raise RenderCancelled("render cancelled")
+            proc = subprocess.Popen(
+                [*cmd, "-nostats", "-progress", "pipe:1"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="replace",
+            )
+            assert proc.stdout is not None
+            try:
+                for line in proc.stdout:
+                    if cancel is not None and cancel():
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            proc.kill()
+                            proc.wait()
+                        raise RenderCancelled("render cancelled")
+                    if line.startswith("out_time_us="):
+                        microseconds = float(line.partition("=")[2])
+                        pct = min(100.0, max(0.0, microseconds / 1e6 / clip_duration * 100.0))
+                        if progress is not None:
+                            progress(pct, "rendering")
+                    elif line == "progress=end" and progress is not None:
+                        progress(100.0, "done")
+            finally:
+                if proc.poll() is None:
+                    proc.terminate()
+            err = proc.stderr.read() if proc.stderr else ""
+            return proc.wait(), err
+
+        if progress is None and cancel is None:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            returncode, stderr_text = proc.returncode, proc.stderr or ""
+        else:
+            if progress is not None:
+                progress(0.0, "rendering")
+            returncode, stderr_text = _run_with_progress()
+            if returncode == 0 and progress is not None:
+                progress(100.0, "done")
+
+        if returncode != 0:
+            tail = "\n".join(stderr_text.strip().splitlines()[-40:])
+            raise RuntimeError(f"ffmpeg failed (exit {returncode}):\n{tail}")
         return out_path
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

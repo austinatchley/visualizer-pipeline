@@ -209,6 +209,11 @@ The studio has a track picker, a style panel whose controls are generated from t
 fast quarter-resolution preview (short, audio-less), and an explicit "Save style" that
 writes only the diff back to `track.json`.
 
+Full renders run as background **jobs** with live progress (streamed from ffmpeg), an
+up-to-date skip that matches the CLI's idempotency exactly, cancel, and in-browser
+playback of finished videos. The **Compare A/B** flow snapshots two styles and renders
+them side by side.
+
 ## Outputs
 
 ```

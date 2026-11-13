@@ -156,6 +156,41 @@ h3 { margin: 1.2rem 0 0.6rem; font-size: 0.85rem; text-transform: uppercase; let
 .empty { text-align: center; margin-top: 3rem; color: var(--dim); }
 .hidden { display: none; }
 
+.render-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.render-buttons, .compare-buttons { display: flex; gap: 0.5rem; }
+
+.jobs { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+
+.job {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+}
+
+.job .job-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; }
+.job .job-status { color: var(--dim); }
+.job .job-status.done { color: var(--ok); }
+.job .job-status.failed, .job .job-status.cancelled { color: var(--danger); }
+.job .bar { height: 6px; background: var(--panel-2); border-radius: 3px; margin-top: 0.4rem; overflow: hidden; }
+.job .fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+.job .fill.skipped { background: var(--ok); }
+.job .fill.failed, .job .fill.cancelled { background: var(--danger); }
+.job .error-text { font-size: 0.75rem; color: var(--danger); margin-top: 0.3rem; }
+.job video { margin-top: 0.5rem; }
+.job .job-video video { width: 100%; max-width: 520px; background: #000; border-radius: 6px; }
+
+.compare { display: flex; gap: 1rem; margin-top: 1rem; }
+.compare-col { flex: 1; min-width: 0; }
+.compare-col video { width: 100%; max-height: 360px; }
+
 .toast {
   position: fixed;
   bottom: 1.2rem;

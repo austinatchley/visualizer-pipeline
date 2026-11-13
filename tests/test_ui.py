@@ -1,5 +1,6 @@
 import json
 import shutil
+import time
 import wave
 from pathlib import Path
 
@@ -7,7 +8,11 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from vp.analyze import load_beatmap
+from vp.aspects import VERTICAL
 from vp.config import STYLE_FIELDS, resolve_style
+from vp.render import RenderCancelled, render
+from vp.track import load_track
 from vp.ui.server import create_app
 
 def _has_asyncio_backend() -> bool:
@@ -92,6 +97,13 @@ def client(tmp_path):
     return TestClient(app)
 
 
+@pytest.fixture()
+def demo_track(tmp_path):
+    root = tmp_path / "lib"
+    root.mkdir()
+    return load_track(_make_track(root, "demo_track"))
+
+
 def test_style_fields_cover_defaults():
     from vp.config import DEFAULT_STYLE
 
@@ -173,3 +185,62 @@ def test_preview_renders_short_no_audio(client):
     streams = probe.stdout.strip().splitlines()
     assert "video,270,480" in streams  # quarter of 1080x1920
     assert len(streams) == 1  # no audio stream
+
+
+def test_render_progress_is_monotonic_and_done(demo_track, tmp_path):
+    beatmap = load_beatmap(demo_track)
+    seen = []
+    render(
+        demo_track, VERTICAL, beatmap, tmp_path / "p.mp4",
+        preview=True, progress=lambda p, s: seen.append(p),
+    )
+    assert seen, "progress callback never called"
+    assert seen[0] == 0.0
+    assert seen[-1] == 100.0
+    assert seen == sorted(seen)
+
+
+def test_render_cancel_hook(demo_track, tmp_path):
+    beatmap = load_beatmap(demo_track)
+    out = tmp_path / "c.mp4"
+    with pytest.raises(RenderCancelled):
+        render(demo_track, VERTICAL, beatmap, out, preview=True, cancel=lambda: True)
+    assert not out.exists()
+
+
+def _wait_job(client, job_id, timeout=40.0):
+    deadline = time.time() + timeout
+    job = None
+    while time.time() < deadline:
+        job = client.get(f"/api/jobs/{job_id}").json()
+        if job["status"] in ("done", "failed", "skipped", "cancelled"):
+            return job
+        time.sleep(0.1)
+    raise AssertionError(f"job {job_id} stuck at {job and job['status']}")
+
+
+def test_render_job_lifecycle_and_skip(client):
+    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    job1 = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    assert job1["status"] == "done", job1.get("error")
+    assert job1["url"]
+    assert (Path(client.app.state.out) / job1["url"].removeprefix("/api/files/")).exists()
+
+    job2 = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    assert job2["status"] == "skipped"  # unchanged inputs -> idempotent skip
+
+
+def test_render_job_failed_reports_error(client):
+    body = {"aspect": "vertical", "style": {"contrast": 9}, "preview": True}
+    job = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    assert job["status"] == "failed"
+    assert "contrast" in job["error"]
+
+
+def test_cancel_job_endpoint(client):
+    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    job_id = client.post("/api/tracks/demo-track/render", json=body).json()["id"]
+    res = client.post(f"/api/jobs/{job_id}/cancel")
+    assert res.status_code == 200
+    job = _wait_job(client, job_id)
+    assert job["status"] in ("done", "cancelled")

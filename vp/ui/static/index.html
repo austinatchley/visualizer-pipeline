@@ -38,6 +38,31 @@
 
         <h3>Style</h3>
         <div id="style-controls" class="controls"></div>
+
+        <h3>Render</h3>
+        <div class="render-bar">
+          <div class="render-buttons">
+            <button class="btn" data-render="vertical">Render 9:16</button>
+            <button class="btn" data-render="square">Render 1:1</button>
+            <button class="btn" data-render="horizontal">Render 16:9</button>
+          </div>
+          <div class="compare-buttons">
+            <button id="cmp-a" class="btn">Set A</button>
+            <button id="cmp-b" class="btn">Set B</button>
+            <button id="cmp-run" class="btn primary">Compare A/B</button>
+          </div>
+        </div>
+        <div id="jobs" class="jobs"></div>
+        <div id="compare" class="compare hidden">
+          <div class="compare-col">
+            <span class="dim">A</span>
+            <video id="cmp-a-video" controls autoplay loop muted playsinline></video>
+          </div>
+          <div class="compare-col">
+            <span class="dim">B</span>
+            <video id="cmp-b-video" controls autoplay loop muted playsinline></video>
+          </div>
+        </div>
       </section>
 
       <section id="empty" class="hidden empty">

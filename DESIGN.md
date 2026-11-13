@@ -283,6 +283,9 @@ and exports byte-identical to a headless run. Key constraints:
   both consume it, so adding a key later makes it validate *and* appear in the UI.
 - **Deterministic preview.** `render(..., preview=True)` renders a short, quarter-
   resolution, audio-less clip for fast iteration. It is the same renderer, only smaller.
+- **Jobs + progress.** `render(..., progress=cb, cancel=cb)` streams ffmpeg
+  `-progress` (percent 0–100) and can be aborted mid-render. The UI runs full renders
+  as background jobs with the same idempotency as the CLI (shared `vp/status.py`).
 - **Minimal save.** The UI persists only the diff between the edited style and the
   resolved preset baseline, so `track.json` stays minimal and preset changes propagate.
 - Optional dependency: `pip install -e ".[ui]"`. Base install is unchanged.

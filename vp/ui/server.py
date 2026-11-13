@@ -8,7 +8,11 @@ identical to a headless run.
 from __future__ import annotations
 
 import json
+import os
 import threading
+import time
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -19,7 +23,8 @@ from pydantic import BaseModel
 from ..analyze import load_beatmap
 from ..aspects import ASPECTS
 from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
-from ..render import render, window_for
+from ..render import RenderCancelled, plan_variants, render, window_for
+from ..status import input_mtime, is_up_to_date
 from ..track import AUDIO_EXTS, load_track
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -63,9 +68,99 @@ class StylePayload(BaseModel):
     style: dict[str, object]
 
 
-class PreviewPayload(BaseModel):
+class RenderPayload(BaseModel):
     aspect: str = "vertical"
     style: dict[str, object]
+    preview: bool = False
+
+
+@dataclass
+class Job:
+    id: str
+    slug: str
+    aspect: str
+    style: dict
+    status: str = "pending"  # pending|running|done|skipped|cancelled|failed
+    progress: float = 0.0
+    error: str | None = None
+    path: str | None = None
+    preview: bool = False
+    created: float = field(default_factory=time.time)
+    started: float | None = None
+    ended: float | None = None
+    cancel: threading.Event = field(default_factory=threading.Event)
+
+
+def _run_job(job: Job, root: Path, out: Path) -> None:
+    try:
+        track = _find_track(root, job.slug)
+        track.style = resolve_style(job.style)
+        job.started = time.time()
+        aspect = ASPECTS[job.aspect]
+        beatmap = load_beatmap(track)
+
+        if job.preview:
+            dest = out / "preview" / f"{track.slug}_{job.aspect}.mp4"
+            window = window_for(track, beatmap, aspect)
+        else:
+            variant = plan_variants(track, beatmap, out / track.slug, [job.aspect])[0]
+            dest, window = variant.path, variant.window
+        job.path = str(dest)
+
+        mtime = input_mtime(track)
+        if is_up_to_date(dest, mtime):
+            job.status, job.progress = "skipped", 100.0
+            return
+
+        job.status = "running"
+
+        def _progress(percent: float, _stage: str) -> None:
+            job.progress = percent
+
+        with _render_lock:
+            render(
+                track,
+                aspect,
+                beatmap,
+                dest,
+                window=window,
+                preview=job.preview,
+                progress=_progress,
+                cancel=job.cancel.is_set,
+            )
+        job.status, job.progress = "done", 100.0
+    except RenderCancelled:
+        job.status = "cancelled"
+    except Exception as exc:  # noqa: BLE001 - surface any failure to the UI
+        job.status = "failed"
+        job.error = str(exc)
+    finally:
+        job.ended = time.time()
+
+
+def _job_summary(job: Job, out: Path) -> dict:
+    url = None
+    if job.path:
+        path = Path(job.path)
+        if path.exists():
+            try:
+                rel = os.path.relpath(path, out)
+                url = f"/api/files/{rel}"
+            except ValueError:
+                url = None
+    return {
+        "id": job.id,
+        "slug": job.slug,
+        "aspect": job.aspect,
+        "preview": job.preview,
+        "status": job.status,
+        "progress": round(job.progress, 1),
+        "error": job.error,
+        "url": url,
+        "created": job.created,
+        "started": job.started,
+        "ended": job.ended,
+    }
 
 
 def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
@@ -77,6 +172,9 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
     app = FastAPI(title="vp studio", version="0.1.0")
     app.state.root = root
     app.state.out = out
+    app.state.jobs: dict[str, Job] = {}
+    app.state.jobs_order: list[str] = []
+    app.state.jobs_lock = threading.Lock()
 
     @app.get("/api/boot")
     def boot():
@@ -163,7 +261,7 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
         return {"saved": saved, "resolved": resolved}
 
     @app.post("/api/tracks/{slug}/preview")
-    def render_preview(slug: str, payload: PreviewPayload):
+    def render_preview(slug: str, payload: RenderPayload):
         if payload.aspect not in ASPECTS:
             raise HTTPException(status_code=400, detail=f"unknown aspect: {payload.aspect}")
         track = _find_track(root, slug)
@@ -179,6 +277,52 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
         with _render_lock:
             render(track, aspect, beatmap, dest, window=window_for(track, beatmap, aspect), preview=True)
         return {"url": f"/api/files/preview/{dest.name}"}
+
+    @app.post("/api/tracks/{slug}/render")
+    def start_render(slug: str, payload: RenderPayload):
+        if payload.aspect not in ASPECTS:
+            raise HTTPException(status_code=400, detail=f"unknown aspect: {payload.aspect}")
+        _find_track(root, slug)  # 404 fast if unknown
+        job = Job(
+            id=uuid.uuid4().hex[:12],
+            slug=slug,
+            aspect=payload.aspect,
+            style=dict(payload.style),
+            preview=payload.preview,
+        )
+        with app.state.jobs_lock:
+            app.state.jobs[job.id] = job
+            app.state.jobs_order.append(job.id)
+        threading.Thread(target=_run_job, args=(job, root, out), daemon=True).start()
+        return {"id": job.id}
+
+    @app.get("/api/jobs/{job_id}")
+    def job_detail(job_id: str):
+        with app.state.jobs_lock:
+            job = app.state.jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="job not found")
+        return _job_summary(job, out)
+
+    @app.get("/api/jobs")
+    def list_jobs():
+        with app.state.jobs_lock:
+            order = list(app.state.jobs_order)
+        jobs = []
+        for job_id in order:
+            with app.state.jobs_lock:
+                job = app.state.jobs[job_id]
+            jobs.append(_job_summary(job, out))
+        return jobs
+
+    @app.post("/api/jobs/{job_id}/cancel")
+    def cancel_job(job_id: str):
+        with app.state.jobs_lock:
+            job = app.state.jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="job not found")
+        job.cancel.set()
+        return {"id": job.id, "cancelled": True}
 
     app.mount("/api/files", StaticFiles(directory=str(out)), name="files")
 

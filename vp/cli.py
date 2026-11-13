@@ -12,6 +12,7 @@ from .analyze import load_beatmap
 from .aspects import ASPECTS
 from .plan import plan_timeline
 from .render import plan_variants, render
+from .status import input_mtime, is_up_to_date
 from .track import AUDIO_EXTS, load_track
 
 
@@ -120,30 +121,14 @@ def _out_dir(track, args: argparse.Namespace) -> Path:
     return Path(base) / track.slug if base else Path("out") / track.slug
 
 
-def _input_mtime(track) -> float:
-    paths = [track.audio, *track.images]
-    for extra in (
-        track.beatmap_path,
-        track.root / "track.json",
-        track.root / "title.txt",
-    ):
-        if extra.exists():
-            paths.append(extra)
-    return max(p.stat().st_mtime for p in paths if p.exists())
-
-
-def _up_to_date(path: Path, mtime: float) -> bool:
-    return path.exists() and path.stat().st_mtime >= mtime
-
-
 def _render_track(track, beatmap, args, aspects, verbose: bool = True):
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, aspects)
-    mtime = _input_mtime(track)
+    mtime = input_mtime(track)
     written: list[Path] = []
 
     for variant in variants:
-        if not args.force and _up_to_date(variant.path, mtime):
+        if not args.force and is_up_to_date(variant.path, mtime):
             if verbose:
                 print(f"  skip {variant.path}")
             continue

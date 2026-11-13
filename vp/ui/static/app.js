@@ -194,6 +194,84 @@ async function saveStyle() {
   }
 }
 
+async function startJob(aspect, style, preview = false) {
+  if (!state.current) return null;
+  try {
+    const res = await api(`/api/tracks/${state.current.slug}/render`, {
+      method: "POST",
+      body: JSON.stringify({ aspect, style, preview }),
+    });
+    return res.id;
+  } catch (err) {
+    toast(err.message, "error");
+    return null;
+  }
+}
+
+async function pollJobs() {
+  let jobs;
+  try {
+    jobs = await api("/api/jobs");
+  } catch (_) {
+    return;
+  }
+  const wrap = $("#jobs");
+  if (!state.jobRows) state.jobRows = {};
+  const seen = new Set();
+  for (const j of jobs) {
+    seen.add(j.id);
+    let row = state.jobRows[j.id];
+    if (!row) {
+      const el = document.createElement("div");
+      el.className = "job";
+      el.innerHTML =
+        `<div class="job-head"><span class="job-label"></span><span class="job-status"></span></div>` +
+        `<div class="bar"><div class="fill"></div></div>` +
+        `<div class="error-text hidden"></div>` +
+        `<div class="job-video"><video controls loop muted playsinline></video></div>`;
+      wrap.appendChild(el);
+      const video = el.querySelector("video");
+      row = {
+        label: el.querySelector(".job-label"),
+        status: el.querySelector(".job-status"),
+        fill: el.querySelector(".fill"),
+        err: el.querySelector(".error-text"),
+        video,
+        url: null,
+      };
+      state.jobRows[j.id] = row;
+    }
+    row.label.textContent = `${j.slug} · ${j.aspect}${j.preview ? " (preview)" : ""}`;
+    row.status.textContent = `${j.status} ${j.progress}%`;
+    row.status.className = "job-status " + j.status;
+    row.fill.style.width = `${j.progress}%`;
+    row.fill.className = "fill " + (["skipped", "failed", "cancelled"].includes(j.status) ? j.status : "");
+    if (j.error) {
+      row.err.textContent = j.error;
+      row.err.classList.remove("hidden");
+    } else {
+      row.err.classList.add("hidden");
+    }
+    if (j.url && j.url !== row.url) {
+      row.url = j.url;
+      row.video.src = j.url;
+      row.video.load();
+      row.video.play().catch(() => {});
+    }
+  }
+  for (const id of Object.keys(state.jobRows)) {
+    if (!seen.has(id)) {
+      state.jobRows[id].status.closest(".job").remove();
+      delete state.jobRows[id];
+    }
+  }
+}
+
+function startPolling() {
+  pollJobs();
+  setInterval(pollJobs, 700);
+}
+
 async function init() {
   state.boot = await api("/api/boot");
   $("#aspect").innerHTML = Object.entries(state.boot.aspects)
@@ -202,9 +280,51 @@ async function init() {
   $("#save").addEventListener("click", saveStyle);
   $("#preview").addEventListener("click", preview);
   $("#aspect").addEventListener("change", preview);
+  document.querySelectorAll("[data-render]").forEach((btn) => {
+    btn.addEventListener("click", () => startJob(btn.dataset.render, state.model));
+  });
+  $("#cmp-a").addEventListener("click", () => {
+    state.cmpA = { ...state.model };
+    toast("A set");
+  });
+  $("#cmp-b").addEventListener("click", () => {
+    state.cmpB = { ...state.model };
+    toast("B set");
+  });
+  $("#cmp-run").addEventListener("click", async () => {
+    if (!state.cmpA || !state.cmpB) {
+      toast("Set A and B first", "error");
+      return;
+    }
+    const aspect = $("#aspect").value;
+    const idA = await startJob(aspect, state.cmpA);
+    const idB = await startJob(aspect, state.cmpB);
+    state.cmpIds = [idA, idB];
+    toast("rendering A/B…");
+    waitForCompare();
+  });
+  startPolling();
   await loadTrackList();
   const first = state.tracks.find((t) => !t.error);
   if (first) await selectTrack(first.slug);
+}
+
+function waitForCompare() {
+  const ud = setInterval(async () => {
+    const jobs = await api("/api/jobs");
+    const urls = {};
+    for (const j of jobs) {
+      if (state.cmpIds.includes(j.id) && j.url) urls[j.id] = j.url;
+    }
+    if (urls[state.cmpIds[0]] && urls[state.cmpIds[1]]) {
+      clearInterval(ud);
+      $("#compare").classList.remove("hidden");
+      $("#cmp-a-video").src = urls[state.cmpIds[0]] + `?t=${Date.now()}`;
+      $("#cmp-b-video").src = urls[state.cmpIds[1]] + `?t=${Date.now()}`;
+      $("#cmp-a-video").load();
+      $("#cmp-b-video").load();
+    }
+  }, 700);
 }
 
 init().catch((err) => toast(err.message, "error"));
