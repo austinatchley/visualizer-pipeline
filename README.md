@@ -28,10 +28,10 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-For development (tests):
+For development (tests, including the web UI):
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,ui]"
 ```
 
 For the local web UI (optional):

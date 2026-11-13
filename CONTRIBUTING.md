@@ -23,7 +23,7 @@ Every change starts with an issue. This keeps scope explicit and the history rea
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,ui]"
 python scripts/make_fixtures.py   # synthetic tracks for integration tests
 ```
 
