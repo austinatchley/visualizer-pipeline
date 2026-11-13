@@ -25,6 +25,24 @@ PREVIEW_SECONDS = 4.0
 PREVIEW_SCALE = 4
 
 
+def _progress_percent(line: str, duration: float) -> float | None:
+    """Parse one ffmpeg `-progress` line into a 0-100 percentage.
+
+    ffmpeg emits `out_time_us=N/A` on its final update; ignore empty, N/A, and
+    malformed values instead of failing the render.
+    """
+    if not line.startswith("out_time_us=") or duration <= 0:
+        return None
+    raw = line.partition("=")[2].strip()
+    if raw in ("", "N/A"):
+        return None
+    try:
+        microseconds = float(raw)
+    except ValueError:
+        return None
+    return min(100.0, max(0.0, microseconds / 1e6 / duration * 100.0))
+
+
 class RenderCancelled(RuntimeError):
     """Raised by render() when the optional cancel hook reports cancellation."""
 
@@ -293,12 +311,11 @@ def render(
                             proc.kill()
                             proc.wait()
                         raise RenderCancelled("render cancelled")
-                    if line.startswith("out_time_us="):
-                        microseconds = float(line.partition("=")[2])
-                        pct = min(100.0, max(0.0, microseconds / 1e6 / clip_duration * 100.0))
+                    pct = _progress_percent(line, clip_duration)
+                    if pct is not None:
                         if progress is not None:
                             progress(pct, "rendering")
-                    elif line == "progress=end" and progress is not None:
+                    elif line.strip() == "progress=end" and progress is not None:
                         progress(100.0, "done")
             finally:
                 if proc.poll() is None:
