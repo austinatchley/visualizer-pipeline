@@ -237,9 +237,9 @@ that validates config (so new style keys appear automatically), three-up preview
 explicit "Save style" that writes only the diff back to `track.json`.
 
 Full renders run as background **jobs** with live progress (streamed from ffmpeg), an
-up-to-date skip that matches the CLI's idempotency exactly, cancel, and in-browser
-playback of finished videos. The **Compare A/B** flow snapshots two styles and renders
-them side by side.
+up-to-date skip that matches the CLI's idempotency exactly, per-job cancel for queued and
+running renders, and in-browser playback of finished videos. The **Compare A/B** flow
+snapshots two styles and renders them side by side.
 
 ## Outputs
 
@@ -295,7 +295,7 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 ## Status
 
 v1 plus the post-v1 local web studio are shipped. CI installs `.[dev,ui]`, generates
-fixtures, and runs the full suite (125 tests at the time of writing).
+fixtures, and runs the full suite (126 tests at the time of writing).
 
 Open work is tracked in
 [issues](https://github.com/austinatchley/visualizer-pipeline/issues):
@@ -309,6 +309,5 @@ Open work is tracked in
 - #23–#25 web studio follow-ups (jobs/A-B, drag-and-drop reorder, autosave)
 - #29 frontend componentization (Lit)
 - #33 waveform granularity/dynamics
-- #34 cancel button for render jobs
 - #35 texture picker
 - #37 VGM-style preset

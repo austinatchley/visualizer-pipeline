@@ -17,15 +17,14 @@ A post-v1 FastAPI web studio (`vp ui`) wraps the same engine.
 ## Current state (snapshot)
 
 - v1 + post-v1 web studio shipped. See `DESIGN.md` §11 (decisions) and §12 (milestones).
-- **125 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
+- **126 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
 - CI: `.github/workflows/ci.yml` installs ffmpeg + DejaVu fonts, `.[dev,ui]`, generates
   fixtures, then runs `pytest -q`.
 - Open issues: **#11** advanced sections, **#12** performance, **#14** video snippets,
   **#19** vibe-aware presets, **#20/#21** color keys, **#23–#25** web studio follow-ups,
-  **#29** Lit componentization, **#33** waveform, **#34** cancel button, **#35** texture
-  picker, **#37** VGM preset.
+  **#29** Lit componentization, **#33** waveform, **#35** texture picker, **#37** VGM preset.
 - Recent history: energy-reactive planner, hook windows, 3 aspects, Pillow HUD/waveform,
-  presets, overlays, web UI, render jobs, bundled OFL fonts + text controls.
+  presets, overlays, web UI, render jobs + cancellation, bundled OFL fonts + text controls.
 
 ## Setup
 
@@ -125,10 +124,12 @@ Every change starts with an issue. See `CONTRIBUTING.md`.
 
 ## Suggested next steps
 
-1. Confirm CI is green after the `.[dev,ui]` fix.
-2. #11 advanced section/phrase detection (feeds better cuts).
-3. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
-4. #12 performance tuning (supersample/x264/variant parallelism).
-5. #14 video snippet segments.
-6. #20/#21 color grading keys and beat-reactive color swings.
-7. #23–#25 web studio follow-ups.
+1. #35 texture picker.
+2. #33 waveform granularity/dynamics.
+3. #37 VGM-style preset (uses bundled fonts; coordinate grade keys with #20).
+4. #11 advanced section/phrase detection (feeds better cuts).
+5. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
+6. #12 performance tuning (supersample/x264/variant parallelism).
+7. #14 video snippet segments.
+8. #20/#21 color grading keys and beat-reactive color swings.
+9. #23–#25 web studio follow-ups.

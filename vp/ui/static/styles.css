@@ -282,6 +282,9 @@ h3 { margin: 1.2rem 0 0.6rem; font-size: 0.85rem; text-transform: uppercase; let
 }
 
 .job .job-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; }
+.job .job-actions { display: flex; align-items: center; gap: 0.5rem; }
+.job .job-cancel { padding: 0.15rem 0.5rem; font-size: 0.7rem; }
+.job .job-cancel[hidden] { display: none; }
 .job .job-status { color: var(--dim); }
 .job .job-status.done { color: var(--ok); }
 .job .job-status.failed, .job .job-status.cancelled { color: var(--danger); }

@@ -17,7 +17,7 @@ from vp.aspects import VERTICAL
 from vp.config import STYLE_FIELDS, resolve_style
 from vp.render import RenderCancelled, render
 from vp.track import load_track
-from vp.ui.server import create_app
+from vp.ui.server import _render_lock, create_app
 
 def _has_asyncio_backend() -> bool:
     try:
@@ -272,6 +272,23 @@ def test_cancel_job_endpoint(client):
     assert res.status_code == 200
     job = _wait_job(client, job_id)
     assert job["status"] in ("done", "cancelled")
+
+
+def test_cancel_pending_job_is_immediate(client):
+    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    _render_lock.acquire()
+    try:
+        job_id = client.post("/api/tracks/demo-track/render", json=body).json()["id"]
+        job = client.get(f"/api/jobs/{job_id}").json()
+        assert job["status"] == "pending"
+        assert job["started"] is None
+
+        res = client.post(f"/api/jobs/{job_id}/cancel")
+        assert res.status_code == 200
+        job = client.get(f"/api/jobs/{job_id}").json()
+        assert job["status"] == "cancelled"
+    finally:
+        _render_lock.release()
 
 
 def test_create_track_with_uploads(client):

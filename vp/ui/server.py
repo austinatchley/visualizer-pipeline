@@ -97,13 +97,15 @@ class Job:
     started: float | None = None
     ended: float | None = None
     cancel: threading.Event = field(default_factory=threading.Event)
+    status_lock: threading.Lock = field(
+        default_factory=threading.Lock, repr=False, compare=False
+    )
 
 
 def _run_job(job: Job, root: Path, out: Path) -> None:
     try:
         track = _find_track(root, job.slug)
         track.style = resolve_style(job.style)
-        job.started = time.time()
         aspect = ASPECTS[job.aspect]
         beatmap = load_beatmap(track)
 
@@ -117,15 +119,23 @@ def _run_job(job: Job, root: Path, out: Path) -> None:
 
         mtime = input_mtime(track)
         if is_up_to_date(dest, mtime):
-            job.status, job.progress = "skipped", 100.0
+            with job.status_lock:
+                if job.status == "cancelled" or job.cancel.is_set():
+                    job.status = "cancelled"
+                else:
+                    job.status, job.progress = "skipped", 100.0
             return
-
-        job.status = "running"
 
         def _progress(percent: float, _stage: str) -> None:
             job.progress = percent
 
         with _render_lock:
+            with job.status_lock:
+                if job.status == "cancelled" or job.cancel.is_set():
+                    job.status = "cancelled"
+                    return
+                job.status = "running"
+                job.started = time.time()
             render(
                 track,
                 aspect,
@@ -136,20 +146,35 @@ def _run_job(job: Job, root: Path, out: Path) -> None:
                 progress=_progress,
                 cancel=job.cancel.is_set,
             )
-        job.status, job.progress = "done", 100.0
+        with job.status_lock:
+            if job.status != "cancelled":
+                job.status, job.progress = "done", 100.0
     except RenderCancelled:
-        job.status = "cancelled"
+        with job.status_lock:
+            job.status = "cancelled"
     except Exception as exc:  # noqa: BLE001 - surface any failure to the UI
-        job.status = "failed"
-        job.error = str(exc)
+        with job.status_lock:
+            if job.status == "cancelled" or job.cancel.is_set():
+                job.status = "cancelled"
+            else:
+                job.status = "failed"
+                job.error = str(exc)
     finally:
-        job.ended = time.time()
+        with job.status_lock:
+            job.ended = time.time()
 
 
 def _job_summary(job: Job, out: Path) -> dict:
+    with job.status_lock:
+        status = job.status
+        progress = job.progress
+        error = job.error
+        started = job.started
+        ended = job.ended
+        path_value = job.path
     url = None
-    if job.path:
-        path = Path(job.path)
+    if path_value:
+        path = Path(path_value)
         if path.exists():
             try:
                 rel = os.path.relpath(path, out)
@@ -161,13 +186,13 @@ def _job_summary(job: Job, out: Path) -> dict:
         "slug": job.slug,
         "aspect": job.aspect,
         "preview": job.preview,
-        "status": job.status,
-        "progress": round(job.progress, 1),
-        "error": job.error,
+        "status": status,
+        "progress": round(progress, 1),
+        "error": error,
         "url": url,
         "created": job.created,
-        "started": job.started,
-        "ended": job.ended,
+        "started": started,
+        "ended": ended,
     }
 
 
@@ -402,6 +427,10 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
         job.cancel.set()
+        with job.status_lock:
+            if job.status == "pending":
+                job.status = "cancelled"
+                job.ended = time.time()
         return {"id": job.id, "cancelled": True}
 
     app.mount("/api/files", StaticFiles(directory=str(out)), name="files")

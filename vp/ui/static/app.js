@@ -238,20 +238,26 @@ async function pollJobs() {
       const el = document.createElement("div");
       el.className = "job";
       el.innerHTML =
-        `<div class="job-head"><span class="job-label"></span><span class="job-status"></span></div>` +
+        `<div class="job-head"><span class="job-label"></span>` +
+        `<div class="job-actions"><span class="job-status"></span>` +
+        `<button type="button" class="btn small job-cancel">Cancel</button></div></div>` +
         `<div class="bar"><div class="fill"></div></div>` +
         `<div class="error-text hidden"></div>` +
         `<div class="job-video"><video controls loop muted playsinline></video></div>`;
       wrap.appendChild(el);
       const video = el.querySelector("video");
+      const cancel = el.querySelector(".job-cancel");
       row = {
         label: el.querySelector(".job-label"),
         status: el.querySelector(".job-status"),
         fill: el.querySelector(".fill"),
         err: el.querySelector(".error-text"),
+        cancel,
+        cancelling: false,
         video,
         url: null,
       };
+      cancel.addEventListener("click", () => cancelJob(j.id, row));
       state.jobRows[j.id] = row;
     }
     row.label.textContent = `${j.slug} · ${j.aspect}${j.preview ? " (preview)" : ""}`;
@@ -259,6 +265,19 @@ async function pollJobs() {
     row.status.className = "job-status " + j.status;
     row.fill.style.width = `${j.progress}%`;
     row.fill.className = "fill " + (["skipped", "failed", "cancelled"].includes(j.status) ? j.status : "");
+    const active = j.status === "pending" || j.status === "running";
+    row.cancel.hidden = !active;
+    if (!active) {
+      row.cancelling = false;
+      row.cancel.disabled = false;
+      row.cancel.textContent = "Cancel";
+    } else if (row.cancelling) {
+      row.cancel.disabled = true;
+      row.cancel.textContent = "cancelling…";
+    } else {
+      row.cancel.disabled = false;
+      row.cancel.textContent = "Cancel";
+    }
     if (j.error) {
       row.err.textContent = j.error;
       row.err.classList.remove("hidden");
@@ -277,6 +296,22 @@ async function pollJobs() {
       state.jobRows[id].status.closest(".job").remove();
       delete state.jobRows[id];
     }
+  }
+}
+
+async function cancelJob(id, row) {
+  if (row.cancelling) return;
+  row.cancelling = true;
+  row.cancel.disabled = true;
+  row.cancel.textContent = "cancelling…";
+  try {
+    await api(`/api/jobs/${id}/cancel`, { method: "POST" });
+    pollJobs();
+  } catch (err) {
+    row.cancelling = false;
+    row.cancel.disabled = false;
+    row.cancel.textContent = "Cancel";
+    toast(err.message, "error");
   }
 }
 
