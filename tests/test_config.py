@@ -165,3 +165,19 @@ def test_beats_per_cut_slider_range():
 def test_beats_per_cut_max_validation():
     with pytest.raises(ValueError, match="beats_per_cut"):
         resolve_style({"beats_per_cut": 999})
+
+
+def test_font_choice_validation():
+    assert resolve_style({"font": "tiny5"})["font"] == "tiny5"
+    assert resolve_style({"meta_font": "auto"})["meta_font"] == "auto"
+    with pytest.raises(ValueError, match="font"):
+        resolve_style({"font": "nope"})
+
+
+def test_text_controls_validation():
+    assert resolve_style({"text_case": "upper"})["text_case"] == "upper"
+    assert resolve_style({"tracking": 0.1})["tracking"] == 0.1
+    with pytest.raises(ValueError, match="text_case"):
+        resolve_style({"text_case": "title"})
+    with pytest.raises(ValueError, match="tracking"):
+        resolve_style({"tracking": 0.9})

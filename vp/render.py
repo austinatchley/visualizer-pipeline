@@ -13,7 +13,8 @@ from pathlib import Path
 from PIL import Image
 
 from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
-from .hud import build_hud, find_font
+from .fonts import resolve_face
+from .hud import build_hud
 from .plan import full_window, plan_timeline, preview_slice, select_hook
 from .track import Track
 from .waveform import build_strip
@@ -125,7 +126,15 @@ def render(
     segments, xfade = plan.segments, plan.xfade
     n = len(segments)
 
-    font = find_font(style.get("title_font"))
+    font_face = resolve_face(
+        style.get("font") or "clean", style.get("title_font")
+    )
+    meta_name = style.get("meta_font") or "auto"
+    meta_face = (
+        font_face
+        if meta_name == "auto"
+        else resolve_face(meta_name, style.get("title_font"))
+    )
     max_zoom = 1.0 + float(style.get("zoom", 0.10))
     punch = float(style.get("beat_punch", 0.0))
     supersample = int(style.get("supersample", 2))
@@ -133,7 +142,18 @@ def render(
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
     try:
         hud = tmp / "hud.png"
-        build_hud(hud, aspect, track.title, track.artist, track.handle, font)
+        build_hud(
+            hud,
+            aspect,
+            track.title,
+            track.artist,
+            track.handle,
+            font_face=font_face,
+            meta_font_face=meta_face,
+            text_case=str(style.get("text_case", "preserve")),
+            tracking=float(style.get("tracking", 0.0)),
+            line_spacing=float(style.get("line_spacing", 1.12)),
+        )
 
         texture_path = style.get("texture")
         if texture_path:
@@ -257,11 +277,12 @@ def render(
 
         fade_in = float(style.get("fade_in", 0.4))
         fade_out = float(style.get("fade_out", 0.8))
-        finish += [
-            f"fade=t=in:st=0:d={fade_in:.3f}",
-            f"fade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}",
-            "scale=out_range=tv,format=yuv420p",
-        ]
+        if not preview:
+            finish += [
+                f"fade=t=in:st=0:d={fade_in:.3f}",
+                f"fade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}",
+            ]
+        finish.append("scale=out_range=tv,format=yuv420p")
         parts.append(f"[{prev}]format=rgb24," + ",".join(finish) + "[vout]")
         if audio_src is not None:
             parts.append(

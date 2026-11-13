@@ -217,6 +217,11 @@ Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfad
 everywhere automatically. `style.preset: "auto"` (vibe-aware mapping from audio features)
 is still open (#19); explicit presets always win over `auto`.
 
+**Typography.** `vp/fonts.py` is the bundled OFL face registry (Redaction 50, Tiny5 Duo,
+Pixelify Sans, Silkscreen, Syne, Instrument Serif, Anton) plus the system `clean`
+fallback. `style.font`/`meta_font` pick faces; `text_case`, `tracking`, and
+`line_spacing` control the set. `style.title_font` remains an advanced path override.
+
 Per-aspect layout:
 
 | | 9:16 (1080×1920) | 1:1 (1080×1080) | 16:9 (1920×1080) |
@@ -329,7 +334,8 @@ visualizer-pipeline/
   AGENTS.md
   vp/
     cli.py  track.py  analyze.py  plan.py  hud.py  waveform.py
-    render.py  config.py  status.py
+    render.py  config.py  status.py  fonts.py
+    assets/fonts/             # bundled OFL faces + licenses
     ui/                       # local web studio
       server.py  static/
   presets/
@@ -354,7 +360,7 @@ visualizer-pipeline/
 - **Waveform + UI:** Pillow strip output and FastAPI endpoints/jobs (skipped cleanly when
   the `.[dev,ui]` extras are absent).
 - **CI:** `.github/workflows/ci.yml` installs `.[dev,ui]`, installs ffmpeg + DejaVu fonts,
-  generates fixtures, and runs `pytest -q` (86 tests at the time of writing).
+  generates fixtures, and runs `pytest -q` (125 tests at the time of writing).
 
 ## 9. Performance
 
@@ -384,7 +390,8 @@ visualizer-pipeline/
 - **D3 — Audio strip.** Resolved: deterministic scrolling Pillow strip (#15); ffmpeg
   `showwaves` is never used.
 - **D4 — Video snippets.** Still open: images only; `clips/` segments tracked in #14.
-- **D5 — Text.** Title + artist + handle, preserve case, bold sans, shadow.
+- **D5 — Text.** Title + artist + handle; bundled OFL faces with `font`/`meta_font`,
+  `text_case`, `tracking`, and `line_spacing`. `title_font` remains a path override.
 - **D6 — Naming.** `<slug>_16x9.mp4`, `<slug>_9x16_hook.mp4`, `<slug>_1x1_hook.mp4`.
 - **D7 — Tempo override.** `overrides.bpm` + `tempo_multiplier` + `--bpm`.
 - **D8 — Batch concurrency.** Default `--jobs 1`; expose the flag.

@@ -2,7 +2,8 @@ import pytest
 from PIL import Image, ImageFont
 
 from vp.aspects import HORIZONTAL, SQUARE, VERTICAL
-from vp.hud import build_hud, find_font, layout_for, meta_line, wrap_to_width
+from vp.fonts import FONT_CHOICES, resolve_face
+from vp.hud import apply_case, build_hud, find_font, layout_for, meta_line, wrap_to_width
 
 
 def load_font(size: int = 80):
@@ -70,3 +71,39 @@ def test_build_hud_dimensions(tmp_path, aspect):
     alpha = image.getchannel("A")
     assert alpha.getpixel((10, aspect.height - 5)) > 0
     assert image.getbbox() is not None
+
+
+def test_apply_case():
+    assert apply_case("midnight drive", "upper") == "MIDNIGHT DRIVE"
+    assert apply_case("Midnight Drive", "lower") == "midnight drive"
+    assert apply_case("Midnight Drive", "preserve") == "Midnight Drive"
+
+
+def test_text_case_tracking_and_bundled_font(tmp_path):
+    out = tmp_path / "typed.png"
+    build_hud(
+        out,
+        SQUARE,
+        "midnight drive",
+        artist="AUSTIN",
+        handle="@austinatchley",
+        font_face=resolve_face("tiny5-round"),
+        text_case="upper",
+        tracking=0.03,
+        line_spacing=1.2,
+    )
+    image = Image.open(out)
+    assert image.size == (SQUARE.width, SQUARE.height)
+    assert image.mode == "RGBA"
+    assert image.getbbox() is not None
+
+
+@pytest.mark.parametrize("key", FONT_CHOICES)
+def test_all_font_choices_render(tmp_path, key):
+    try:
+        face = resolve_face(key)
+    except FileNotFoundError:
+        pytest.skip(f"font unavailable: {key}")
+    out = tmp_path / f"{key}.png"
+    build_hud(out, SQUARE, "VGM", font_face=face)
+    assert Image.open(out).size == (SQUARE.width, SQUARE.height)

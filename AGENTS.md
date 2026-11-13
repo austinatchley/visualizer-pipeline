@@ -17,13 +17,15 @@ A post-v1 FastAPI web studio (`vp ui`) wraps the same engine.
 ## Current state (snapshot)
 
 - v1 + post-v1 web studio shipped. See `DESIGN.md` §11 (decisions) and §12 (milestones).
-- **86 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
+- **125 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
 - CI: `.github/workflows/ci.yml` installs ffmpeg + DejaVu fonts, `.[dev,ui]`, generates
   fixtures, then runs `pytest -q`.
 - Open issues: **#11** advanced sections, **#12** performance, **#14** video snippets,
-  **#19** vibe-aware presets, **#20/#21** color keys, **#23–#25** web studio follow-ups.
+  **#19** vibe-aware presets, **#20/#21** color keys, **#23–#25** web studio follow-ups,
+  **#29** Lit componentization, **#33** waveform, **#34** cancel button, **#35** texture
+  picker, **#37** VGM preset.
 - Recent history: energy-reactive planner, hook windows, 3 aspects, Pillow HUD/waveform,
-  presets, overlays, web UI, render jobs.
+  presets, overlays, web UI, render jobs, bundled OFL fonts + text controls.
 
 ## Setup
 
@@ -62,6 +64,7 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 | `vp/analyze.py` | librosa analysis, cache, BPM/multiplier overrides |
 | `vp/plan.py` | Pure planner: energy-reactive cuts, hook window, crossfade timing |
 | `vp/hud.py` | Pillow HUD (gradient, title, artist, handle) per aspect |
+| `vp/fonts.py` | Bundled OFL font registry, font resolution, variable-axis loading |
 | `vp/waveform.py` | Pillow scrolling waveform strip |
 | `vp/render.py` | FFmpeg graph, variants, preview, progress/cancel, encoding |
 | `vp/status.py` | Shared idempotency helpers (CLI + UI) |
@@ -85,6 +88,9 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
   replaces them. Crossfade is clamped to 40% of the shortest segment.
 - **HUD.** Pillow PNG because Homebrew ffmpeg lacks `drawtext`. Do not reintroduce
   `drawtext`/`subtitles`.
+- **Typography.** `vp/fonts.py` is the OFL face registry; `font`/`meta_font`,
+  `text_case`, `tracking`, and `line_spacing` are style keys. `title_font` is an
+  advanced path override. Licenses live in `vp/assets/fonts/licenses/`.
 - **Waveform.** Pillow strip only. The old `showwaves` filter path crashed ffmpeg.
 - **Idempotency.** `vp/status.py` decides skips; CLI and UI share it. `--force` overrides.
 - **Preview/jobs.** `render(..., preview=True)` is a short, quarter-res, audio-less clip;

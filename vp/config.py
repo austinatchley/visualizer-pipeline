@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .fonts import FONT_CHOICES
+
 ANALYSIS_VERSION = 2
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -18,6 +20,11 @@ DEFAULT_STYLE = {
     "fps": 30,
     "waveform": False,
     "title_font": None,
+    "font": "clean",
+    "meta_font": "auto",
+    "text_case": "preserve",
+    "tracking": 0.0,
+    "line_spacing": 1.12,
     "supersample": 2,
     "contrast": 1.0,
     "beat_punch": 0.0,
@@ -50,7 +57,36 @@ STYLE_FIELDS: dict[str, dict] = {
     },
     "fps": {"type": "choice", "choices": sorted(FPS_CHOICES), "help": "Output framerate"},
     "waveform": {"type": "bool", "help": "Scrolling waveform strip at the bottom"},
-    "title_font": {"type": "path", "help": "Path to a .ttf (null = system default)"},
+    "title_font": {"type": "path", "help": "Path to a .ttf (null = use font choice)"},
+    "font": {
+        "type": "choice",
+        "choices": FONT_CHOICES,
+        "help": "Title typeface; bundled OFL fonts plus system clean",
+    },
+    "meta_font": {
+        "type": "choice",
+        "choices": ["auto"] + FONT_CHOICES,
+        "help": "Artist/handle typeface (auto = same as title)",
+    },
+    "text_case": {
+        "type": "choice",
+        "choices": ["preserve", "upper", "lower"],
+        "help": "Title letter case",
+    },
+    "tracking": {
+        "type": "float",
+        "min": -0.05,
+        "max": 0.25,
+        "step": 0.01,
+        "help": "Letter spacing in em",
+    },
+    "line_spacing": {
+        "type": "float",
+        "min": 1.0,
+        "max": 1.5,
+        "step": 0.01,
+        "help": "Title line-height multiplier",
+    },
     "supersample": {
         "type": "choice", "choices": [1, 2, 3, 4], "help": "Pre-zoom upscale factor",
     },

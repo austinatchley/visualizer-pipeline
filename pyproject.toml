@@ -30,3 +30,4 @@ include = ["vp*"]
 
 [tool.setuptools.package-data]
 "vp.ui" = ["static/*"]
+"vp" = ["assets/fonts/*", "assets/fonts/licenses/*"]

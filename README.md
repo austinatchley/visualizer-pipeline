@@ -94,7 +94,12 @@ Everything is optional. Only include what differs from the defaults.
     "fps": 30,
     "supersample": 2,
     "waveform": false,
-    "title_font": null
+    "title_font": null,
+    "font": "redaction",
+    "meta_font": "clean",
+    "text_case": "upper",
+    "tracking": 0.02,
+    "line_spacing": 1.12
   },
   "hook": {
     "mode": "auto",
@@ -128,13 +133,33 @@ Everything is optional. Only include what differs from the defaults.
 | `texture` | `null` | Path to an image blended over the video |
 | `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
 | `waveform` | `false` | Scrolling Pillow waveform strip at the bottom |
-| `title_font` | system Arial Bold | Path to a `.ttf` |
+| `title_font` | system Arial Bold | Path to a `.ttf`; overrides `font` |
+| `font` | `clean` | Bundled face: `redaction`, `redaction-regular`, `redaction-italic`, `tiny5`, `tiny5-round`, `tiny5-jitter`, `pixelify`, `silkscreen`, `syne`, `instrument`, `anton`, or `clean` |
+| `meta_font` | `auto` | Face for artist/handle; `auto` matches the title |
+| `text_case` | `preserve` | `preserve`, `upper`, or `lower` |
+| `tracking` | `0.0` | Letter spacing in em (`-0.05`–`0.25`) |
+| `line_spacing` | `1.12` | Title line-height multiplier (`1.0`–`1.5`) |
 
 Presets only set style keys and can be overridden per-track or per-command:
 
 - **`clean`** — the v1 defaults: calm Ken Burns, energy-reactive crossfades.
 - **`punchy`** — shorter cuts, a decaying scale punch on each downbeat, higher contrast.
 - **`balanced`** — a middle ground between the two.
+
+### Fonts
+
+Bundled under `vp/assets/fonts/` (all SIL OFL, licenses included):
+
+- **Redaction 50** — Regular / Bold / Italic (rough, printed serif)
+- **Tiny5 Duo** — Black plus variable Round/Jitter instances (chunky pixel display)
+- **Pixelify Sans** — Bold pixel sans
+- **Silkscreen** — classic pixel type
+- **Syne** — ExtraBold experimental geometric
+- **Instrument Serif** — editorial contrast
+- **Anton** — condensed impact
+
+`clean` falls back to system Arial/DejaVu. Set `title_font` to a path to override the
+dropdown for a specific track.
 
 ### Hook
 
@@ -270,7 +295,7 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 ## Status
 
 v1 plus the post-v1 local web studio are shipped. CI installs `.[dev,ui]`, generates
-fixtures, and runs the full suite (86 tests at the time of writing).
+fixtures, and runs the full suite (125 tests at the time of writing).
 
 Open work is tracked in
 [issues](https://github.com/austinatchley/visualizer-pipeline/issues):
@@ -282,3 +307,8 @@ Open work is tracked in
 - #20 `saturation`/`grade` style keys
 - #21 beat-reactive `color_punch`
 - #23–#25 web studio follow-ups (jobs/A-B, drag-and-drop reorder, autosave)
+- #29 frontend componentization (Lit)
+- #33 waveform granularity/dynamics
+- #34 cancel button for render jobs
+- #35 texture picker
+- #37 VGM-style preset
