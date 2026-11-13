@@ -32,11 +32,11 @@
         </div>
 
         <div class="preview-bar">
-          <label>Preview
-            <select id="aspect"></select>
-          </label>
-          <button id="preview" class="btn">Render preview</button>
-          <video id="video" controls muted autoplay loop playsinline></video>
+          <div class="preview-head">
+            <span class="preview-label">Preview · 9:16 / 1:1 / 16:9</span>
+            <button id="preview" class="btn">Refresh preview</button>
+          </div>
+          <div id="preview-grid" class="preview-grid"></div>
         </div>
 
         <h3>Style</h3>
@@ -50,6 +50,9 @@
             <button class="btn" data-render="horizontal">Render 16:9</button>
           </div>
           <div class="compare-buttons">
+            <label class="compare-aspect">A/B
+              <select id="aspect"></select>
+            </label>
             <button id="cmp-a" class="btn">Set A</button>
             <button id="cmp-b" class="btn">Set B</button>
             <button id="cmp-run" class="btn primary">Compare A/B</button>

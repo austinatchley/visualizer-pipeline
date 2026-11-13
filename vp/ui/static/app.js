@@ -162,13 +162,20 @@ async function preview() {
   if (!state.current) return;
   setBusy(true, "rendering…");
   try {
+    const aspects = Object.keys(state.boot.aspects);
     const res = await api(`/api/tracks/${state.current.slug}/preview`, {
       method: "POST",
-      body: JSON.stringify({ aspect: $("#aspect").value, style: state.model }),
+      body: JSON.stringify({ aspects, style: state.model }),
     });
-    const v = $("#video");
-    v.src = `${res.url}?t=${Date.now()}`;
-    v.load();
+    const stamp = Date.now();
+    for (const [key, url] of Object.entries(res.urls || {})) {
+      const video = document.querySelector(
+        `#preview-grid video[data-aspect="${key}"]`
+      );
+      if (!video) continue;
+      video.src = `${url}?t=${stamp}`;
+      video.load();
+    }
   } catch (err) {
     toast(err.message, "error");
   } finally {
@@ -389,14 +396,28 @@ function initDropzone() {
   });
 }
 
+function buildPreviewGrid() {
+  const grid = $("#preview-grid");
+  grid.innerHTML = "";
+  for (const [key, aspect] of Object.entries(state.boot.aspects)) {
+    const cell = document.createElement("div");
+    cell.className = "preview-cell";
+    cell.innerHTML =
+      `<div class="preview-cell-head"><span>${aspect.label}</span><span class="dim">${key}</span></div>` +
+      `<video muted autoplay loop playsinline data-aspect="${key}"></video>`;
+    grid.appendChild(cell);
+  }
+}
+
 async function init() {
   state.boot = await api("/api/boot");
   $("#aspect").innerHTML = Object.entries(state.boot.aspects)
     .map(([k, a]) => `<option value="${k}">${k} (${a.label})</option>`)
     .join("");
+  $("#aspect").value = "square";
+  buildPreviewGrid();
   $("#save").addEventListener("click", saveStyle);
   $("#preview").addEventListener("click", preview);
-  $("#aspect").addEventListener("change", preview);
   document.querySelectorAll("[data-render]").forEach((btn) => {
     btn.addEventListener("click", () => startJob(btn.dataset.render, state.model));
   });

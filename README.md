@@ -207,9 +207,9 @@ vp ui --tracks tracks      # opens a local dark-theme studio
 The studio has a track picker, a **New Project** dialog that scaffolds a track from
 dragged-in (or browsed) audio + images (validated against the same extensions as the
 CLI), a style panel whose controls are generated from the same `STYLE_FIELDS` schema
-that validates config (so new style keys appear automatically), a fast
-quarter-resolution preview (short, audio-less), and an explicit "Save style" that writes
-only the diff back to `track.json`.
+that validates config (so new style keys appear automatically), three-up previews for
+9:16 / 1:1 / 16:9 (4 s, quarter-resolution, audio-less), and an explicit "Save style"
+that writes only the diff back to `track.json`.
 
 Full renders run as background **jobs** with live progress (streamed from ffmpeg), an
 up-to-date skip that matches the CLI's idempotency exactly, cancel, and in-browser

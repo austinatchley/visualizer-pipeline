@@ -125,11 +125,66 @@ body {
 
 .preview-bar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.2rem; }
 
-.preview-bar label {
+.preview-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  font-size: 0.85rem;
+}
+
+.preview-label { font-size: 0.85rem; color: var(--dim); }
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.preview-cell {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem;
+}
+
+.preview-cell-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+
+.preview-cell video {
+  width: 100%;
+  height: 240px;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.compare-aspect {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--dim);
+}
+
+.compare-aspect select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+}
+
+@media (max-width: 980px) {
+  .preview-grid { grid-template-columns: 1fr; }
+  .preview-cell video { height: auto; max-height: 320px; }
 }
 
 video {
@@ -215,7 +270,7 @@ h3 { margin: 1.2rem 0 0.6rem; font-size: 0.85rem; text-transform: uppercase; let
   margin-bottom: 0.8rem;
 }
 
-.render-buttons, .compare-buttons { display: flex; gap: 0.5rem; }
+.render-buttons, .compare-buttons { display: flex; gap: 0.5rem; align-items: center; }
 
 .jobs { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
 

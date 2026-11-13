@@ -77,6 +77,7 @@ class StylePayload(BaseModel):
 
 class RenderPayload(BaseModel):
     aspect: str = "vertical"
+    aspects: list[str] | None = None
     style: dict[str, object]
     preview: bool = False
 
@@ -330,8 +331,10 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
 
     @app.post("/api/tracks/{slug}/preview")
     def render_preview(slug: str, payload: RenderPayload):
-        if payload.aspect not in ASPECTS:
-            raise HTTPException(status_code=400, detail=f"unknown aspect: {payload.aspect}")
+        requested = list(dict.fromkeys(payload.aspects or [payload.aspect]))
+        unknown = [key for key in requested if key not in ASPECTS]
+        if unknown:
+            raise HTTPException(status_code=400, detail=f"unknown aspect: {unknown[0]}")
         track = _find_track(root, slug)
         try:
             track.style = resolve_style(payload.style)
@@ -339,12 +342,21 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from None
 
         beatmap = load_beatmap(track)
-        aspect = ASPECTS[payload.aspect]
-
-        dest = out / "preview" / f"{track.slug}_{payload.aspect}.mp4"
+        urls: dict[str, str] = {}
         with _render_lock:
-            render(track, aspect, beatmap, dest, window=window_for(track, beatmap, aspect), preview=True)
-        return {"url": f"/api/files/preview/{dest.name}"}
+            for key in requested:
+                aspect = ASPECTS[key]
+                dest = out / "preview" / f"{track.slug}_{key}.mp4"
+                render(
+                    track,
+                    aspect,
+                    beatmap,
+                    dest,
+                    window=window_for(track, beatmap, aspect),
+                    preview=True,
+                )
+                urls[key] = f"/api/files/preview/{dest.name}"
+        return {"urls": urls, "url": urls[requested[0]]}
 
     @app.post("/api/tracks/{slug}/render")
     def start_render(slug: str, payload: RenderPayload):

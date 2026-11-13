@@ -191,6 +191,30 @@ def test_preview_renders_short_no_audio(client):
     assert len(streams) == 1  # no audio stream
 
 
+def test_preview_renders_all_aspects(client):
+    res = client.post(
+        "/api/tracks/demo-track/preview",
+        json={
+            "aspects": ["vertical", "square", "horizontal"],
+            "style": {"preset": "clean"},
+        },
+    )
+    assert res.status_code == 200
+    urls = res.json()["urls"]
+    assert set(urls) == {"vertical", "square", "horizontal"}
+    for url in urls.values():
+        dest = Path(client.app.state.out) / url.removeprefix("/api/files/")
+        assert dest.exists()
+
+
+def test_preview_rejects_unknown_aspect_in_list(client):
+    res = client.post(
+        "/api/tracks/demo-track/preview",
+        json={"aspects": ["vertical", "bogus"], "style": {"preset": "clean"}},
+    )
+    assert res.status_code == 400
+
+
 def test_render_progress_is_monotonic_and_done(demo_track, tmp_path):
     beatmap = load_beatmap(demo_track)
     seen = []
