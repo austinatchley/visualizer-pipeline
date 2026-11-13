@@ -132,7 +132,7 @@ Everything is optional. Only include what differs from the defaults.
 | `grain` | `0.0` | Film-grain amount (`0–1`); `0` = off, fixed seed |
 | `texture` | `null` | Texture name from `textures/` (or a custom image path) |
 | `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
-| `waveform` | `false` | Scrolling Pillow waveform strip at the bottom |
+| `waveform` | `false` | Scrolling Pillow waveform strip (RMS+peak bars, ~4 px pitch) |
 | `title_font` | system Arial Bold | Path to a `.ttf`; overrides `font` |
 | `font` | `clean` | Bundled face: `redaction`, `redaction-regular`, `redaction-italic`, `tiny5`, `tiny5-round`, `tiny5-jitter`, `pixelify`, `silkscreen`, `syne`, `instrument`, `anton`, or `clean` |
 | `meta_font` | `auto` | Face for artist/handle; `auto` matches the title |
@@ -310,7 +310,7 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 ## Status
 
 v1 plus the post-v1 local web studio are shipped. CI installs `.[dev,ui]`, generates
-fixtures, and runs the full suite (136 tests at the time of writing).
+fixtures, and runs the full suite (141 tests at the time of writing).
 
 Open work is tracked in
 [issues](https://github.com/austinatchley/visualizer-pipeline/issues):
@@ -323,5 +323,4 @@ Open work is tracked in
 - #21 beat-reactive `color_punch`
 - #23–#25 web studio follow-ups (jobs/A-B, drag-and-drop reorder, autosave)
 - #29 frontend componentization (Lit)
-- #33 waveform granularity/dynamics
 - #37 VGM-style preset

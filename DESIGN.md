@@ -202,8 +202,9 @@ Layers, bottom to top:
 2. **Grade / effects** — `contrast`, optional `vignette`, fixed-seed `grain`, and an
    optional `texture` image from the `textures/` library blended with `texture_blend`
    (`multiply|overlay|screen|softlight`).
-3. **Waveform strip** — optional scrolling Pillow strip (`vp/waveform.py`), tied to the
-   beat energy; never uses ffmpeg's `showwaves`.
+3. **Waveform strip** — optional scrolling Pillow strip (`vp/waveform.py`), tied to
+   beat energy; ~4 px RMS/peak bars normalized to the 95th percentile with a soft curve
+   and noise floor. Never uses ffmpeg's `showwaves`.
 4. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
    Pre-rendered as a transparent PNG with Pillow (Homebrew ffmpeg has no `drawtext`),
    faded in with alpha.
@@ -261,8 +262,8 @@ Renderer notes:
   graph for fast UI iteration.
 - `progress=` / `cancel=` stream ffmpeg progress and abort mid-render; the UI runs full
   renders as background jobs.
-- The waveform is a Pillow strip (`vp/waveform.py`) composited on top; the crashing
-  `showwaves` path is gone.
+- The waveform is a Pillow strip (`vp/waveform.py`) with ~4 px RMS/peak bars composited
+  on top; the crashing `showwaves` path is gone.
 - Temp files go in a per-render temp dir, always cleaned up.
 
 ## 5. CLI
@@ -363,7 +364,7 @@ visualizer-pipeline/
 - **Waveform + UI:** Pillow strip output and FastAPI endpoints/jobs (skipped cleanly when
   the `.[dev,ui]` extras are absent).
 - **CI:** `.github/workflows/ci.yml` installs `.[dev,ui]`, installs ffmpeg + DejaVu fonts,
-  generates fixtures, and runs `pytest -q` (136 tests at the time of writing).
+  generates fixtures, and runs `pytest -q` (141 tests at the time of writing).
 
 ## 9. Performance
 

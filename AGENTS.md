@@ -17,15 +17,15 @@ A post-v1 FastAPI web studio (`vp ui`) wraps the same engine.
 ## Current state (snapshot)
 
 - v1 + post-v1 web studio shipped. See `DESIGN.md` §11 (decisions) and §12 (milestones).
-- **136 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
+- **141 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
 - CI: `.github/workflows/ci.yml` installs ffmpeg + DejaVu fonts, `.[dev,ui]`, generates
   fixtures, then runs `pytest -q`.
 - Open issues: **#11** advanced sections, **#12** performance, **#14** video snippets,
   **#19** vibe-aware presets, **#20/#21** color keys, **#23–#25** web studio follow-ups,
-  **#29** Lit componentization, **#33** waveform, **#37** VGM preset.
+  **#29** Lit componentization, **#37** VGM preset.
 - Recent history: energy-reactive planner, hook windows, 3 aspects, Pillow HUD/waveform,
   presets, overlays, web UI, render jobs + cancellation, bundled OFL fonts + text
-  controls, texture library + studio picker.
+  controls, texture library + studio picker, finer waveform dynamics.
 
 ## Setup
 
@@ -97,7 +97,8 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 - **Textures.** `vp/textures.py` discovers the `textures/` library and resolves relative
   `style.texture` names; the studio validates dropdown choices. CLI `--texture PATH`
   still accepts custom image files.
-- **Waveform.** Pillow strip only. The old `showwaves` filter path crashed ffmpeg.
+- **Waveform.** Pillow strip only, with ~4 px RMS/peak bars (95th-percentile
+  normalization, soft curve, noise floor). The old `showwaves` filter path crashed ffmpeg.
 - **Idempotency.** `vp/status.py` decides skips; CLI and UI share it. `--force` overrides.
 - **Preview/jobs.** `render(..., preview=True)` is a short, quarter-res, audio-less clip;
   the UI renders all three aspects side by side, slicing around a real cut so at least
@@ -131,11 +132,10 @@ Every change starts with an issue. See `CONTRIBUTING.md`.
 
 ## Suggested next steps
 
-1. #33 waveform granularity/dynamics.
-2. #37 VGM-style preset (uses bundled fonts; coordinate grade keys with #20).
-3. #11 advanced section/phrase detection (feeds better cuts).
-4. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
-5. #12 performance tuning (supersample/x264/variant parallelism).
-6. #14 video snippet segments.
-7. #20/#21 color grading keys and beat-reactive color swings.
-8. #23–#25 web studio follow-ups.
+1. #37 VGM-style preset (uses bundled fonts; coordinate grade keys with #20).
+2. #11 advanced section/phrase detection (feeds better cuts).
+3. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
+4. #12 performance tuning (supersample/x264/variant parallelism).
+5. #14 video snippet segments.
+6. #20/#21 color grading keys and beat-reactive color swings.
+7. #23–#25 web studio follow-ups.
