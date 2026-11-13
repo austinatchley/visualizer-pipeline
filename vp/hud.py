@@ -50,12 +50,39 @@ def wrap_to_width(
     lines: list[str] = []
     current = ""
     for word in text.split():
-        trial = f"{current} {word}".strip()
+        if not current:
+            if font.getlength(word) <= max_width:
+                current = word
+            else:
+                lines.extend(_break_word(word, font, max_width))
+            continue
+        trial = f"{current} {word}"
+        if font.getlength(trial) <= max_width:
+            current = trial
+        elif font.getlength(word) <= max_width:
+            lines.append(current)
+            current = word
+        else:
+            lines.append(current)
+            lines.extend(_break_word(word, font, max_width))
+            current = ""
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _break_word(
+    word: str, font: ImageFont.FreeTypeFont, max_width: int
+) -> list[str]:
+    lines: list[str] = []
+    current = ""
+    for char in word:
+        trial = current + char
         if not current or font.getlength(trial) <= max_width:
             current = trial
         else:
             lines.append(current)
-            current = word
+            current = char
     if current:
         lines.append(current)
     return lines

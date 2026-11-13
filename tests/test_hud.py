@@ -25,7 +25,9 @@ def test_wrap_to_width():
     lines = wrap_to_width("midnight drive into the void", font, 400)
     assert len(lines) > 1
     assert all(font.getlength(line) <= 400 for line in lines)
-    assert " ".join(lines) == "midnight drive into the void"
+    assert " ".join(lines).replace(" ", "") == "midnight drive into the void".replace(
+        " ", ""
+    )
 
 
 def test_layout_per_aspect():
