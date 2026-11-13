@@ -1,6 +1,6 @@
 import pytest
 
-from vp.plan import full_window, plan_timeline, select_hook
+from vp.plan import full_window, plan_timeline, preview_slice, select_hook, slice_plan
 
 STYLE = {"beats_per_cut": 8, "crossfade": 0.35}
 
@@ -152,3 +152,68 @@ def test_select_hook_end_snaps_to_downbeat():
     beatmap = make_beatmap(duration=120)
     _, end = select_hook(beatmap, hook(target=45))
     assert any(abs(d - end) < 1e-6 for d in beatmap["downbeats"])
+
+
+def test_slice_plan_preserves_cuts_and_images():
+    plan = plan_timeline(
+        make_beatmap(duration=10.0),
+        full_window(10.0),
+        3,
+        STYLE,
+        {"cuts": [2.0, 4.0, 6.0]},
+    )
+    sliced = slice_plan(plan, 1.0, 5.0, 3)
+    assert sliced.duration == pytest.approx(4.0)
+    assert [b.time for b in sliced.boundaries] == pytest.approx([0.0, 1.0, 3.0, 4.0])
+    assert [s.image_index for s in sliced.segments] == [0, 1, 2]
+
+
+def test_slice_plan_keeps_image_phase_mid_segment():
+    plan = plan_timeline(
+        make_beatmap(duration=10.0),
+        full_window(10.0),
+        3,
+        STYLE,
+        {"cuts": [2.0, 4.0, 6.0]},
+    )
+    sliced = slice_plan(plan, 3.0, 7.0, 3)
+    assert [b.time for b in sliced.boundaries] == pytest.approx([0.0, 1.0, 3.0, 4.0])
+    assert [s.image_index for s in sliced.segments] == [1, 2, 0]
+
+
+def test_slice_plan_rejects_empty_slice():
+    plan = plan_timeline(make_beatmap(duration=10.0), full_window(10.0), 3, STYLE)
+    with pytest.raises(ValueError):
+        slice_plan(plan, 5.0, 5.0, 3)
+
+
+def test_preview_slice_starts_at_zero_when_cut_is_early():
+    plan = plan_timeline(
+        make_beatmap(duration=10.0),
+        full_window(10.0),
+        3,
+        STYLE,
+        {"cuts": [2.0]},
+    )
+    sliced = preview_slice(plan, 3, seconds=4.0)
+    assert sliced.window[0] == 0.0
+    assert sliced.window[1] == pytest.approx(4.0)
+    assert any(0 < b.time < sliced.duration for b in sliced.boundaries)
+
+
+def test_preview_slice_moves_before_late_cut():
+    plan = plan_timeline(
+        make_beatmap(duration=60.0, bpm=60.0), full_window(60.0), 3, STYLE
+    )
+    sliced = preview_slice(plan, 3, seconds=4.0, lead=1.5)
+    assert sliced.window[0] == pytest.approx(6.5)
+    assert sliced.window[1] == pytest.approx(10.5)
+    assert any(0 < b.time < sliced.duration for b in sliced.boundaries)
+    assert len(sliced.segments) >= 2
+
+
+def test_preview_slice_handles_short_window():
+    plan = plan_timeline(make_beatmap(duration=3.0), full_window(3.0), 3, STYLE)
+    sliced = preview_slice(plan, 3, seconds=4.0)
+    assert sliced.window[0] == 0.0
+    assert sliced.window[1] == pytest.approx(3.0)

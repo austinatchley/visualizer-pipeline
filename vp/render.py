@@ -14,7 +14,7 @@ from PIL import Image
 
 from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
 from .hud import build_hud, find_font
-from .plan import full_window, plan_timeline, select_hook
+from .plan import full_window, plan_timeline, preview_slice, select_hook
 from .track import Track
 from .waveform import build_strip
 
@@ -112,14 +112,16 @@ def render(
     if preview:
         width, height = max(1, width // PREVIEW_SCALE), max(1, height // PREVIEW_SCALE)
         aspect = Aspect(aspect.key, width, height, aspect.label, aspect.kind)
-        start = max(0.0, float(window[0]))
-        window = (start, min(float(window[1]), start + PREVIEW_SECONDS))
-    window_start, window_end = window
-    clip_duration = float(window_end) - float(window_start)
-
-    plan = plan_timeline(
-        beatmap, window, len(track.images), style, track.overrides
-    )
+        full_plan = plan_timeline(
+            beatmap, window, len(track.images), style, track.overrides
+        )
+        plan = preview_slice(full_plan, len(track.images), PREVIEW_SECONDS)
+    else:
+        plan = plan_timeline(
+            beatmap, window, len(track.images), style, track.overrides
+        )
+    window_start, window_end = plan.window
+    clip_duration = plan.duration
     segments, xfade = plan.segments, plan.xfade
     n = len(segments)
 

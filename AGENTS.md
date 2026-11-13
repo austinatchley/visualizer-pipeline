@@ -88,8 +88,8 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 - **Waveform.** Pillow strip only. The old `showwaves` filter path crashed ffmpeg.
 - **Idempotency.** `vp/status.py` decides skips; CLI and UI share it. `--force` overrides.
 - **Preview/jobs.** `render(..., preview=True)` is a short, quarter-res, audio-less clip;
-  the UI renders all three aspects side by side. `progress=`/`cancel=` support the UI job
-  runner.
+  the UI renders all three aspects side by side, slicing around a real cut so at least
+  one transition is visible. `progress=`/`cancel=` support the UI job runner.
 - **Determinism.** No random effects without a fixed seed (grain uses one).
 
 ## Workflow (issue-first)

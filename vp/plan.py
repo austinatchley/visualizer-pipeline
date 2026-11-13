@@ -143,15 +143,16 @@ def _build_segments(
     xfade: float,
     image_count: int,
     duration: float,
+    image_offset: int = 0,
 ) -> tuple[list[Segment], float]:
     times = [b.time for b in boundaries]
     n = len(times) - 1
     if n <= 1:
-        return [Segment(0.0, duration, 0)], 0.0
+        return [Segment(0.0, duration, image_offset % image_count)], 0.0
 
     if xfade <= 0:
         segments = [
-            Segment(times[i], times[i + 1] - times[i], i % image_count)
+            Segment(times[i], times[i + 1] - times[i], (i + image_offset) % image_count)
             for i in range(n)
         ]
         return segments, 0.0
@@ -159,7 +160,7 @@ def _build_segments(
     min_seg = min(times[i + 1] - times[i] for i in range(n))
     xfade = min(xfade, min_seg * 0.4)
     if xfade < 0.01:
-        return _build_segments(boundaries, 0.0, image_count, duration)
+        return _build_segments(boundaries, 0.0, image_count, duration, image_offset)
 
     slack = 0.10
     segments: list[Segment] = []
@@ -170,7 +171,11 @@ def _build_segments(
         else:
             seg_duration = (times[i + 1] - times[i]) + xfade + slack
         segments.append(
-            Segment(offset, max(seg_duration, xfade + slack), i % image_count)
+            Segment(
+                offset,
+                max(seg_duration, xfade + slack),
+                (i + image_offset) % image_count,
+            )
         )
     return segments, xfade
 
@@ -323,3 +328,85 @@ def select_hook(beatmap: dict, hook: dict) -> tuple[float, float]:
         end = min(duration, near)
 
     return (start, float(end))
+
+
+PREVIEW_LEAD = 1.5
+
+
+def _segment_index_at(plan: Plan, rel_time: float) -> int:
+    for i in range(len(plan.boundaries) - 1):
+        if plan.boundaries[i].time <= rel_time < plan.boundaries[i + 1].time:
+            return i
+    return max(0, len(plan.boundaries) - 2)
+
+
+def slice_plan(
+    plan: Plan, start: float, end: float, image_count: int
+) -> Plan:
+    """Cut a sub-window out of an existing plan without re-planning cuts."""
+    start = max(plan.window[0], float(start))
+    end = min(plan.window[1], float(end))
+    if end <= start:
+        raise ValueError(f"invalid slice: {(start, end)}")
+    if image_count < 1:
+        raise ValueError("image_count must be >= 1")
+
+    rel_start = start - plan.window[0]
+    rel_end = end - plan.window[0]
+    duration = end - start
+
+    image_offset = _segment_index_at(plan, rel_start)
+    inside = [
+        boundary
+        for boundary in plan.boundaries
+        if rel_start < boundary.time < rel_end
+    ]
+    boundaries = (
+        [Boundary(0.0, "start")]
+        + [Boundary(b.time - rel_start, b.reason) for b in inside]
+        + [Boundary(duration, "end")]
+    )
+    segments, xfade = _build_segments(
+        boundaries, plan.xfade, image_count, duration, image_offset
+    )
+    return Plan(
+        window=(start, end),
+        duration=duration,
+        xfade=xfade,
+        boundaries=boundaries,
+        segments=segments,
+    )
+
+
+def preview_slice(
+    plan: Plan,
+    image_count: int,
+    seconds: float = 4.0,
+    lead: float = PREVIEW_LEAD,
+) -> Plan:
+    """Pick a short slice that contains at least one cut when possible.
+
+    Starts at the beginning if the first cut is already inside the preview;
+    otherwise starts shortly before the first cut so a transition is visible.
+    """
+    window_start, window_end = plan.window
+    total = window_end - window_start
+    cuts = [b.time for b in plan.boundaries[1:-1]]
+
+    if not cuts:
+        start_rel = 0.0
+    else:
+        first_cut = cuts[0]
+        if first_cut <= seconds - 0.5:
+            start_rel = 0.0
+        else:
+            start_rel = max(0.0, first_cut - min(lead, seconds / 2))
+        start_rel = max(0.0, min(start_rel, max(0.0, total - seconds)))
+
+    end_rel = min(total, start_rel + seconds)
+    return slice_plan(
+        plan,
+        window_start + start_rel,
+        window_start + end_rel,
+        image_count,
+    )

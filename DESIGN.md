@@ -295,7 +295,8 @@ and exports byte-identical to a headless run. Key constraints:
   both consume it, so adding a key later makes it validate *and* appear in the UI.
 - **Deterministic preview.** `render(..., preview=True)` renders a short, quarter-
   resolution, audio-less clip for fast iteration. The UI shows all three aspects side by
-  side (9:16, 1:1, 16:9). It is the same renderer, only smaller.
+  side (9:16, 1:1, 16:9) and slices around a real cut so the preview shows a transition.
+  It is the same renderer, only smaller.
 - **Jobs + progress.** `render(..., progress=cb, cancel=cb)` streams ffmpeg
   `-progress` (percent 0–100) and can be aborted mid-render. The UI runs full renders
   as background jobs with the same idempotency as the CLI (shared `vp/status.py`).
