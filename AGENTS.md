@@ -17,14 +17,15 @@ A post-v1 FastAPI web studio (`vp ui`) wraps the same engine.
 ## Current state (snapshot)
 
 - v1 + post-v1 web studio shipped. See `DESIGN.md` §11 (decisions) and §12 (milestones).
-- **126 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
+- **136 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
 - CI: `.github/workflows/ci.yml` installs ffmpeg + DejaVu fonts, `.[dev,ui]`, generates
   fixtures, then runs `pytest -q`.
 - Open issues: **#11** advanced sections, **#12** performance, **#14** video snippets,
   **#19** vibe-aware presets, **#20/#21** color keys, **#23–#25** web studio follow-ups,
-  **#29** Lit componentization, **#33** waveform, **#35** texture picker, **#37** VGM preset.
+  **#29** Lit componentization, **#33** waveform, **#37** VGM preset.
 - Recent history: energy-reactive planner, hook windows, 3 aspects, Pillow HUD/waveform,
-  presets, overlays, web UI, render jobs + cancellation, bundled OFL fonts + text controls.
+  presets, overlays, web UI, render jobs + cancellation, bundled OFL fonts + text
+  controls, texture library + studio picker.
 
 ## Setup
 
@@ -64,14 +65,17 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 | `vp/plan.py` | Pure planner: energy-reactive cuts, hook window, crossfade timing |
 | `vp/hud.py` | Pillow HUD (gradient, title, artist, handle) per aspect |
 | `vp/fonts.py` | Bundled OFL font registry, font resolution, variable-axis loading |
+| `vp/textures.py` | Texture library discovery + library/custom path resolution |
 | `vp/waveform.py` | Pillow scrolling waveform strip |
 | `vp/render.py` | FFmpeg graph, variants, preview, progress/cancel, encoding |
 | `vp/status.py` | Shared idempotency helpers (CLI + UI) |
 | `vp/cli.py` | `analyze`, `inspect`, `render`, `batch`, `init`, `ui` |
 | `vp/ui/` | FastAPI server + static studio (track picker, editor, jobs, A/B) |
 | `presets/*.json` | `clean`, `punchy`, `balanced` style overrides |
+| `textures/*.png` | Starter texture library (dropdown choices in the studio) |
 | `tests/` | Unit, CLI, ffprobe, waveform, and UI tests |
 | `scripts/make_fixtures.py` | Deterministic synthetic tracks for tests |
+| `scripts/make_textures.py` | Deterministic starter texture generator |
 
 ## Invariants and quirks
 
@@ -90,6 +94,9 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 - **Typography.** `vp/fonts.py` is the OFL face registry; `font`/`meta_font`,
   `text_case`, `tracking`, and `line_spacing` are style keys. `title_font` is an
   advanced path override. Licenses live in `vp/assets/fonts/licenses/`.
+- **Textures.** `vp/textures.py` discovers the `textures/` library and resolves relative
+  `style.texture` names; the studio validates dropdown choices. CLI `--texture PATH`
+  still accepts custom image files.
 - **Waveform.** Pillow strip only. The old `showwaves` filter path crashed ffmpeg.
 - **Idempotency.** `vp/status.py` decides skips; CLI and UI share it. `--force` overrides.
 - **Preview/jobs.** `render(..., preview=True)` is a short, quarter-res, audio-less clip;
@@ -124,12 +131,11 @@ Every change starts with an issue. See `CONTRIBUTING.md`.
 
 ## Suggested next steps
 
-1. #35 texture picker.
-2. #33 waveform granularity/dynamics.
-3. #37 VGM-style preset (uses bundled fonts; coordinate grade keys with #20).
-4. #11 advanced section/phrase detection (feeds better cuts).
-5. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
-6. #12 performance tuning (supersample/x264/variant parallelism).
-7. #14 video snippet segments.
-8. #20/#21 color grading keys and beat-reactive color swings.
-9. #23–#25 web studio follow-ups.
+1. #33 waveform granularity/dynamics.
+2. #37 VGM-style preset (uses bundled fonts; coordinate grade keys with #20).
+3. #11 advanced section/phrase detection (feeds better cuts).
+4. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
+5. #12 performance tuning (supersample/x264/variant parallelism).
+6. #14 video snippet segments.
+7. #20/#21 color grading keys and beat-reactive color swings.
+8. #23–#25 web studio follow-ups.

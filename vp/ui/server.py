@@ -27,6 +27,7 @@ from ..aspects import ASPECTS
 from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
 from ..render import RenderCancelled, plan_variants, render, window_for
 from ..status import input_mtime, is_up_to_date
+from ..textures import resolve_texture, texture_library
 from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -102,7 +103,7 @@ class Job:
     )
 
 
-def _run_job(job: Job, root: Path, out: Path) -> None:
+def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
     try:
         track = _find_track(root, job.slug)
         track.style = resolve_style(job.style)
@@ -145,6 +146,7 @@ def _run_job(job: Job, root: Path, out: Path) -> None:
                 preview=job.preview,
                 progress=_progress,
                 cancel=job.cancel.is_set,
+                textures_dir=textures,
             )
         with job.status_lock:
             if job.status != "cancelled":
@@ -196,18 +198,30 @@ def _job_summary(job: Job, out: Path) -> dict:
     }
 
 
-def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
+def create_app(
+    root: str | Path = "tracks",
+    out: str | Path = "out",
+    textures: str | Path = "textures",
+) -> FastAPI:
     root = Path(root)
     out = Path(out)
+    textures = Path(textures)
     out.mkdir(parents=True, exist_ok=True)
     (out / "preview").mkdir(parents=True, exist_ok=True)
 
     app = FastAPI(title="vp studio", version="0.1.0")
     app.state.root = root
     app.state.out = out
+    app.state.textures = textures
     app.state.jobs: dict[str, Job] = {}
     app.state.jobs_order: list[str] = []
     app.state.jobs_lock = threading.Lock()
+
+    def _check_texture(style: dict) -> None:
+        try:
+            resolve_texture(style.get("texture"), app.state.textures)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from None
 
     @app.get("/api/boot")
     def boot():
@@ -215,6 +229,7 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
             "fields": STYLE_FIELDS,
             "defaults": DEFAULT_STYLE,
             "presets": sorted(p.stem for p in PRESETS_DIR.glob("*.json")),
+            "textures": texture_library(app.state.textures),
             "aspects": {k: {"label": a.label, "kind": a.kind} for k, a in ASPECTS.items()},
         }
 
@@ -335,6 +350,7 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
         track = _find_track(root, slug)
         try:
             resolved = resolve_style(payload.style)
+            _check_texture(resolved)
             baseline = resolve_style(preset=resolved["preset"])
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from None
@@ -365,6 +381,7 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
             track.style = resolve_style(payload.style)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from None
+        _check_texture(track.style)
 
         beatmap = load_beatmap(track)
         urls: dict[str, str] = {}
@@ -379,6 +396,7 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
                     dest,
                     window=window_for(track, beatmap, aspect),
                     preview=True,
+                    textures_dir=app.state.textures,
                 )
                 urls[key] = f"/api/files/preview/{dest.name}"
         return {"urls": urls, "url": urls[requested[0]]}
@@ -388,6 +406,7 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
         if payload.aspect not in ASPECTS:
             raise HTTPException(status_code=400, detail=f"unknown aspect: {payload.aspect}")
         _find_track(root, slug)  # 404 fast if unknown
+        _check_texture(payload.style)
         job = Job(
             id=uuid.uuid4().hex[:12],
             slug=slug,
@@ -398,7 +417,11 @@ def create_app(root: str | Path = "tracks", out: str | Path = "out") -> FastAPI:
         with app.state.jobs_lock:
             app.state.jobs[job.id] = job
             app.state.jobs_order.append(job.id)
-        threading.Thread(target=_run_job, args=(job, root, out), daemon=True).start()
+        threading.Thread(
+            target=_run_job,
+            args=(job, root, out, app.state.textures),
+            daemon=True,
+        ).start()
         return {"id": job.id}
 
     @app.get("/api/jobs/{job_id}")

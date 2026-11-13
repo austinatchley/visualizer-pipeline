@@ -94,10 +94,15 @@ def _make_track(root: Path, name: str):
 
 @pytest.fixture()
 def client(tmp_path):
+    from PIL import Image
+
     root = tmp_path / "tracks"
     root.mkdir()
     _make_track(root, "demo_track")
-    app = create_app(root=root, out=tmp_path / "out")
+    textures = tmp_path / "textures"
+    textures.mkdir()
+    Image.new("L", (8, 8), 128).save(textures / "grain.png")
+    app = create_app(root=root, out=tmp_path / "out", textures=textures)
     return TestClient(app)
 
 
@@ -119,6 +124,8 @@ def test_boot_endpoint(client):
     assert set(data["fields"]) == set(data["defaults"])
     assert "clean" in data["presets"]
     assert "vertical" in data["aspects"]
+    assert data["textures"] == [{"path": "grain.png", "label": "Grain"}]
+    assert data["fields"]["texture"]["type"] == "texture"
 
 
 def test_list_and_detail(client):
@@ -154,6 +161,34 @@ def test_save_style_rejects_invalid(client):
     assert res.status_code == 400
 
 
+def test_save_style_accepts_library_texture(client):
+    style = resolve_style({"preset": "clean", "texture": "grain.png"})
+    res = client.post("/api/tracks/demo-track/style", json={"style": style})
+    assert res.status_code == 200, res.text
+    assert res.json()["saved"].get("texture") == "grain.png"
+
+
+def test_unknown_texture_is_rejected(client):
+    style = {"preset": "clean", "texture": "missing.png"}
+    res = client.post("/api/tracks/demo-track/style", json={"style": style})
+    assert res.status_code == 400
+    assert "unknown texture" in res.json()["detail"]
+
+    res = client.post(
+        "/api/tracks/demo-track/preview",
+        json={"aspect": "vertical", "style": style},
+    )
+    assert res.status_code == 400
+    assert "unknown texture" in res.json()["detail"]
+
+    res = client.post(
+        "/api/tracks/demo-track/render",
+        json={"aspect": "vertical", "style": style, "preview": True},
+    )
+    assert res.status_code == 400
+    assert "unknown texture" in res.json()["detail"]
+
+
 def test_preview_with_waveform_does_not_break(client):
     style = {"preset": "punchy", "waveform": True, "contrast": 1.1}
     res = client.post(
@@ -162,6 +197,19 @@ def test_preview_with_waveform_does_not_break(client):
     )
     assert res.status_code == 200
     dest = Path(client.app.state.out) / "preview" / "demo-track_horizontal.mp4"
+    assert dest.exists()
+
+
+def test_preview_with_library_texture(client):
+    res = client.post(
+        "/api/tracks/demo-track/preview",
+        json={
+            "aspect": "vertical",
+            "style": {"preset": "clean", "texture": "grain.png"},
+        },
+    )
+    assert res.status_code == 200, res.text
+    dest = Path(client.app.state.out) / "preview" / "demo-track_vertical.mp4"
     assert dest.exists()
 
 
@@ -256,6 +304,20 @@ def test_render_job_lifecycle_and_skip(client):
 
     job2 = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
     assert job2["status"] == "skipped"  # unchanged inputs -> idempotent skip
+
+
+def test_render_job_accepts_library_texture(client):
+    body = {
+        "aspect": "vertical",
+        "style": {"preset": "clean", "texture": "grain.png"},
+        "preview": True,
+    }
+    job = _wait_job(
+        client,
+        client.post("/api/tracks/demo-track/render", json=body).json()["id"],
+    )
+    assert job["status"] == "done", job.get("error")
+    assert job["url"]
 
 
 def test_render_job_failed_reports_error(client):

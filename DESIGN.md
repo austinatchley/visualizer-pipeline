@@ -200,7 +200,8 @@ Layers, bottom to top:
 1. **Base image** — cover-crop to the aspect, supersampled `style.supersample` (2×),
    Ken Burns zoom (`1.0 ↔ 1+zoom`), alternating direction each segment.
 2. **Grade / effects** — `contrast`, optional `vignette`, fixed-seed `grain`, and an
-   optional `texture` image blended with `texture_blend` (`multiply|overlay|screen|softlight`).
+   optional `texture` image from the `textures/` library blended with `texture_blend`
+   (`multiply|overlay|screen|softlight`).
 3. **Waveform strip** — optional scrolling Pillow strip (`vp/waveform.py`), tied to the
    beat energy; never uses ffmpeg's `showwaves`.
 4. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
@@ -272,7 +273,7 @@ vp inspect <track>                     # print plan: cuts, windows, style, outpu
 vp render  <track> [options]           # render one track
 vp batch   <root>  [options]           # render every track folder under root
 vp init    <track>                     # scaffold track.json / images/
-vp ui      [--host H] [--port P] [--tracks DIR] [--out DIR] [--no-browser]
+vp ui      [--host H] [--port P] [--tracks DIR] [--out DIR] [--textures DIR] [--no-browser]
 ```
 
 Common flags: `--preset`, `--beats-per-cut`, `--crossfade`, `--zoom`, `--fps`,
@@ -334,17 +335,19 @@ visualizer-pipeline/
   AGENTS.md
   vp/
     cli.py  track.py  analyze.py  plan.py  hud.py  waveform.py
-    render.py  config.py  status.py  fonts.py
+    render.py  config.py  status.py  fonts.py  textures.py
     assets/fonts/             # bundled OFL faces + licenses
     ui/                       # local web studio
       server.py  static/
   presets/
     clean.json  punchy.json  balanced.json
+  textures/                   # starter texture library + picker choices
   tests/
     test_config.py  test_plan.py  test_analyze.py  test_windows.py
-    test_hud.py  test_waveform.py  test_cli.py  test_render_smoke.py  test_ui.py
+    test_hud.py  test_waveform.py  test_cli.py  test_render_smoke.py
+    test_ui.py  test_textures.py
   scripts/
-    make_fixtures.py
+    make_fixtures.py  make_textures.py
   fixtures/                           # generated, gitignored
   out/                                # generated, gitignored
 ```
@@ -360,7 +363,7 @@ visualizer-pipeline/
 - **Waveform + UI:** Pillow strip output and FastAPI endpoints/jobs (skipped cleanly when
   the `.[dev,ui]` extras are absent).
 - **CI:** `.github/workflows/ci.yml` installs `.[dev,ui]`, installs ffmpeg + DejaVu fonts,
-  generates fixtures, and runs `pytest -q` (125 tests at the time of writing).
+  generates fixtures, and runs `pytest -q` (136 tests at the time of writing).
 
 ## 9. Performance
 
@@ -403,8 +406,9 @@ visualizer-pipeline/
 - **D13 — Vibe tailoring.** Per-track presets shipped; `style.preset: "auto"` is open
   (#19) and explicit presets always win.
 - **D14 — Color/effects.** `contrast`, `beat_punch`, `vignette`, `grain`, `texture`, and
-  `texture_blend` shipped via `config.STYLE_FIELDS`. Saturation/grade and beat-reactive
-  color swings are backlog (#20/#21).
+  `texture_blend` shipped via `config.STYLE_FIELDS`. The `textures/` library feeds a
+  studio dropdown; relative names resolve through `vp/textures.py`. Saturation/grade and
+  beat-reactive color swings are backlog (#20/#21).
 - **D15 — Web studio.** `vp ui` is an optional FastAPI client over the same engine
   (preview/jobs/create-project); the CLI remains the source of truth. Issues #23–#25
   track the remaining UI work.

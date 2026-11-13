@@ -270,7 +270,7 @@ def _cmd_ui(args: argparse.Namespace) -> int:
         ) from exc
     from .ui.server import create_app
 
-    app = create_app(args.tracks, args.out)
+    app = create_app(args.tracks, args.out, args.textures)
     url = f"http://{args.host}:{args.port}"
     if not args.no_browser:
         import webbrowser
@@ -324,6 +324,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ui.add_argument("--port", type=int, default=8321)
     p_ui.add_argument("--tracks", default="tracks", help="root directory of track folders")
     p_ui.add_argument("--out", default="out", help="output root directory")
+    p_ui.add_argument(
+        "--textures", default="textures", help="texture library directory"
+    )
     p_ui.add_argument("--no-browser", action="store_true")
     p_ui.set_defaults(func=_cmd_ui)
 

@@ -130,7 +130,7 @@ Everything is optional. Only include what differs from the defaults.
 | `beat_punch` | `0.0` | Extra zoom at each cut/downbeat that decays (`0–0.3`) |
 | `vignette` | `0.0` | Edge darkening strength (`0–1`); `0` = off |
 | `grain` | `0.0` | Film-grain amount (`0–1`); `0` = off, fixed seed |
-| `texture` | `null` | Path to an image blended over the video |
+| `texture` | `null` | Texture name from `textures/` (or a custom image path) |
 | `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
 | `waveform` | `false` | Scrolling Pillow waveform strip at the bottom |
 | `title_font` | system Arial Bold | Path to a `.ttf`; overrides `font` |
@@ -160,6 +160,19 @@ Bundled under `vp/assets/fonts/` (all SIL OFL, licenses included):
 
 `clean` falls back to system Arial/DejaVu. Set `title_font` to a path to override the
 dropdown for a specific track.
+
+### Textures
+
+`textures/` ships a starter library (`grain-35mm`, `dust-scratches`, `halftone`, `paper`,
+`concrete`). Regenerate it deterministically with:
+
+```bash
+python scripts/make_textures.py
+```
+
+The studio's `texture` control is a dropdown populated from that library; `vp ui
+--textures DIR` points at a different library. Relative `style.texture` names resolve
+under `textures/`, while `vp render --texture PATH` still accepts a custom image file.
 
 ### Hook
 
@@ -227,14 +240,16 @@ vp ui --tracks tracks      # opens a local dark-theme studio
 ```
 
 `vp ui` options: `--host`, `--port` (default `127.0.0.1:8321`), `--tracks DIR`
-(default `tracks/`), `--out DIR` (default `out/`), `--no-browser`.
+(default `tracks/`), `--out DIR` (default `out/`), `--textures DIR` (default
+`textures/`), `--no-browser`.
 
 The studio has a track picker, a **New Project** dialog that scaffolds a track from
 dragged-in (or browsed) audio + images (validated against the same extensions as the
 CLI), a style panel whose controls are generated from the same `STYLE_FIELDS` schema
 that validates config (so new style keys appear automatically), three-up previews for
 9:16 / 1:1 / 16:9 (a 4 s slice around a cut, quarter-resolution, audio-less), and an
-explicit "Save style" that writes only the diff back to `track.json`.
+explicit "Save style" that writes only the diff back to `track.json`. Textures are
+selected from the `textures/` library instead of typing a path.
 
 Full renders run as background **jobs** with live progress (streamed from ffmpeg), an
 up-to-date skip that matches the CLI's idempotency exactly, per-job cancel for queued and
@@ -295,7 +310,7 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 ## Status
 
 v1 plus the post-v1 local web studio are shipped. CI installs `.[dev,ui]`, generates
-fixtures, and runs the full suite (126 tests at the time of writing).
+fixtures, and runs the full suite (136 tests at the time of writing).
 
 Open work is tracked in
 [issues](https://github.com/austinatchley/visualizer-pipeline/issues):
@@ -309,5 +324,4 @@ Open work is tracked in
 - #23–#25 web studio follow-ups (jobs/A-B, drag-and-drop reorder, autosave)
 - #29 frontend componentization (Lit)
 - #33 waveform granularity/dynamics
-- #35 texture picker
 - #37 VGM-style preset

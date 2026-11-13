@@ -39,7 +39,7 @@ TEXTURE_BLENDS = {"multiply", "overlay", "screen", "softlight"}
 FPS_CHOICES = {24, 30, 60}
 
 # Declarative style surface: validation and the UI controls both read this.
-# `type` is one of "preset" | "int" | "float" | "bool" | "choice" | "path".
+# `type` is one of "preset" | "int" | "float" | "bool" | "choice" | "path" | "texture".
 # Numeric keys use `min`/`max` (+ optional `exclusive_min`); `choice` uses `choices`.
 STYLE_FIELDS: dict[str, dict] = {
     "preset": {"type": "preset", "help": "Named look; presets live in presets/*.json"},
@@ -105,7 +105,10 @@ STYLE_FIELDS: dict[str, dict] = {
         "type": "float", "min": 0.0, "max": 1.0, "step": 0.05,
         "help": "Film grain amount; 0 = off",
     },
-    "texture": {"type": "path", "help": "Overlay image path (null = off)"},
+    "texture": {
+        "type": "texture",
+        "help": "Texture from the textures/ library (null = off)",
+    },
     "texture_blend": {
         "type": "choice", "choices": sorted(TEXTURE_BLENDS), "help": "Texture blend mode",
     },
@@ -202,7 +205,7 @@ def _validate_style(style: dict) -> dict:
                 if style[key] not in spec["choices"]:
                     raise ValueError(f"{key} must be one of {spec['choices']}")
                 continue
-            if kind == "path":
+            if kind in ("path", "texture"):
                 style[key] = None if value is None else str(value)
                 continue
     except (TypeError, ValueError) as exc:

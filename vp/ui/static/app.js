@@ -78,6 +78,22 @@ function makeControl(key, spec, value) {
     sel.addEventListener("change", () =>
       onChange(numeric ? Number(sel.value) : sel.value)
     );
+  } else if (spec.type === "texture") {
+    el.innerHTML =
+      `<header><label>${key}${hint}</label><output></output></header>` +
+      `<select></select>`;
+    const sel = el.querySelector("select");
+    sel.add(new Option("None", ""));
+    for (const texture of state.boot.textures || []) {
+      sel.add(new Option(texture.label, texture.path));
+    }
+    const current = value == null ? "" : String(value);
+    if (current && ![...sel.options].some((option) => option.value === current)) {
+      sel.add(new Option(`Custom: ${current}`, current));
+    }
+    sel.value = current;
+    out.textContent = current || "null";
+    sel.addEventListener("change", () => onChange(sel.value || null));
   } else if (spec.type === "path") {
     el.insertAdjacentHTML(
       "beforeend",

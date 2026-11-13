@@ -16,6 +16,7 @@ from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
 from .fonts import resolve_face
 from .hud import build_hud
 from .plan import full_window, plan_timeline, preview_slice, select_hook
+from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
 from .waveform import build_strip
 
@@ -98,6 +99,7 @@ def render(
     preview: bool = False,
     progress: Callable[[float, str], None] | None = None,
     cancel: Callable[[], bool] | None = None,
+    textures_dir: str | Path = DEFAULT_TEXTURES_DIR,
 ) -> Path:
     """Render an mp4 variant. `preview=True` renders a short, quarter-resolution,
     audio-less clip (no audio stream) for fast UI iteration.
@@ -155,11 +157,7 @@ def render(
             line_spacing=float(style.get("line_spacing", 1.12)),
         )
 
-        texture_path = style.get("texture")
-        if texture_path:
-            texture_path = Path(texture_path)
-            if not texture_path.is_file():
-                raise FileNotFoundError(f"texture not found: {texture_path}")
+        texture_path = resolve_texture(style.get("texture"), textures_dir)
 
         # ---- inputs: one image per segment, then audio, then HUD overlay ----
         # Track file indices via an explicit counter (every input adds ONE "-i").
