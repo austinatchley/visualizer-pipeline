@@ -62,13 +62,16 @@ function makeControl(key, spec, value) {
     out.textContent = String(value);
     slider.addEventListener("input", () => onChange(parseFloat(slider.value)));
   } else if (spec.type === "choice") {
+    const numeric = spec.choices.length && typeof spec.choices[0] === "number";
     el.innerHTML =
       `<header><label>${key}${hint}</label><output></output></header>` +
       `<select>${spec.choices.map((c) => `<option value="${c}">${c}</option>`).join("")}</select>`;
     const sel = el.querySelector("select");
     sel.value = String(value);
     out.textContent = String(value);
-    sel.addEventListener("change", () => onChange(sel.value));
+    sel.addEventListener("change", () =>
+      onChange(numeric ? Number(sel.value) : sel.value)
+    );
   } else if (spec.type === "path") {
     el.insertAdjacentHTML(
       "beforeend",

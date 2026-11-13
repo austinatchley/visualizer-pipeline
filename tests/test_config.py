@@ -85,6 +85,13 @@ def test_texture_path_stringified():
     assert resolve_style(flags={"texture": "/tmp/grain.png"})["texture"] == "/tmp/grain.png"
 
 
+def test_numeric_choices_accept_string_payloads():
+    assert resolve_style({"supersample": "2"})["supersample"] == 2
+    assert resolve_style({"fps": "30"})["fps"] == 30
+    with pytest.raises(ValueError, match="supersample"):
+        resolve_style({"supersample": "9"})
+
+
 def test_invalid_fps_raises():
     with pytest.raises(ValueError, match="fps"):
         resolve_style(flags={"fps": 25})

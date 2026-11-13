@@ -138,6 +138,17 @@ def test_save_style_rejects_invalid(client):
     assert res.status_code == 400
 
 
+def test_preview_with_waveform_does_not_break(client):
+    style = {"preset": "punchy", "waveform": True, "contrast": 1.1}
+    res = client.post(
+        "/api/tracks/demo-track/preview",
+        json={"aspect": "horizontal", "style": style},
+    )
+    assert res.status_code == 200
+    dest = Path(client.app.state.out) / "preview" / "demo-track_horizontal.mp4"
+    assert dest.exists()
+
+
 def test_preview_renders_short_no_audio(client):
     res = client.post(
         "/api/tracks/demo-track/preview",

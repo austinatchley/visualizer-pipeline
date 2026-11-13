@@ -110,6 +110,22 @@ def load_preset(name: str) -> dict:
     return data
 
 
+def _coerce_choice(value, choices) -> object:
+    """Coerce string payloads to the numeric type of the choices (e.g. "30" -> 30),
+    mirroring JSON/UI form inputs while keeping strict membership checks."""
+    if all(isinstance(c, int) for c in choices):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return value
+    if all(isinstance(c, float) for c in choices):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return value
+    return value
+
+
 def _validate_style(style: dict) -> dict:
     try:
         for key, spec in STYLE_FIELDS.items():
@@ -141,7 +157,8 @@ def _validate_style(style: dict) -> dict:
                 style[key] = bool(value)
                 continue
             if kind == "choice":
-                if value not in spec["choices"]:
+                style[key] = _coerce_choice(value, spec["choices"])
+                if style[key] not in spec["choices"]:
                     raise ValueError(f"{key} must be one of {spec['choices']}")
                 continue
             if kind == "path":

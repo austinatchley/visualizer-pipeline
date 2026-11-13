@@ -111,24 +111,27 @@ def render(
                 raise FileNotFoundError(f"texture not found: {texture_path}")
 
         # ---- inputs: one image per segment, then audio, then HUD overlay ----
-        # Each input appends exactly two args ("-i", path); file index = len//2.
+        # Track file indices via an explicit counter (every input adds ONE "-i").
         inputs: list[str] = []
+        file_count = 0
         for seg in segments:
             inputs += ["-i", str(track.images[seg.image_index])]
+            file_count += 1
         audio_idx = None
         if not preview:
-            audio_idx = len(inputs) // 2
+            audio_idx = file_count
             inputs += ["-i", str(track.audio)]
-        hud_idx = len(inputs) // 2
+            file_count += 1
+        hud_idx = file_count
         inputs += [
             "-loop", "1", "-framerate", str(fps), "-t", f"{clip_duration:.3f}",
             "-i", str(hud),
         ]
-        next_idx = len(inputs) // 2
+        file_count += 1
         tex_idx = None
         if texture_path:
-            tex_idx = next_idx
-            next_idx += 1
+            tex_idx = file_count
+            file_count += 1
             tex = tmp / "texture.png"
             _cover_image(texture_path, width, height, tex)
             inputs += [
@@ -139,8 +142,8 @@ def render(
         wf_idx = None
         strip_img = None
         if style.get("waveform"):
-            wf_idx = next_idx
-            next_idx += 1
+            wf_idx = file_count
+            file_count += 1
             strip_h = max(64, int(height * 0.07))
             strip_img = build_strip(
                 track.audio, window, width * 2, strip_h, beatmap
