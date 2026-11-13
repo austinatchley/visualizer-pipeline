@@ -20,6 +20,8 @@ from .waveform import build_strip
 HUD_FADE_IN = 0.3
 HUD_FADE_DUR = 0.8
 GRAIN_SEED = 2024
+PREVIEW_SECONDS = 4.0
+PREVIEW_SCALE = 4
 
 
 def _cover_image(src: Path, width: int, height: int, out: Path) -> Path:
@@ -69,12 +71,20 @@ def render(
     beatmap: dict,
     out_path: Path,
     window: tuple[float, float] | None = None,
+    preview: bool = False,
 ) -> Path:
+    """Render an mp4 variant. `preview=True` renders a short, quarter-resolution,
+    audio-less clip (no audio stream) for fast UI iteration."""
     style = track.style
     fps = int(style.get("fps", 30))
     width, height = aspect.width, aspect.height
     if window is None:
         window = window_for(track, beatmap, aspect)
+    if preview:
+        width, height = max(1, width // PREVIEW_SCALE), max(1, height // PREVIEW_SCALE)
+        aspect = Aspect(aspect.key, width, height, aspect.label, aspect.kind)
+        start = max(0.0, float(window[0]))
+        window = (start, min(float(window[1]), start + PREVIEW_SECONDS))
     window_start, window_end = window
     clip_duration = float(window_end) - float(window_start)
 
@@ -101,18 +111,20 @@ def render(
                 raise FileNotFoundError(f"texture not found: {texture_path}")
 
         # ---- inputs: one image per segment, then audio, then HUD overlay ----
+        # Each input appends exactly two args ("-i", path); file index = len//2.
         inputs: list[str] = []
         for seg in segments:
             inputs += ["-i", str(track.images[seg.image_index])]
-        audio_idx = n
-        inputs += ["-i", str(track.audio)]
-        hud_idx = n + 1
+        audio_idx = None
+        if not preview:
+            audio_idx = len(inputs) // 2
+            inputs += ["-i", str(track.audio)]
+        hud_idx = len(inputs) // 2
         inputs += [
             "-loop", "1", "-framerate", str(fps), "-t", f"{clip_duration:.3f}",
             "-i", str(hud),
         ]
-
-        next_idx = n + 2
+        next_idx = len(inputs) // 2
         tex_idx = None
         if texture_path:
             tex_idx = next_idx
@@ -162,7 +174,7 @@ def render(
             )
             prev = label
 
-        audio_src = f"[{audio_idx}:a]"
+        audio_src = f"[{audio_idx}:a]" if audio_idx is not None else None
 
         if texture_path:
             parts.append(
@@ -217,23 +229,31 @@ def render(
             "scale=out_range=tv,format=yuv420p",
         ]
         parts.append(f"[{prev}]format=rgb24," + ",".join(finish) + "[vout]")
-        parts.append(
-            f"{audio_src}atrim={window_start:.3f}:{window_end:.3f},asetpts=PTS-STARTPTS,"
-            f"loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,"
-            f"aformat=channel_layouts=stereo,"
-            f"afade=t=in:st=0:d={fade_in:.3f},"
-            f"afade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}[aout]"
-        )
+        if audio_src is not None:
+            parts.append(
+                f"{audio_src}atrim={window_start:.3f}:{window_end:.3f},asetpts=PTS-STARTPTS,"
+                f"loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,"
+                f"aformat=channel_layouts=stereo,"
+                f"afade=t=in:st=0:d={fade_in:.3f},"
+                f"afade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}[aout]"
+            )
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        maps = ["-map", "[vout]"] + ([] if audio_src is None else ["-map", "[aout]"])
+        enc = [
+            "-c:v", "libx264",
+            "-preset", "veryfast" if preview else "medium",
+            "-crf", "23" if preview else "18",
+        ]
+        audio_enc = [] if audio_src is None else ["-c:a", "aac", "-b:a", "192k"]
         cmd = [
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
             *inputs,
             "-filter_complex", ";".join(parts),
-            "-map", "[vout]", "-map", "[aout]",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+            *maps,
+            *enc,
             "-pix_fmt", "yuv420p", "-r", str(fps),
-            "-c:a", "aac", "-b:a", "192k",
+            *audio_enc,
             "-movflags", "+faststart",
             "-t", f"{clip_duration:.3f}",
             str(out_path),

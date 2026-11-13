@@ -34,6 +34,12 @@ For development (tests):
 pip install -e ".[dev]"
 ```
 
+For the local web UI (optional):
+
+```bash
+pip install -e ".[ui]"
+```
+
 ## Quickstart
 
 ```bash
@@ -156,6 +162,7 @@ vp analyze <track> [--bpm N] [--tempo-multiplier 0.5|1|2]
 vp inspect <track>                     # print style, hook window, cuts, outputs
 vp render  <track> [options]           # render one track
 vp batch   <root>  [options]           # render every track folder under root
+vp ui      [options]                   # launch the local web studio (dark theme)
 ```
 
 Common options for `inspect`, `render`, and `batch`:
@@ -183,6 +190,24 @@ Common options for `inspect`, `render`, and `batch`:
 
 Renders are idempotent: an output is skipped when it is newer than the audio, images,
 manifest, and beatmap.
+
+## Local web UI
+
+The CLI stays the headless core; `vp ui` is a thin client over the same engine
+(config, resolution, rendering), so anything it produces matches a CLI run exactly.
+
+```bash
+pip install -e ".[ui]"
+vp ui --tracks tracks      # opens a local dark-theme studio
+```
+
+`vp ui` options: `--host`, `--port` (default `127.0.0.1:8321`), `--tracks DIR`
+(default `tracks/`), `--out DIR` (default `out/`), `--no-browser`.
+
+The studio has a track picker, a style panel whose controls are generated from the same
+`STYLE_FIELDS` schema that validates config (so new style keys appear automatically), a
+fast quarter-resolution preview (short, audio-less), and an explicit "Save style" that
+writes only the diff back to `track.json`.
 
 ## Outputs
 

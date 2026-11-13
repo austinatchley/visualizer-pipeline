@@ -276,6 +276,29 @@ def _cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ui(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn
+    except ModuleNotFoundError as exc:  # pragma: no cover - env-dependent
+        raise ValueError(
+            "the web UI needs optional deps: pip install -e '.[ui]'"
+        ) from exc
+    from .ui.server import create_app
+
+    app = create_app(args.tracks, args.out)
+    url = f"http://{args.host}:{args.port}"
+    if not args.no_browser:
+        import webbrowser
+
+        webbrowser.open(url)
+    print(f"vp studio running at {url} (Ctrl-C to stop)")
+    try:
+        uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="vp", description="Beat visualizer pipeline")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -310,6 +333,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_init = sub.add_parser("init", help="scaffold a new track folder")
     p_init.add_argument("track")
     p_init.set_defaults(func=_cmd_init)
+
+    p_ui = sub.add_parser("ui", help="launch the local web UI")
+    p_ui.add_argument("--host", default="127.0.0.1")
+    p_ui.add_argument("--port", type=int, default=8321)
+    p_ui.add_argument("--tracks", default="tracks", help="root directory of track folders")
+    p_ui.add_argument("--out", default="out", help="output root directory")
+    p_ui.add_argument("--no-browser", action="store_true")
+    p_ui.set_defaults(func=_cmd_ui)
 
     return parser
 

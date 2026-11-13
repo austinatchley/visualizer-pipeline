@@ -272,6 +272,21 @@ Behavior:
 - Batch isolates failures, prints a `rendered n/m` summary, exits non-zero if any failed.
 - Idempotency: skip when output mtime > newest input/beatmap mtime unless `--force`.
 
+### 5.1 Local web UI (post-v1)
+
+The CLI is the primary interface and the source of truth. `vp ui` (`vp/ui/server.py`)
+is a thin FastAPI wrapper over the same config/plan/render functions, keeping previews
+and exports byte-identical to a headless run. Key constraints:
+
+- **One style schema.** `config.STYLE_FIELDS` declaratively describes every style key
+  (type, min/max/step, choices, help). `_validate_style` and the UI's generated controls
+  both consume it, so adding a key later makes it validate *and* appear in the UI.
+- **Deterministic preview.** `render(..., preview=True)` renders a short, quarter-
+  resolution, audio-less clip for fast iteration. It is the same renderer, only smaller.
+- **Minimal save.** The UI persists only the diff between the edited style and the
+  resolved preset baseline, so `track.json` stays minimal and preset changes propagate.
+- Optional dependency: `pip install -e ".[ui]"`. Base install is unchanged.
+
 ## 6. Outputs
 
 ```
@@ -293,11 +308,13 @@ visualizer-pipeline/
   DESIGN.md
   vp/
     cli.py  track.py  analyze.py  plan.py  hud.py  render.py  config.py
+    ui/                       # local web studio (issue A)
+      server.py  static/
   presets/
     clean.json                        # v1
     punchy.json                       # M3
   tests/
-    test_plan.py  test_track.py  test_hud.py  test_render_smoke.py
+    test_plan.py  test_track.py  test_hud.py  test_render_smoke.py  test_ui.py
   scripts/
     make_fixtures.py
   fixtures/                           # generated, gitignored

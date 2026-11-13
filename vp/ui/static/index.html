@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vp studio</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>vp <span class="dim">studio</span></h1>
+    <div class="topbar-right">
+      <span id="status" class="status"></span>
+      <button id="save" class="btn primary" disabled>Save style</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Tracks</h2>
+      <ul id="track-list" class="track-list"></ul>
+    </aside>
+
+    <main class="main">
+      <section id="track" class="hidden">
+        <div class="track-head">
+          <h2 id="track-title">—</h2>
+          <span id="track-meta" class="dim"></span>
+        </div>
+
+        <div class="preview-bar">
+          <label>Preview
+            <select id="aspect"></select>
+          </label>
+          <button id="preview" class="btn">Render preview</button>
+          <video id="video" controls muted autoplay playsinline></video>
+        </div>
+
+        <h3>Style</h3>
+        <div id="style-controls" class="controls"></div>
+      </section>
+
+      <section id="empty" class="hidden empty">
+        <p>No tracks found.</p>
+        <p class="dim">Point <code>vp ui</code> at a root containing track folders (audio + images each), e.g. <code>vp ui --tracks tracks</code>.</p>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

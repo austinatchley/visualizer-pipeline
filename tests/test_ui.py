@@ -1,0 +1,164 @@
+import json
+import shutil
+import wave
+from pathlib import Path
+
+import numpy as np
+import pytest
+from fastapi.testclient import TestClient
+
+from vp.config import STYLE_FIELDS, resolve_style
+from vp.ui.server import create_app
+
+def _has_asyncio_backend() -> bool:
+    try:
+        import anyio._backends._asyncio  # noqa: F401, PLC0415
+
+        return True
+    except Exception:
+        return False
+
+
+pytestmark = [
+    pytest.mark.skipif(
+        shutil.which("ffmpeg") is None, reason="ffmpeg not installed"
+    ),
+    pytest.mark.skipif(
+        not _has_asyncio_backend(),
+        reason="asyncio backend unavailable (TestClient needs ssl/networking)",
+    ),
+]
+
+
+def _write_wav(path: Path, duration: float = 6.0, bpm: float = 120.0, sr: int = 22050):
+    n = int(sr * duration)
+    rng = np.random.default_rng(3)
+    t = np.arange(n) / sr
+    data = (0.3 * np.sin(2 * np.pi * (110 + 20 * t) * t)).astype(np.float32)
+    data += 0.1 * rng.normal(0, 1, n)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes((data / (np.abs(data).max() or 1) * 32000).astype(np.int16).tobytes())
+
+
+def _beatmap(path: Path, duration: float, bpm: float):
+    beat = 60.0 / bpm
+    beats = [round(b, 4) for b in np.arange(0, duration, beat)]
+    return {
+        "analysis_version": 2,
+        "audio": str(path),
+        "sr": 22050,
+        "duration": round(duration, 4),
+        "tempo": bpm,
+        "beats": beats,
+        "downbeats": beats[::4],
+        "beat_energy": [0.5] * len(beats),
+        "onset_novelty": [0.5] * len(beats),
+        "bar_energy": [],
+        "phrase_energy": [],
+    }
+
+
+def _make_track(root: Path, name: str):
+    from PIL import Image
+
+    track = root / name
+    (track / "images").mkdir(parents=True)
+    track.joinpath("audio.wav").parent.mkdir(exist_ok=True)
+    _write_wav(track / "audio.wav")
+    for i in range(2):
+        Image.fromarray(np.zeros((64, 64, 3), dtype=np.uint8)).save(
+            track / "images" / f"{i+1:02d}.jpg"
+        )
+    (track / "track.json").write_text(
+        json.dumps({"title": name.replace("_", " ").title(), "hook": {"mode": "full"}})
+        + "\n"
+    )
+    (track / ".vp").mkdir(exist_ok=True)
+    (track / ".vp" / "beatmap.json").write_text(
+        json.dumps(_beatmap(track / "audio.wav", 6.0, 120.0))
+    )
+    return track
+
+
+@pytest.fixture()
+def client(tmp_path):
+    root = tmp_path / "tracks"
+    root.mkdir()
+    _make_track(root, "demo_track")
+    app = create_app(root=root, out=tmp_path / "out")
+    return TestClient(app)
+
+
+def test_style_fields_cover_defaults():
+    from vp.config import DEFAULT_STYLE
+
+    assert set(STYLE_FIELDS) == set(DEFAULT_STYLE)
+
+
+def test_boot_endpoint(client):
+    data = client.get("/api/boot").json()
+    assert set(data["fields"]) == set(data["defaults"])
+    assert "clean" in data["presets"]
+    assert "vertical" in data["aspects"]
+
+
+def test_list_and_detail(client):
+    tracks = client.get("/api/tracks").json()
+    assert len(tracks) == 1
+    assert tracks[0]["slug"] == "demo-track"
+    detail = client.get("/api/tracks/demo-track").json()
+    assert detail["title"] == "Demo Track"
+    assert detail["image_count"] == 2
+
+
+def test_save_style_writes_minimal_diff(client):
+    res = client.post(
+        "/api/tracks/demo-track/style",
+        json={"style": resolve_style({"zoom": 0.2, "preset": "clean"})},
+    )
+    assert res.status_code == 200
+    saved = res.json()["saved"]
+    assert saved.get("zoom") == 0.2
+    assert "fps" not in saved  # equals preset default -> not persisted
+
+    manifest = json.loads(
+        (Path(client.app.state.root) / "demo_track" / "track.json").read_text()
+    )
+    assert manifest["style"] == saved
+
+
+def test_save_style_rejects_invalid(client):
+    res = client.post(
+        "/api/tracks/demo-track/style",
+        json={"style": {"contrast": 5.0, "preset": "clean"}},
+    )
+    assert res.status_code == 400
+
+
+def test_preview_renders_short_no_audio(client):
+    res = client.post(
+        "/api/tracks/demo-track/preview",
+        json={"aspect": "vertical", "style": resolve_style({"preset": "punchy"})},
+    )
+    assert res.status_code == 200
+    url = res.json()["url"]
+    dest = Path(client.app.state.out) / url.removeprefix("/api/files/")
+    assert dest.exists()
+
+    import subprocess
+
+    probe = subprocess.run(
+        [
+            "ffprobe", "-v", "error", "-show_entries",
+            "stream=codec_type,width,height", "-of", "csv=p=0", str(dest),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    streams = probe.stdout.strip().splitlines()
+    assert "video,270,480" in streams  # quarter of 1080x1920
+    assert len(streams) == 1  # no audio stream

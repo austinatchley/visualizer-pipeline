@@ -29,6 +29,49 @@ DEFAULT_STYLE = {
 
 TEXTURE_BLENDS = {"multiply", "overlay", "screen", "softlight"}
 
+FPS_CHOICES = {24, 30, 60}
+
+# Declarative style surface: validation and the UI controls both read this.
+# `type` is one of "preset" | "int" | "float" | "bool" | "choice" | "path".
+# Numeric keys use `min`/`max` (+ optional `exclusive_min`); `choice` uses `choices`.
+STYLE_FIELDS: dict[str, dict] = {
+    "preset": {"type": "preset", "help": "Named look; presets live in presets/*.json"},
+    "beats_per_cut": {"type": "int", "min": 1, "help": "Base cut interval in beats"},
+    "crossfade": {
+        "type": "float", "min": 0.0, "max": 2.0, "exclusive_min": True,
+        "step": 0.05, "help": "Crossfade length in seconds",
+    },
+    "zoom": {
+        "type": "float", "min": 0.0, "max": 0.5, "step": 0.01,
+        "help": "Ken Burns amount (zooms 1.0 to 1+zoom)",
+    },
+    "fps": {"type": "choice", "choices": sorted(FPS_CHOICES), "help": "Output framerate"},
+    "waveform": {"type": "bool", "help": "Scrolling waveform strip at the bottom"},
+    "title_font": {"type": "path", "help": "Path to a .ttf (null = system default)"},
+    "supersample": {
+        "type": "choice", "choices": [1, 2, 3, 4], "help": "Pre-zoom upscale factor",
+    },
+    "contrast": {
+        "type": "float", "min": 0.5, "max": 2.0, "step": 0.05, "help": "Luma contrast",
+    },
+    "beat_punch": {
+        "type": "float", "min": 0.0, "max": 0.3, "step": 0.01,
+        "help": "Downbeat zoom punch; 0 = off",
+    },
+    "vignette": {
+        "type": "float", "min": 0.0, "max": 1.0, "step": 0.05,
+        "help": "Edge darkening strength; 0 = off",
+    },
+    "grain": {
+        "type": "float", "min": 0.0, "max": 1.0, "step": 0.05,
+        "help": "Film grain amount; 0 = off",
+    },
+    "texture": {"type": "path", "help": "Overlay image path (null = off)"},
+    "texture_blend": {
+        "type": "choice", "choices": sorted(TEXTURE_BLENDS), "help": "Texture blend mode",
+    },
+}
+
 DEFAULT_HOOK = {
     "mode": "auto",
     "target": 45.0,
@@ -43,7 +86,6 @@ DEFAULT_OVERRIDES = {
     "hook": None,
 }
 
-FPS_CHOICES = {24, 30, 60}
 HOOK_MIN = 30.0
 HOOK_MAX = 60.0
 
@@ -70,43 +112,43 @@ def load_preset(name: str) -> dict:
 
 def _validate_style(style: dict) -> dict:
     try:
-        style["beats_per_cut"] = int(style["beats_per_cut"])
-        style["fps"] = int(style["fps"])
-        style["supersample"] = int(style["supersample"])
-        style["crossfade"] = float(style["crossfade"])
-        style["zoom"] = float(style["zoom"])
-        style["contrast"] = float(style["contrast"])
-        style["beat_punch"] = float(style["beat_punch"])
-        style["vignette"] = float(style["vignette"])
-        style["grain"] = float(style["grain"])
+        for key, spec in STYLE_FIELDS.items():
+            if key not in style:
+                continue
+            kind = spec["type"]
+            value = style[key]
+
+            if kind == "preset":
+                continue
+            if kind == "int":
+                style[key] = int(value)
+                if "min" in spec and style[key] < spec["min"]:
+                    raise ValueError(f"{key} must be >= {spec['min']}")
+                continue
+            if kind == "float":
+                style[key] = float(value)
+                lo, hi = spec.get("min"), spec.get("max")
+                if lo is not None:
+                    if spec.get("exclusive_min"):
+                        if style[key] <= lo:
+                            raise ValueError(f"{key} must be > {lo} (exclusive)")
+                    elif style[key] < lo:
+                        raise ValueError(f"{key} must be >= {lo}")
+                if hi is not None and style[key] > hi:
+                    raise ValueError(f"{key} must be <= {hi}")
+                continue
+            if kind == "bool":
+                style[key] = bool(value)
+                continue
+            if kind == "choice":
+                if value not in spec["choices"]:
+                    raise ValueError(f"{key} must be one of {spec['choices']}")
+                continue
+            if kind == "path":
+                style[key] = None if value is None else str(value)
+                continue
     except (TypeError, ValueError) as exc:
         raise ValueError(f"invalid style value: {exc}") from None
-
-    if style["beats_per_cut"] < 1:
-        raise ValueError("beats_per_cut must be >= 1")
-    if style["fps"] not in FPS_CHOICES:
-        raise ValueError(f"fps must be one of {sorted(FPS_CHOICES)}")
-    if not 0 < style["crossfade"] <= 2:
-        raise ValueError("crossfade must be between 0 and 2 seconds")
-    if not 0 <= style["zoom"] <= 0.5:
-        raise ValueError("zoom must be between 0 and 0.5")
-    if style["supersample"] not in (1, 2, 3, 4):
-        raise ValueError("supersample must be 1, 2, 3, or 4")
-    if not 0.5 <= style["contrast"] <= 2.0:
-        raise ValueError("contrast must be between 0.5 and 2.0")
-    if not 0 <= style["beat_punch"] <= 0.3:
-        raise ValueError("beat_punch must be between 0 and 0.3")
-    if not 0 <= style["vignette"] <= 1:
-        raise ValueError("vignette must be between 0 and 1")
-    if not 0 <= style["grain"] <= 1:
-        raise ValueError("grain must be between 0 and 1")
-    style["waveform"] = bool(style["waveform"])
-    if style["texture_blend"] not in TEXTURE_BLENDS:
-        raise ValueError(f"texture_blend must be one of {sorted(TEXTURE_BLENDS)}")
-    if style["texture"] is not None:
-        style["texture"] = str(style["texture"])
-    if style["title_font"] is not None:
-        style["title_font"] = str(style["title_font"])
     return style
 
 

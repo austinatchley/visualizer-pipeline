@@ -16,9 +16,17 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+ui = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "python-multipart>=0.0.9",
+]
 
 [project.scripts]
 vp = "vp.cli:main"
 
-[tool.setuptools]
-packages = ["vp"]
+[tool.setuptools.packages.find]
+include = ["vp*"]
+
+[tool.setuptools.package-data]
+"vp.ui" = ["static/*"]
