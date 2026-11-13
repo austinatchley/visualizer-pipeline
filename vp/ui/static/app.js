@@ -51,16 +51,22 @@ function makeControl(key, spec, value) {
     cb.addEventListener("change", () => onChange(cb.checked));
   } else if (spec.type === "int" || spec.type === "float") {
     const min = spec.min ?? 0;
-    const max = spec.max ?? 1;
+    const max =
+      spec.max ??
+      (spec.type === "int"
+        ? Math.max(16, Math.ceil((Number(value) || 0) * 2))
+        : 1);
     const step = spec.step ?? (spec.type === "int" ? 1 : 0.01);
     el.insertAdjacentHTML(
       "beforeend",
-      `<div class="slider-group"><input type="range" min="${min}" max="${max}" step="${step}"><output></output></div>`
+      `<div class="slider-group"><input type="range" min="${min}" max="${max}" step="${step}"></div>`
     );
     const slider = el.querySelector("input[type=range]");
-    slider.value = value ?? 0;
-    out.textContent = String(value);
-    slider.addEventListener("input", () => onChange(parseFloat(slider.value)));
+    slider.value = value ?? min;
+    out.textContent = String(slider.value);
+    const read = () =>
+      spec.type === "int" ? parseInt(slider.value, 10) : parseFloat(slider.value);
+    slider.addEventListener("input", () => onChange(read()));
   } else if (spec.type === "choice") {
     const numeric = spec.choices.length && typeof spec.choices[0] === "number";
     el.innerHTML =

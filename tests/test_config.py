@@ -1,6 +1,7 @@
 import pytest
 
 from vp.config import (
+    STYLE_FIELDS,
     resolve_hook,
     resolve_overrides,
     resolve_style,
@@ -145,3 +146,22 @@ def test_overrides_cuts_sorted():
 def test_overrides_tempo_multiplier_validation():
     with pytest.raises(ValueError, match="tempo_multiplier"):
         resolve_overrides({"tempo_multiplier": 3})
+
+
+def test_numeric_style_fields_declare_bounds():
+    for key, spec in STYLE_FIELDS.items():
+        if spec["type"] in {"int", "float"}:
+            assert "min" in spec, f"{key} is missing min"
+            assert "max" in spec, f"{key} is missing max"
+
+
+def test_beats_per_cut_slider_range():
+    spec = STYLE_FIELDS["beats_per_cut"]
+    assert spec["type"] == "int"
+    assert spec["min"] < spec["max"]
+    assert spec["max"] >= 16
+
+
+def test_beats_per_cut_max_validation():
+    with pytest.raises(ValueError, match="beats_per_cut"):
+        resolve_style({"beats_per_cut": 999})

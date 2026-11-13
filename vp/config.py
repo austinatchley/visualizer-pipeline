@@ -36,7 +36,10 @@ FPS_CHOICES = {24, 30, 60}
 # Numeric keys use `min`/`max` (+ optional `exclusive_min`); `choice` uses `choices`.
 STYLE_FIELDS: dict[str, dict] = {
     "preset": {"type": "preset", "help": "Named look; presets live in presets/*.json"},
-    "beats_per_cut": {"type": "int", "min": 1, "help": "Base cut interval in beats"},
+    "beats_per_cut": {
+        "type": "int", "min": 1, "max": 32, "step": 1,
+        "help": "Base cut interval in beats",
+    },
     "crossfade": {
         "type": "float", "min": 0.0, "max": 2.0, "exclusive_min": True,
         "step": 0.05, "help": "Crossfade length in seconds",
@@ -140,6 +143,8 @@ def _validate_style(style: dict) -> dict:
                 style[key] = int(value)
                 if "min" in spec and style[key] < spec["min"]:
                     raise ValueError(f"{key} must be >= {spec['min']}")
+                if "max" in spec and style[key] > spec["max"]:
+                    raise ValueError(f"{key} must be <= {spec['max']}")
                 continue
             if kind == "float":
                 style[key] = float(value)
