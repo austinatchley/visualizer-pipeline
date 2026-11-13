@@ -28,9 +28,61 @@ def test_flags_win_over_track_style():
     assert style["beats_per_cut"] == 2
 
 
+def test_punchy_preset_overrides():
+    style = resolve_style(preset="punchy")
+    assert style["preset"] == "punchy"
+    assert style["beats_per_cut"] == 4
+    assert style["crossfade"] == 0.25
+    assert style["contrast"] == 1.15
+    assert style["beat_punch"] == 0.06
+
+
+def test_balanced_preset_combines():
+    style = resolve_style(preset="balanced")
+    assert style["preset"] == "balanced"
+    assert style["beats_per_cut"] == 6
+    assert style["contrast"] == 1.08
+
+
+def test_flags_pick_preset():
+    style = resolve_style(flags={"preset": "punchy"})
+    assert style["preset"] == "punchy"
+
+
 def test_unknown_preset_raises():
     with pytest.raises(ValueError, match="unknown preset"):
         resolve_style(preset="nope")
+
+
+def test_contrast_range_raises():
+    with pytest.raises(ValueError, match="contrast"):
+        resolve_style(flags={"contrast": 0.1})
+    with pytest.raises(ValueError, match="contrast"):
+        resolve_style(flags={"contrast": 3.0})
+
+
+def test_beat_punch_range_raises():
+    with pytest.raises(ValueError, match="beat_punch"):
+        resolve_style(flags={"beat_punch": -0.1})
+    with pytest.raises(ValueError, match="beat_punch"):
+        resolve_style(flags={"beat_punch": 0.5})
+
+
+def test_vignette_and_grain_validation():
+    with pytest.raises(ValueError, match="vignette"):
+        resolve_style(flags={"vignette": 1.5})
+    with pytest.raises(ValueError, match="grain"):
+        resolve_style(flags={"grain": -0.2})
+
+
+def test_texture_blend_validation():
+    with pytest.raises(ValueError, match="texture_blend"):
+        resolve_style(flags={"texture_blend": "burn"})
+    assert resolve_style(flags={"texture_blend": "overlay"})["texture_blend"] == "overlay"
+
+
+def test_texture_path_stringified():
+    assert resolve_style(flags={"texture": "/tmp/grain.png"})["texture"] == "/tmp/grain.png"
 
 
 def test_invalid_fps_raises():

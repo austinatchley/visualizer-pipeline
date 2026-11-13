@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from vp.analyze import load_beatmap
+from vp.aspects import HORIZONTAL, VERTICAL
 from vp.render import plan_variants, render
 from vp.track import load_track
 
@@ -69,6 +70,32 @@ def hook_render(tmp_path_factory):
     return variant
 
 
+@pytest.fixture(scope="module")
+def styled_renders(tmp_path_factory):
+    _require(SHORT)
+    out_dir = tmp_path_factory.mktemp("styled")
+    track = load_track(SHORT)
+    beatmap = load_beatmap(track)
+
+    punchy = load_track(SHORT, overrides={"preset": "punchy"})
+    punchy_path = out_dir / "punchy_9x16.mp4"
+    render(punchy, VERTICAL, beatmap, punchy_path, window=(0.0, beatmap["duration"]))
+
+    overlays = load_track(
+        SHORT,
+        overrides={
+            "preset": "clean",
+            "waveform": True,
+            "vignette": 0.5,
+            "grain": 0.4,
+        },
+    )
+    overlays_path = out_dir / "waveform_16x9.mp4"
+    render(overlays, HORIZONTAL, beatmap, overlays_path, window=(0.0, beatmap["duration"]))
+
+    return punchy_path, overlays_path
+
+
 def test_resolutions(short_renders):
     expected = {
         "vertical": (1080, 1920),
@@ -110,3 +137,17 @@ def test_hook_window_and_alignment(hook_render):
     assert 30 <= expected <= 60
     assert abs(float(data["format"]["duration"]) - expected) <= 0.15
     assert abs(float(_audio(data)["duration"]) - expected) <= 0.15
+
+
+def test_punchy_preset_renders(styled_renders):
+    punchy, _ = styled_renders
+    video = _video(_probe(punchy))
+    assert (video["width"], video["height"]) == (1080, 1920)
+    assert video["pix_fmt"] == "yuv420p"
+
+
+def test_waveform_overlay_renders(styled_renders):
+    _, waveform = styled_renders
+    video = _video(_probe(waveform))
+    assert (video["width"], video["height"]) == (1920, 1080)
+    assert float(_probe(waveform)["format"]["duration"]) <= 12.0 + 0.15

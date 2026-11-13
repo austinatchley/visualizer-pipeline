@@ -9,13 +9,43 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from PIL import Image
+
 from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
 from .hud import build_hud, find_font
 from .plan import full_window, plan_timeline, select_hook
 from .track import Track
+from .waveform import build_strip
 
 HUD_FADE_IN = 0.3
 HUD_FADE_DUR = 0.8
+GRAIN_SEED = 2024
+
+
+def _cover_image(src: Path, width: int, height: int, out: Path) -> Path:
+    img = Image.open(src).convert("RGB")
+    scale = max(width / img.width, height / img.height)
+    img = img.resize(
+        (math.ceil(img.width * scale), math.ceil(img.height * scale)),
+        Image.Resampling.LANCZOS,
+    )
+    left = (img.width - width) // 2
+    top = (img.height - height) // 2
+    img.crop((left, top, left + width, top + height)).save(out)
+    return out
+
+
+def _zoom_expr(
+    i: int, fps: int, frames: int, max_zoom: float, punch: float
+) -> str:
+    rate = (max_zoom - 1.0) / max(frames - 1, 1)
+    if i % 2 == 1:
+        return f"max({max_zoom:.5f}-{rate:.6f}*on,1)"
+    if punch:
+        return (
+            f"min(1+{rate:.6f}*on+{punch:.4f}*exp(-on/{fps}*6.0),{max_zoom:.5f})"
+        )
+    return f"min(1+{rate:.6f}*on,{max_zoom:.5f})"
 
 
 @dataclass(frozen=True)
@@ -56,14 +86,19 @@ def render(
 
     font = find_font(style.get("title_font"))
     max_zoom = 1.0 + float(style.get("zoom", 0.10))
+    punch = float(style.get("beat_punch", 0.0))
     supersample = int(style.get("supersample", 2))
-    if style.get("waveform"):
-        raise ValueError("waveform is not supported yet (see #15); rerun with --no-waveform")
 
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
     try:
         hud = tmp / "hud.png"
         build_hud(hud, aspect, track.title, track.artist, track.handle, font)
+
+        texture_path = style.get("texture")
+        if texture_path:
+            texture_path = Path(texture_path)
+            if not texture_path.is_file():
+                raise FileNotFoundError(f"texture not found: {texture_path}")
 
         # ---- inputs: one image per segment, then audio, then HUD overlay ----
         inputs: list[str] = []
@@ -77,15 +112,39 @@ def render(
             "-i", str(hud),
         ]
 
+        next_idx = n + 2
+        tex_idx = None
+        if texture_path:
+            tex_idx = next_idx
+            next_idx += 1
+            tex = tmp / "texture.png"
+            _cover_image(texture_path, width, height, tex)
+            inputs += [
+                "-loop", "1", "-framerate", str(fps), "-t",
+                f"{clip_duration:.3f}", "-i", str(tex),
+            ]
+
+        wf_idx = None
+        strip_img = None
+        if style.get("waveform"):
+            wf_idx = next_idx
+            next_idx += 1
+            strip_h = max(64, int(height * 0.07))
+            strip_img = build_strip(
+                track.audio, window, width * 2, strip_h, beatmap
+            )
+            wf = tmp / "waveform.png"
+            strip_img.save(wf)
+            inputs += [
+                "-loop", "1", "-framerate", str(fps), "-t",
+                f"{clip_duration:.3f}", "-i", str(wf),
+            ]
+
         parts: list[str] = []
         prev = "v0"
         for i, seg in enumerate(segments):
             frames = max(2, math.ceil(seg.duration * fps) + 2)
-            rate = (max_zoom - 1.0) / max(frames - 1, 1)
-            if i % 2 == 0:
-                zexpr = f"min(1+{rate:.6f}*on,{max_zoom:.5f})"
-            else:
-                zexpr = f"max({max_zoom:.5f}-{rate:.6f}*on,1)"
+            zexpr = _zoom_expr(i, fps, frames, max_zoom, punch)
             parts.append(
                 f"[{i}:v]scale={width * supersample}:{height * supersample}:"
                 f"force_original_aspect_ratio=increase,"
@@ -103,8 +162,16 @@ def render(
             )
             prev = label
 
-        # Audio strip is deferred to #15; do not use the crashing showwaves path.
         audio_src = f"[{audio_idx}:a]"
+
+        if texture_path:
+            parts.append(
+                f"[{tex_idx}:v]format=rgb24,settb=AVTB,setpts=PTS-STARTPTS[tex]"
+            )
+            parts.append(f"[{prev}]format=rgb24[base]")
+            blend_mode = style.get("texture_blend", "multiply")
+            parts.append(f"[tex][base]blend=all_mode={blend_mode}[comp]")
+            prev = "comp"
 
         parts.append(
             f"[{hud_idx}:v]format=rgba,"
@@ -114,16 +181,46 @@ def render(
         parts.append(f"[{prev}][hud]overlay=0:0:format=auto[vg]")
         prev = "vg"
 
+        if strip_img is not None:
+            strip_h = strip_img.height
+            margin = max(24, int(height * 0.02))
+            y = height - strip_h - margin
+            parts.append(
+                f"[{wf_idx}:v]format=rgba,"
+                f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
+                f"settb=AVTB,setpts=PTS-STARTPTS[wf]"
+            )
+            xexpr = f"-(t/{clip_duration:.3f})*{width}"
+            parts.append(
+                f"[{prev}][wf]overlay=x='{xexpr}':y={y}:format=auto[wv]"
+            )
+            prev = "wv"
+
+        finish: list[str] = []
+        vignette = float(style.get("vignette", 0.0))
+        if vignette > 0:
+            angle = f"(PI/5)*(1+{vignette:.3f}*1.6)"
+            finish.append(f"vignette=angle={angle}")
+        grain = float(style.get("grain", 0.0))
+        if grain > 0:
+            strength = int(grain * 25)
+            finish.append(f"noise=alls={strength}:allf=t+u:all_seed={GRAIN_SEED}")
+        contrast = float(style.get("contrast", 1.0))
+        if contrast != 1.0:
+            finish.append(f"eq=contrast={contrast:.3f}")
+
         fade_in = float(style.get("fade_in", 0.4))
         fade_out = float(style.get("fade_out", 0.8))
-        parts.append(
-            f"[{prev}]fade=t=in:st=0:d={fade_in:.3f},"
-            f"fade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f},"
-            f"scale=out_range=tv,format=yuv420p[vout]"
-        )
+        finish += [
+            f"fade=t=in:st=0:d={fade_in:.3f}",
+            f"fade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}",
+            "scale=out_range=tv,format=yuv420p",
+        ]
+        parts.append(f"[{prev}]format=rgb24," + ",".join(finish) + "[vout]")
         parts.append(
             f"{audio_src}atrim={window_start:.3f}:{window_end:.3f},asetpts=PTS-STARTPTS,"
             f"loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,"
+            f"aformat=channel_layouts=stereo,"
             f"afade=t=in:st=0:d={fade_in:.3f},"
             f"afade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}[aout]"
         )

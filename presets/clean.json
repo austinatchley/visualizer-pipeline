@@ -4,5 +4,11 @@
   "zoom": 0.10,
   "fps": 30,
   "waveform": false,
-  "supersample": 2
+  "supersample": 2,
+  "contrast": 1.0,
+  "beat_punch": 0.0,
+  "vignette": 0.0,
+  "grain": 0.0,
+  "texture": null,
+  "texture_blend": "multiply"
 }

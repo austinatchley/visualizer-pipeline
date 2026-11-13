@@ -1,0 +1,10 @@
+{
+  "beats_per_cut": 6,
+  "crossfade": 0.30,
+  "zoom": 0.11,
+  "contrast": 1.08,
+  "beat_punch": 0.03,
+  "fps": 30,
+  "waveform": false,
+  "supersample": 2
+}

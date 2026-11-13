@@ -19,7 +19,15 @@ DEFAULT_STYLE = {
     "waveform": False,
     "title_font": None,
     "supersample": 2,
+    "contrast": 1.0,
+    "beat_punch": 0.0,
+    "vignette": 0.0,
+    "grain": 0.0,
+    "texture": None,
+    "texture_blend": "multiply",
 }
+
+TEXTURE_BLENDS = {"multiply", "overlay", "screen", "softlight"}
 
 DEFAULT_HOOK = {
     "mode": "auto",
@@ -67,6 +75,10 @@ def _validate_style(style: dict) -> dict:
         style["supersample"] = int(style["supersample"])
         style["crossfade"] = float(style["crossfade"])
         style["zoom"] = float(style["zoom"])
+        style["contrast"] = float(style["contrast"])
+        style["beat_punch"] = float(style["beat_punch"])
+        style["vignette"] = float(style["vignette"])
+        style["grain"] = float(style["grain"])
     except (TypeError, ValueError) as exc:
         raise ValueError(f"invalid style value: {exc}") from None
 
@@ -80,7 +92,19 @@ def _validate_style(style: dict) -> dict:
         raise ValueError("zoom must be between 0 and 0.5")
     if style["supersample"] not in (1, 2, 3, 4):
         raise ValueError("supersample must be 1, 2, 3, or 4")
+    if not 0.5 <= style["contrast"] <= 2.0:
+        raise ValueError("contrast must be between 0.5 and 2.0")
+    if not 0 <= style["beat_punch"] <= 0.3:
+        raise ValueError("beat_punch must be between 0 and 0.3")
+    if not 0 <= style["vignette"] <= 1:
+        raise ValueError("vignette must be between 0 and 1")
+    if not 0 <= style["grain"] <= 1:
+        raise ValueError("grain must be between 0 and 1")
     style["waveform"] = bool(style["waveform"])
+    if style["texture_blend"] not in TEXTURE_BLENDS:
+        raise ValueError(f"texture_blend must be one of {sorted(TEXTURE_BLENDS)}")
+    if style["texture"] is not None:
+        style["texture"] = str(style["texture"])
     if style["title_font"] is not None:
         style["title_font"] = str(style["title_font"])
     return style

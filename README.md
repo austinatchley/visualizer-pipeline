@@ -109,14 +109,26 @@ Everything is optional. Only include what differs from the defaults.
 
 | Key | Default | Notes |
 |---|---|---|
-| `preset` | `clean` | `clean` shipped now; `punchy` arrives in M3 |
+| `preset` | `clean` | `clean`, `punchy`, or `balanced` |
 | `beats_per_cut` | `8` | Base interval; energy-reactive cuts scale it |
 | `crossfade` | `0.35` | Seconds; clamped to 40% of the shortest segment |
 | `zoom` | `0.10` | Ken Burns amount (`1.0 → 1.1`) |
 | `fps` | `30` | `24`, `30`, or `60` |
 | `supersample` | `2` | Pre-zoom upscale factor (1–4); higher = sharper/slower |
-| `waveform` | `false` | Not implemented yet (see #15) |
+| `contrast` | `1.0` | Luma contrast (`0.5–2.0`); `punchy` uses `1.15` |
+| `beat_punch` | `0.0` | Extra zoom at each cut/downbeat that decays (`0–0.3`) |
+| `vignette` | `0.0` | Edge darkening strength (`0–1`); `0` = off |
+| `grain` | `0.0` | Film-grain amount (`0–1`); `0` = off, fixed seed |
+| `texture` | `null` | Path to an image blended over the video |
+| `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
+| `waveform` | `false` | Scrolling Pillow waveform strip at the bottom |
 | `title_font` | system Arial Bold | Path to a `.ttf` |
+
+Presets only set style keys and can be overridden per-track or per-command:
+
+- **`clean`** — the v1 defaults: calm Ken Burns, energy-reactive crossfades.
+- **`punchy`** — shorter cuts, a decaying scale punch on each downbeat, higher contrast.
+- **`balanced`** — a middle ground between the two.
 
 ### Hook
 
@@ -151,8 +163,10 @@ Common options for `inspect`, `render`, and `batch`:
 ```
 --aspect vertical|horizontal|square|all   (default: all)
 --out DIR                                 output root (default: out/)
---preset NAME
+--preset NAME                              clean|punchy|balanced
 --beats-per-cut N  --crossfade S  --zoom F  --fps N  --supersample N
+--contrast F  --beat-punch F
+--vignette F  --grain F  --texture PATH  --texture-blend MODE
 --font PATH  --handle @name
 --hook auto|full|START-END
 --bpm N  --tempo-multiplier 0.5|1|2
@@ -216,8 +230,6 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 - **Tempo detected half/double** — pass `--bpm` or set `overrides.bpm`; alternatively
   `overrides.tempo_multiplier: 0.5|2`.
 - **No font found** — set `style.title_font` or pass `--font /path/to/font.ttf`.
-- **`waveform` errors** — the audio strip is not in v1; use `--no-waveform` (tracked in
-  issue #15).
 - **Hook not applied** — the track may be shorter than the target, or `hook.mode` is
   `full`. Check `vp inspect`.
 - **Renders too slow** — lower `--supersample` to 1 or use a faster x264 preset in a
@@ -226,6 +238,6 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 ## Status
 
 v1 scope is locked (see `DESIGN.md` §11). Open work is tracked in
-[issues](https://github.com/austinatchley/visualizer-pipeline/issues), including CI,
-`punchy` presets, advanced section detection, performance, video snippets, and the
-waveform strip.
+[issues](https://github.com/austinatchley/visualizer-pipeline/issues), including
+vibe-aware preset selection, advanced section detection, performance tuning, and
+video snippets.

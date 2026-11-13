@@ -34,6 +34,12 @@ def _add_style_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--supersample", type=int)
     p.add_argument("--font", dest="title_font")
     p.add_argument("--waveform", action=argparse.BooleanOptionalAction, default=None)
+    p.add_argument("--contrast", type=float)
+    p.add_argument("--beat-punch", type=float, dest="beat_punch")
+    p.add_argument("--vignette", type=float)
+    p.add_argument("--grain", type=float)
+    p.add_argument("--texture")
+    p.add_argument("--texture-blend", dest="texture_blend")
 
 
 def _add_hook_args(p: argparse.ArgumentParser) -> None:
@@ -60,6 +66,12 @@ def _style_overrides(args: argparse.Namespace) -> dict:
         "supersample": getattr(args, "supersample", None),
         "title_font": getattr(args, "title_font", None),
         "waveform": getattr(args, "waveform", None),
+        "contrast": getattr(args, "contrast", None),
+        "beat_punch": getattr(args, "beat_punch", None),
+        "vignette": getattr(args, "vignette", None),
+        "grain": getattr(args, "grain", None),
+        "texture": getattr(args, "texture", None),
+        "texture_blend": getattr(args, "texture_blend", None),
     }
 
 
