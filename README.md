@@ -269,7 +269,16 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 
 ## Status
 
-v1 scope is locked (see `DESIGN.md` §11). Open work is tracked in
-[issues](https://github.com/austinatchley/visualizer-pipeline/issues), including
-vibe-aware preset selection, advanced section detection, performance tuning, and
-video snippets.
+v1 plus the post-v1 local web studio are shipped. CI installs `.[dev,ui]`, generates
+fixtures, and runs the full suite (86 tests at the time of writing).
+
+Open work is tracked in
+[issues](https://github.com/austinatchley/visualizer-pipeline/issues):
+
+- #11 advanced section/phrase detection
+- #12 performance tuning
+- #14 video snippets
+- #19 vibe-aware preset selection
+- #20 `saturation`/`grade` style keys
+- #21 beat-reactive `color_punch`
+- #23–#25 web studio follow-ups (jobs/A-B, drag-and-drop reorder, autosave)

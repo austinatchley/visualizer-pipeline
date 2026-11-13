@@ -1,6 +1,6 @@
 # Visualizer Pipeline — Design
 
-Status: **v1 scope locked** (prototype exists; this document is the contract for the rebuild)
+Status: **v1 + post-v1 web studio shipped** (decisions in §11; open work in §12)
 
 ## 1. Problem
 
@@ -197,23 +197,25 @@ Select a short window from the full track:
 
 Layers, bottom to top:
 
-1. **Base image** — cover-crop to the aspect, supersampled 2×, Ken Burns zoom
-   (`1.0 ↔ 1+zoom`), alternating direction each segment.
-2. **Grade** — optional subtle contrast/saturation and vignette.
-3. **Audio strip** — optional (see D3).
+1. **Base image** — cover-crop to the aspect, supersampled `style.supersample` (2×),
+   Ken Burns zoom (`1.0 ↔ 1+zoom`), alternating direction each segment.
+2. **Grade / effects** — `contrast`, optional `vignette`, fixed-seed `grain`, and an
+   optional `texture` image blended with `texture_blend` (`multiply|overlay|screen|softlight`).
+3. **Waveform strip** — optional scrolling Pillow strip (`vp/waveform.py`), tied to the
+   beat energy; never uses ffmpeg's `showwaves`.
 4. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
    Pre-rendered as a transparent PNG with Pillow (Homebrew ffmpeg has no `drawtext`),
    faded in with alpha.
 5. **Global fade** — 0.4 s in, 0.8 s out (video + audio).
 
 Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfade cuts +
-title fade. This is what makes it look intentional instead of random.
+`beat_punch` + title fade. This is what makes it look intentional instead of random.
 
-**Presets and vibe.** `clean` is the v1 default (Ken Burns, crossfades, restrained type).
-`punchy` and a combined preset are added incrementally (M3), and `style.preset` lets each
-track pick a look. Later, `style.preset: "auto"` maps audio features (tempo band, energy
-mean/variance, low/high balance) to a preset so the visuals follow the vibe of the music.
-Explicit presets always win over `auto`.
+**Presets and vibe.** `clean`, `punchy`, and `balanced` ship in `presets/*.json`, and
+`style.preset` lets each track pick a look. Style keys are declared once in
+`config.STYLE_FIELDS`; validation and the UI controls both read it, so new keys appear
+everywhere automatically. `style.preset: "auto"` (vibe-aware mapping from audio features)
+is still open (#19); explicit presets always win over `auto`.
 
 Per-aspect layout:
 
@@ -233,9 +235,10 @@ Text wraps to width using font metrics. Default font: `Arial Bold.ttf`; configur
 Build one `ffmpeg -filter_complex` graph per variant:
 
 ```
-[image per segment] → scale 2× cover crop → zoompan (Ken Burns) → settb/setpts
-→ xfade chain (beat offsets) → [optional audio strip]
-→ HUD PNG overlay (alpha fade-in) → global fades → yuv420p
+[image per segment] → scale (supersample×) cover crop → zoompan (Ken Burns + beat_punch)
+→ settb/setpts → xfade chain (beat offsets) → grade (contrast/vignette/grain/texture)
+→ [optional Pillow waveform strip] → HUD PNG overlay (alpha fade-in)
+→ global fades → scale=out_range=tv,format=yuv420p
 audio: atrim(window) → loudnorm -14 LUFS → aresample 48k → afade
 encode: libx264 crf 18, preset medium, AAC 192k, +faststart, yuv420p, 30 fps
 ```
@@ -243,25 +246,34 @@ encode: libx264 crf 18, preset medium, AAC 192k, +faststart, yuv420p, 30 fps
 Variants: `16x9` full, `9x16` hook, `1x1` hook. Hooks trim both video and audio to the
 selected window.
 
-Notes for the rebuild:
+Renderer notes:
 
 - HUD is a Pillow PNG because ffmpeg lacks `drawtext`.
 - Force `aresample=48000` after `loudnorm` (prototype emitted 96 kHz).
-- Supersample factor is configurable (2× improves zoom quality, costs speed).
+- Supersample factor is configurable (`style.supersample`, default 2×).
+- `preview=True` renders a short, quarter-resolution, audio-less clip through the same
+  graph for fast UI iteration.
+- `progress=` / `cancel=` stream ffmpeg progress and abort mid-render; the UI runs full
+  renders as background jobs.
+- The waveform is a Pillow strip (`vp/waveform.py`) composited on top; the crashing
+  `showwaves` path is gone.
 - Temp files go in a per-render temp dir, always cleaned up.
 
 ## 5. CLI
 
 ```
-vp analyze <track|root> [--force]      # write beatmap(s), no render
+vp analyze <track> [--bpm N] [--tempo-multiplier 0.5|1|2]
 vp inspect <track>                     # print plan: cuts, windows, style, outputs
-vp render  <track> [--aspect all] [--preset clean] [--hook auto] [--out DIR] [--force]
-vp batch   <root>  [--aspect all] [--preset clean] [--hook auto] [--out DIR] [--jobs N]
-vp init    <track>                     # scaffold track.json / title.txt / images/
+vp render  <track> [options]           # render one track
+vp batch   <root>  [options]           # render every track folder under root
+vp init    <track>                     # scaffold track.json / images/
+vp ui      [--host H] [--port P] [--tracks DIR] [--out DIR] [--no-browser]
 ```
 
-Common flags: `--beats-per-cut`, `--crossfade`, `--zoom`, `--fps`, `--font`, `--handle`,
-`--bpm`, `--waveform/--no-waveform`.
+Common flags: `--preset`, `--beats-per-cut`, `--crossfade`, `--zoom`, `--fps`,
+`--supersample`, `--contrast`, `--beat-punch`, `--vignette`, `--grain`, `--texture`,
+`--texture-blend`, `--font`, `--handle`, `--bpm`, `--tempo-multiplier`,
+`--waveform/--no-waveform`.
 
 Behavior:
 
@@ -312,15 +324,17 @@ visualizer-pipeline/
   pyproject.toml
   README.md
   DESIGN.md
+  AGENTS.md
   vp/
-    cli.py  track.py  analyze.py  plan.py  hud.py  render.py  config.py
-    ui/                       # local web studio (issue A)
+    cli.py  track.py  analyze.py  plan.py  hud.py  waveform.py
+    render.py  config.py  status.py
+    ui/                       # local web studio
       server.py  static/
   presets/
-    clean.json                        # v1
-    punchy.json                       # M3
+    clean.json  punchy.json  balanced.json
   tests/
-    test_plan.py  test_track.py  test_hud.py  test_render_smoke.py  test_ui.py
+    test_config.py  test_plan.py  test_analyze.py  test_windows.py
+    test_hud.py  test_waveform.py  test_cli.py  test_render_smoke.py  test_ui.py
   scripts/
     make_fixtures.py
   fixtures/                           # generated, gitignored
@@ -330,12 +344,15 @@ visualizer-pipeline/
 ## 8. Testing
 
 - **Unit:** timeline math (offsets, durations, total = window, no negative offsets),
-  energy-reactive cut selection, hook scoring/rebasing, text wrapping/layout,
-  discovery/precedence, slug/naming, cache invalidation.
+  energy-reactive cut selection, hook scoring/rebasing, tempo overrides, text
+  wrapping/layout, discovery/precedence, slug/naming, cache invalidation, config schema.
 - **Integration:** render `fixtures/d_short` for all variants; assert with `ffprobe`:
   resolution (1080×1920, 1080×1080, 1920×1080), fps, duration ±0.1 s, 48 kHz audio,
-  faststart.
-- **Smoke batch:** run `vp batch fixtures/` with a short track.
+  faststart, TV-range yuv420p; hook window alignment on a long fixture.
+- **Waveform + UI:** Pillow strip output and FastAPI endpoints/jobs (skipped cleanly when
+  the `.[dev,ui]` extras are absent).
+- **CI:** `.github/workflows/ci.yml` installs `.[dev,ui]`, installs ffmpeg + DejaVu fonts,
+  generates fixtures, and runs `pytest -q` (86 tests at the time of writing).
 
 ## 9. Performance
 
@@ -346,42 +363,55 @@ visualizer-pipeline/
 - Optimizations kept in reserve: lower supersample factor, `preset veryfast`,
   pre-scaled image cache, concurrent variants.
 
-## 10. Known prototype issues to fix in the rebuild
+## 10. Prototype issues (resolved)
 
-- `showwaves` overlay path SIGKILLs ffmpeg → drop or replace (see D3).
-- `loudnorm` → 96 kHz output → add `aresample=48000`.
-- Homebrew ffmpeg has no `drawtext`/`subtitles` → keep Pillow HUD.
-- Synthetic fixtures mis-detect tempo → document manual `overrides.bpm`.
-- Horizontal output not yet verified end-to-end.
+- `showwaves` SIGKILL → replaced with the Pillow waveform strip (#15).
+- `loudnorm` → 96 kHz → forced `aresample=48000`.
+- No `drawtext` in Homebrew ffmpeg → Pillow HUD.
+- Synthetic fixtures mis-detect tempo → documented `overrides.bpm` / `tempo_multiplier`.
+- Horizontal output → verified by the ffprobe smoke tests.
+- CI red after the UI landed → install `.[dev,ui]` + `httpx` (#26).
 
-## 11. Decisions (locked)
+## 11. Decisions (locked, status updated post-v1)
 
-- **D1 — Visual preset.** Start with `clean` (Ken Burns + beat/energy crossfades + title
-  fade). Add `punchy` and a combined preset incrementally; per-track selection in M3.
-- **D2 — Cut strategy.** Energy-reactive in v1: hold through low-energy sections, cut
-  faster on high-energy/drops. Fixed interval is the fallback and the escape hatch.
-- **D3 — Audio strip.** Drop for v1; deterministic Pillow waveform in M4.
-- **D4 — Video snippets.** Images only in v1; `clips/` segments in M4.
+- **D1 — Visual preset.** Shipped: `clean`, `punchy`, and `balanced` presets with
+  per-track `style.preset`. Vibe-aware `auto` selection is still open (#19).
+- **D2 — Cut strategy.** Energy-reactive: hold through low-energy sections, cut faster on
+  high-energy/drops. Fixed interval is the fallback and `overrides.cuts` is the escape
+  hatch.
+- **D3 — Audio strip.** Resolved: deterministic scrolling Pillow strip (#15); ffmpeg
+  `showwaves` is never used.
+- **D4 — Video snippets.** Still open: images only; `clips/` segments tracked in #14.
 - **D5 — Text.** Title + artist + handle, preserve case, bold sans, shadow.
 - **D6 — Naming.** `<slug>_16x9.mp4`, `<slug>_9x16_hook.mp4`, `<slug>_1x1_hook.mp4`.
 - **D7 — Tempo override.** `overrides.bpm` + `tempo_multiplier` + `--bpm`.
 - **D8 — Batch concurrency.** Default `--jobs 1`; expose the flag.
-- **D9 — Loudness.** -14 LUFS integrated, -1.5 dBTP true peak.
+- **D9 — Loudness.** -14 LUFS integrated, -1.5 dBTP true peak, 48 kHz AAC.
 - **D10 — FPS.** 30 default; 60 optional later.
 - **D11 — Length/versioning.** 16:9 is the full track; 9:16 and 1:1 are 30–60 s hooks
   (default 45 s), auto-selected or manually overridden.
 - **D12 — Formats.** 9:16, 1:1, and 16:9 at 30 fps.
-- **D13 — Vibe tailoring.** Per-track `style.preset` now; `style.preset: "auto"` maps
-  audio features to a preset in M3, with explicit presets always winning.
+- **D13 — Vibe tailoring.** Per-track presets shipped; `style.preset: "auto"` is open
+  (#19) and explicit presets always win.
+- **D14 — Color/effects.** `contrast`, `beat_punch`, `vignette`, `grain`, `texture`, and
+  `texture_blend` shipped via `config.STYLE_FIELDS`. Saturation/grade and beat-reactive
+  color swings are backlog (#20/#21).
+- **D15 — Web studio.** `vp ui` is an optional FastAPI client over the same engine
+  (preview/jobs/create-project); the CLI remains the source of truth. Issues #23–#25
+  track the remaining UI work.
 
 ## 12. Milestones
 
 - **M0 — Prototype (done):** discovery, librosa analysis, ffmpeg Ken Burns render, CLI,
   fixtures.
-- **M1 — Design locked (this document).**
-- **M2 — Core rebuild:** config/presets (clean), energy-reactive planner + hook windows,
-  HUD (title/artist/handle), renderer (3 variants, 48 kHz, no waveform), CLI (aspects,
-  hook, idempotency, jobs, inspect), unit + ffprobe tests, CI.
-- **M3 — Polish:** `punchy`/combined presets, vibe-aware preset selection, advanced
-  section/phrase detection, performance tuning, README.
-- **M4 — Expansion:** video snippets, scrolling waveform, grain/vignette/texture.
+- **M1 — Design locked (done).**
+- **M2 — Core rebuild (done):** config/presets + `STYLE_FIELDS`, energy-reactive planner +
+  hook windows, HUD (title/artist/handle), renderer (3 variants, 48 kHz, TV-range),
+  CLI (aspects, hook, idempotency, jobs, inspect), unit + ffprobe tests, CI (with the
+  `.[dev,ui]` follow-up in #26).
+- **M3 — Polished (mostly shipped):** `clean`/`punchy`/`balanced` presets (#10), Pillow
+  waveform (#15), grain/vignette/texture (#16), README (#13). Open: advanced
+  section/phrase detection (#11), performance (#12), vibe-aware presets (#19).
+- **M4 — Expansion:** video snippets (#14) still open; waveform and overlays landed early.
+- **Post-v1 — Web studio:** foundation, jobs/progress/playback/A-B, and create-project are
+  implemented; remaining UI work is tracked in #23–#25. Color backlog: #20/#21.
