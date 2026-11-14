@@ -14,6 +14,7 @@ from .plan import plan_timeline
 from .render import plan_variants, render
 from .status import input_mtime, is_up_to_date
 from .track import AUDIO_EXTS, load_track
+from .vibe import finalize_auto_style
 
 
 def _aspects(value: str) -> list[str]:
@@ -160,6 +161,8 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
 
 def _cmd_inspect(args: argparse.Namespace) -> int:
     track, beatmap = _prepare(Path(args.track), args)
+    requested = track.style.get("preset")
+    finalize_auto_style(track, beatmap)
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, _aspects(args.aspect))
 
@@ -168,8 +171,11 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
         f"  audio: {track.audio.name}  {beatmap['duration']:.2f}s  "
         f"{beatmap['tempo']:.1f} BPM  {len(beatmap['beats'])} beats"
     )
+    preset_note = f"{track.style['preset']}"
+    if requested == "auto":
+        preset_note += " (auto from audio)"
     print(
-        f"  preset: {track.style['preset']}  fps: {track.style['fps']}  "
+        f"  preset: {preset_note}  fps: {track.style['fps']}  "
         f"images: {len(track.images)}"
     )
     print(f"  hook: {track.hook['mode']}  target: {track.hook['target']:.0f}s")

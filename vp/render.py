@@ -18,6 +18,7 @@ from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import full_window, plan_timeline, preview_slice, select_hook
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
+from .vibe import finalize_auto_style
 from .waveform import build_strip
 
 HUD_FADE_IN = 0.3
@@ -152,6 +153,7 @@ def render(
     `progress`, when given, is called with ``(percent 0-100, stage)`` as encoding
     progresses; `cancel`, when given, is polled and raises `RenderCancelled` early.
     Both are optional and change nothing when omitted."""
+    finalize_auto_style(track, beatmap)
     style = track.style
     fps = int(style.get("fps", 30))
     width, height = aspect.width, aspect.height

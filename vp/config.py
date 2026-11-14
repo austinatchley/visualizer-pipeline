@@ -285,7 +285,9 @@ def resolve_style(
         raise ValueError(f"unknown style keys in track.json: {sorted(unknown)}")
 
     name = preset or flags.get("preset") or track_style.get("preset") or "clean"
-    preset_data = load_preset(name)
+    # `auto` is resolved to a concrete preset once the beatmap exists (issue #19);
+    # until then it resolves over the neutral defaults so `load_track` works.
+    preset_data = {} if name == "auto" else load_preset(name)
     style_flags = {
         k: v
         for k, v in flags.items()
