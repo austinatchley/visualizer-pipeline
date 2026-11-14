@@ -443,8 +443,9 @@ visualizer-pipeline/
   waveform (#15), grain/vignette/texture (#16), README (#13). Open: advanced
   section/phrase detection (#11), performance (#12), vibe-aware presets (#19).
 - **M4 — Expansion:** video snippets (#14) still open; waveform and overlays landed early.
-- **Post-v1 — Web studio:** foundation, jobs/progress/playback/A-B, and create-project are
-  implemented; remaining UI work is tracked in #23–#25. Color backlog: #20/#21.
+- **Post-v1 — Web studio:** foundation, jobs/progress/playback/A-B, create-project, image
+  editing (#38), and track deletion (#39) are implemented; remaining UI work is tracked in
+  #23–#25. Color backlog: #20/#21.
 - **Post-v1 — VGM preset (#37):** `vgm` preset ships with a `grade` filter (sunset/night/
   fog), a Pillow `VGM` watermark (bundled Anton, `watermark` + `watermark_*` keys), and
   `show_title` to compose or suppress the standard HUD; all overlay options are UI
