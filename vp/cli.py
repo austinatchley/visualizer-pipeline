@@ -36,7 +36,10 @@ def _add_style_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--font", dest="title_font")
     p.add_argument("--waveform", action=argparse.BooleanOptionalAction, default=None)
     p.add_argument("--contrast", type=float)
+    p.add_argument("--saturation", type=float)
+    p.add_argument("--grade")
     p.add_argument("--beat-punch", type=float, dest="beat_punch")
+    p.add_argument("--color-punch", type=float, dest="color_punch")
     p.add_argument("--vignette", type=float)
     p.add_argument("--grain", type=float)
     p.add_argument("--texture")
@@ -68,7 +71,10 @@ def _style_overrides(args: argparse.Namespace) -> dict:
         "title_font": getattr(args, "title_font", None),
         "waveform": getattr(args, "waveform", None),
         "contrast": getattr(args, "contrast", None),
+        "saturation": getattr(args, "saturation", None),
+        "grade": getattr(args, "grade", None),
         "beat_punch": getattr(args, "beat_punch", None),
+        "color_punch": getattr(args, "color_punch", None),
         "vignette": getattr(args, "vignette", None),
         "grain": getattr(args, "grain", None),
         "texture": getattr(args, "texture", None),

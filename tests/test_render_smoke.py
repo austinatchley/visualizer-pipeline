@@ -97,7 +97,13 @@ def styled_renders(tmp_path_factory):
     vgm_path = out_dir / "vgm_9x16.mp4"
     render(vgm, VERTICAL, beatmap, vgm_path, window=(0.0, beatmap["duration"]))
 
-    return punchy_path, overlays_path, vgm_path
+    analog = load_track(SHORT, overrides={"preset": "clean", "grade": "analog"})
+    analog_path = out_dir / "analog_9x16.mp4"
+    render(
+        analog, VERTICAL, beatmap, analog_path, window=(0.0, beatmap["duration"])
+    )
+
+    return punchy_path, overlays_path, vgm_path, analog_path
 
 
 def test_resolutions(short_renders):
@@ -144,22 +150,76 @@ def test_hook_window_and_alignment(hook_render):
 
 
 def test_punchy_preset_renders(styled_renders):
-    punchy, _, _ = styled_renders
+    punchy, *_ = styled_renders
     video = _video(_probe(punchy))
     assert (video["width"], video["height"]) == (1080, 1920)
     assert video["pix_fmt"] == "yuv420p"
 
 
 def test_waveform_overlay_renders(styled_renders):
-    _, waveform, _ = styled_renders
+    _, waveform, *_ = styled_renders
     video = _video(_probe(waveform))
     assert (video["width"], video["height"]) == (1920, 1080)
     assert float(_probe(waveform)["format"]["duration"]) <= 12.0 + 0.15
 
 
 def test_vgm_preset_renders(styled_renders):
-    _, _, vgm = styled_renders
+    _, _, vgm, *_ = styled_renders
     video = _video(_probe(vgm))
     assert (video["width"], video["height"]) == (1080, 1920)
     assert video["pix_fmt"] == "yuv420p"
     assert Fraction(_video(_probe(vgm))["r_frame_rate"]) == 30
+
+
+def test_analog_grade_renders(styled_renders):
+    *_, analog = styled_renders
+    video = _video(_probe(analog))
+    assert (video["width"], video["height"]) == (1080, 1920)
+    assert video["pix_fmt"] == "yuv420p"
+    assert Fraction(_video(_probe(analog))["r_frame_rate"]) == 30
+
+
+def _extract_frame(path: Path, out: Path) -> None:
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-i", str(path), "-frames:v", "1", str(out)],
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_saturation_zero_is_monochrome(tmp_path):
+    """`saturation: 0` must render true grayscale (R=G=B) across sampled frames."""
+    _require(SHORT)
+    track = load_track(SHORT, overrides={"saturation": 0.0})
+    beatmap = load_beatmap(track)
+    out = tmp_path / "mono.mp4"
+    render(
+        track, VERTICAL, beatmap, out,
+        window=(0.0, beatmap["duration"]), preview=True,
+    )
+    frame = tmp_path / "f.ppm"
+    _extract_frame(out, frame)
+    from PIL import Image
+
+    img = Image.open(frame).convert("RGB")
+    width, height = img.size
+    px = img.load()
+    for y in range(0, height, 7):
+        for x in range(0, width, 7):
+            r, g, b = px[x, y]
+            assert max(r, g, b) - min(r, g, b) <= 8, (x, y, (r, g, b))
+
+
+def test_color_punch_renders(tmp_path):
+    """`color_punch` emits a per-frame eq expression; it must not crash ffmpeg."""
+    _require(SHORT)
+    track = load_track(SHORT, overrides={"color_punch": 0.3})
+    beatmap = load_beatmap(track)
+    out = tmp_path / "punch.mp4"
+    render(
+        track, VERTICAL, beatmap, out,
+        window=(0.0, beatmap["duration"]), preview=True,
+    )
+    video = _video(_probe(out))
+    assert video["pix_fmt"] == "yuv420p"
+    assert (video["width"], video["height"]) == (270, 480)

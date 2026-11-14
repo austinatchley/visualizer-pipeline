@@ -26,12 +26,19 @@ GRAIN_SEED = 2024
 PREVIEW_SECONDS = 4.0
 PREVIEW_SCALE = 4
 
-# Film grades for the `grade` style key (issue #37). Applied as an `eq` filter
-# in the finish chain, before vignette/grain, per the VGM reference look.
+# Film grades for the `grade` style key (issue #37 + #20). Applied as an `eq`/
+# `colorbalance` filter in the finish chain, before vignette/grain. `analog` is
+# the warm poison grade reference (crushed-green shadows, warm highlights); its
+# saturation lives in the distinct `saturation` key so the two compose freely.
 GRADES: dict[str, str] = {
     "sunset": "eq=contrast=1.08:saturation=1.15:gamma_r=1.04:gamma_b=0.96",
     "night": "eq=contrast=1.10:saturation=0.80:brightness=-0.03:gamma_b=1.06",
     "fog": "eq=contrast=0.90:saturation=0.40:brightness=0.02",
+    "analog": (
+        "colorbalance=rs=0.20:gs=-0.45:bs=0.10:"
+        "rm=0.10:gm=-0.02:bm=-0.06:"
+        "rh=0.12:gh=0.03:bh=-0.08:pl=1"
+    ),
 }
 
 
@@ -81,6 +88,36 @@ def _zoom_expr(
             f"min(1+{rate:.6f}*on+{punch:.4f}*exp(-on/{fps}*6.0),{max_zoom:.5f})"
         )
     return f"min(1+{rate:.6f}*on,{max_zoom:.5f})"
+
+
+def _mean_beat_energy(beatmap: dict, start: float, end: float) -> float:
+    """Mean normalized beat energy in the half-open absolute window [start, end)."""
+    beats = beatmap.get("beats") or []
+    energy = beatmap.get("beat_energy") or []
+    values = [
+        float(energy[i])
+        for i, beat in enumerate(beats)
+        if i < len(energy) and start <= float(beat) < end
+    ]
+    return sum(values) / len(values) if values else 0.5
+
+
+def _energy_saturation(mean_energy: float, base: float) -> float:
+    """Map a segment's mean energy in [0,1] to a saturation multiplier in
+    [0.85, 1.2] (quiet sections less color, drops more), scaled by `base`."""
+    multiplier = 0.85 + 0.35 * max(0.0, min(1.0, mean_energy))
+    return max(0.0, min(2.0, base * multiplier))
+
+
+def _saturation_expr(base: float, punch: float, fps: int) -> str:
+    """Per-segment saturation that starts at ``base + punch`` and decays to
+    ``base`` over roughly 0.3 s, mirroring the `beat_punch` zoom profile.
+
+    Each segment is its own input stream, so `n` (the eq filter's frame counter)
+    resets to 0 at the cut and the spike lands on the downbeat."""
+    return (
+        f"eq=saturation='{base:.4f}+{punch:.4f}*exp(-n/{fps}*6.0)':eval=frame"
+    )
 
 
 @dataclass(frozen=True)
@@ -147,6 +184,8 @@ def render(
     )
     max_zoom = 1.0 + float(style.get("zoom", 0.10))
     punch = float(style.get("beat_punch", 0.0))
+    color_punch = float(style.get("color_punch", 0.0))
+    base_saturation = float(style.get("saturation", 1.0))
     supersample = int(style.get("supersample", 2))
 
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
@@ -225,14 +264,25 @@ def render(
         for i, seg in enumerate(segments):
             frames = max(2, math.ceil(seg.duration * fps) + 2)
             zexpr = _zoom_expr(i, fps, frames, max_zoom, punch)
-            parts.append(
-                f"[{i}:v]scale={width * supersample}:{height * supersample}:"
-                f"force_original_aspect_ratio=increase,"
-                f"crop={width * supersample}:{height * supersample},setsar=1,"
+            chain = [
+                f"scale={width * supersample}:{height * supersample}:"
+                f"force_original_aspect_ratio=increase",
+                f"crop={width * supersample}:{height * supersample}",
+                "setsar=1",
                 f"zoompan=z='{zexpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-                f"d={frames}:s={width}x{height}:fps={fps},"
-                f"settb=AVTB,setpts=PTS-STARTPTS[v{i}]"
-            )
+                f"d={frames}:s={width}x{height}:fps={fps}",
+            ]
+            if color_punch > 0:
+                # Baseline follows the segment's energy; the punch decays from
+                # the cut. `n` is this segment's own frame counter.
+                abs_start = window_start + seg.offset
+                base = _energy_saturation(
+                    _mean_beat_energy(beatmap, abs_start, abs_start + seg.duration),
+                    base_saturation,
+                )
+                chain.append(_saturation_expr(base, color_punch, fps))
+            chain += ["settb=AVTB", "setpts=PTS-STARTPTS"]
+            parts.append(f"[{i}:v]" + ",".join(chain) + f"[v{i}]")
 
         for i in range(1, n):
             label = f"x{i}"
@@ -280,6 +330,13 @@ def render(
         grade = GRADES.get(style.get("grade", "none"))
         if grade:
             finish.append(grade)
+        saturation = float(style.get("saturation", 1.0))
+        if color_punch <= 0 and saturation != 1.0:
+            # When color_punch is active the per-segment eq already carries the
+            # base saturation, so only apply a static grade when it is off.
+            # 0.0 must reproduce a true monochrome phase: eq=saturation=0 yields
+            # R=G=B per-frame (the reference's hard grayscale cut).
+            finish.append(f"eq=saturation={saturation:.3f}")
         vignette = float(style.get("vignette", 0.0))
         if vignette > 0:
             angle = f"(PI/5)*(1+{vignette:.3f}*1.6)"
