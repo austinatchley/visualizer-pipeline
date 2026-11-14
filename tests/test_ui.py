@@ -525,3 +525,44 @@ def test_reorder_images_rejects_non_permutation(client):
     )
     assert res.status_code == 400
     assert "permutation" in res.json()["detail"]
+
+
+def test_update_metadata_round_trips(client):
+    res = client.put(
+        "/api/tracks/demo-track/metadata",
+        json={"title": "Renamed Beat", "artist": "AUSTIN", "handle": "@austin"},
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["title"] == "Renamed Beat"
+    assert data["slug"] == "renamed-beat"
+    assert data["artist"] == "AUSTIN"
+    assert data["handle"] == "@austin"
+
+    folder = Path(client.app.state.root) / "demo_track"
+    manifest = json.loads((folder / "track.json").read_text())
+    assert manifest["title"] == "Renamed Beat"
+    assert manifest["artist"] == "AUSTIN"
+    assert manifest["handle"] == "@austin"
+
+    # The folder keeps its name; the new title-derived slug resolves.
+    assert client.get("/api/tracks/renamed-beat").json()["title"] == "Renamed Beat"
+
+
+def test_update_metadata_rejects_empty_title(client):
+    res = client.put("/api/tracks/demo-track/metadata", json={"title": "   "})
+    assert res.status_code == 400
+    assert "title" in res.json()["detail"]
+
+
+def test_update_metadata_clears_optional_fields(client):
+    client.put(
+        "/api/tracks/demo-track/metadata",
+        json={"artist": "AUSTIN", "handle": "@austin"},
+    )
+    res = client.put(
+        "/api/tracks/demo-track/metadata", json={"artist": "", "handle": ""}
+    )
+    assert res.status_code == 200
+    assert res.json()["artist"] is None
+    assert res.json()["handle"] is None

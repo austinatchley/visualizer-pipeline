@@ -122,6 +122,12 @@ class StylePayload(BaseModel):
     style: dict[str, object]
 
 
+class MetadataPayload(BaseModel):
+    title: str | None = None
+    artist: str | None = None
+    handle: str | None = None
+
+
 class ImageNamesPayload(BaseModel):
     names: list[str]
 
@@ -486,6 +492,28 @@ def create_app(
             )
         _persist_order(track.root, order)
         return {"images": order}
+
+    @app.put("/api/tracks/{slug}/metadata")
+    def update_metadata(slug: str, payload: MetadataPayload):
+        track = _find_track(root, slug)
+        manifest = _manifest(track.root / "track.json")
+        if payload.title is not None:
+            title = payload.title.strip()
+            if not title:
+                raise HTTPException(status_code=400, detail="title cannot be empty")
+            manifest["title"] = title
+        if payload.artist is not None:
+            manifest["artist"] = payload.artist.strip() or None
+        if payload.handle is not None:
+            manifest["handle"] = payload.handle.strip() or None
+        _write_manifest(track.root / "track.json", manifest)
+        updated = load_track(track.root)
+        return {
+            "slug": updated.slug,
+            "title": updated.title,
+            "artist": updated.artist,
+            "handle": updated.handle,
+        }
 
     @app.post("/api/tracks/{slug}/style")
     def save_style(slug: str, payload: StylePayload):
