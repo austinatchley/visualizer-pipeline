@@ -22,10 +22,11 @@ A post-v1 FastAPI web studio (`vp ui`) wraps the same engine.
   fixtures, then runs `pytest -q`.
 - Open issues: **#11** advanced sections, **#12** performance, **#14** video snippets,
   **#19** vibe-aware presets, **#20/#21** color keys, **#23–#25** web studio follow-ups,
-  **#29** Lit componentization, **#37** VGM preset.
+  **#29** Lit componentization. **#37 VGM preset shipped.**
 - Recent history: energy-reactive planner, hook windows, 3 aspects, Pillow HUD/waveform,
   presets, overlays, web UI, render jobs + cancellation, bundled OFL fonts + text
-  controls, texture library + studio picker, finer waveform dynamics.
+  controls, texture library + studio picker, finer waveform dynamics, **VGM preset
+  (grade + watermark overlay, #37).**
 
 ## Setup
 
@@ -63,7 +64,7 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 | `vp/config.py` | Defaults, `STYLE_FIELDS`, presets, hook/override resolution |
 | `vp/analyze.py` | librosa analysis, cache, BPM/multiplier overrides |
 | `vp/plan.py` | Pure planner: energy-reactive cuts, hook window, crossfade timing |
-| `vp/hud.py` | Pillow HUD (gradient, title, artist, handle) per aspect |
+| `vp/hud.py` | Pillow HUD (gradient, title, artist, handle) + VGM watermark overlay per aspect |
 | `vp/fonts.py` | Bundled OFL font registry, font resolution, variable-axis loading |
 | `vp/textures.py` | Texture library discovery + library/custom path resolution |
 | `vp/waveform.py` | Pillow scrolling waveform strip |
@@ -132,10 +133,10 @@ Every change starts with an issue. See `CONTRIBUTING.md`.
 
 ## Suggested next steps
 
-1. #37 VGM-style preset (uses bundled fonts; coordinate grade keys with #20).
-2. #11 advanced section/phrase detection (feeds better cuts).
-3. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
-4. #12 performance tuning (supersample/x264/variant parallelism).
-5. #14 video snippet segments.
-6. #20/#21 color grading keys and beat-reactive color swings.
-7. #23–#25 web studio follow-ups.
+1. #11 advanced section/phrase detection (feeds better cuts).
+2. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
+3. #12 performance tuning (supersample/x264/variant parallelism).
+4. #14 video snippet segments.
+5. #20/#21 color grading keys and beat-reactive color swings (VGM-grade keys can be
+   extracted/generalized from #37).
+6. #23–#25 web studio follow-ups.

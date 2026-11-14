@@ -92,6 +92,87 @@ def meta_line(artist: str | None, handle: str | None) -> str | None:
     return " · ".join(parts) if parts else None
 
 
+@dataclass(frozen=True)
+class VgmConfig:
+    """VGM-layer look: a giant translucent watermark over the footage."""
+
+    watermark: bool = False
+    watermark_text: str | None = None
+    watermark_font: str = "anton"
+    watermark_opacity: float = 0.15
+    watermark_width: float = 0.95
+    watermark_stroke: float = 0.06
+    watermark_x: float = 0.0
+    watermark_y: float = 0.0
+
+    @property
+    def active(self) -> bool:
+        return self.watermark
+
+    @classmethod
+    def from_style(cls, style: dict) -> "VgmConfig":
+        return cls(
+            watermark=bool(style.get("watermark", False)),
+            watermark_text=style.get("watermark_text"),
+            watermark_font=style.get("watermark_font") or "anton",
+            watermark_opacity=float(style.get("watermark_opacity", 0.15)),
+            watermark_width=float(style.get("watermark_width", 0.95)),
+            watermark_stroke=float(style.get("watermark_stroke", 0.06)),
+            watermark_x=float(style.get("watermark_x", 0.0)),
+            watermark_y=float(style.get("watermark_y", 0.0)),
+        )
+
+
+def _fit_font(face: FontFace, text: str, target_width: int) -> ImageFont.FreeTypeFont:
+    """Return the largest font size whose width for `text` fits `target_width`."""
+    font = load_font(face, 96)
+    size = 96
+    if text:
+        width = max(font.getlength(text), 1.0)
+        size = max(8, int(96 * target_width / width))
+        font = load_font(face, size)
+    while text and size > 8 and font.getlength(text) > target_width:
+        size -= 2
+        font = load_font(face, size)
+    return font
+
+
+def _draw_watermark(
+    canvas: Image.Image, cfg: VgmConfig, width: int, height: int
+) -> None:
+    if not cfg.watermark or not cfg.watermark_text:
+        return
+    text = str(cfg.watermark_text)
+    alpha = int(255 * cfg.watermark_opacity)
+    if alpha <= 0:
+        return
+    face = resolve_face(cfg.watermark_font or "anton")
+    font = _fit_font(face, text, int(width * cfg.watermark_width))
+    stroke = max(1, int(font.size * cfg.watermark_stroke))
+    cx = width / 2 + cfg.watermark_x * width / 2
+    cy = height / 2 + cfg.watermark_y * height / 2
+    ImageDraw.Draw(canvas).text(
+        (cx, cy),
+        text,
+        font=font,
+        fill=(255, 255, 255, alpha),
+        stroke_width=stroke,
+        stroke_fill=(0, 0, 0, alpha),
+        anchor="mm",
+    )
+
+
+def build_vgm_overlay(
+    size: tuple[int, int], cfg: VgmConfig | None = None, style: dict | None = None
+) -> Image.Image:
+    """Procedural VGM watermark overlay at target size."""
+    cfg = cfg or VgmConfig.from_style(style or {})
+    width, height = size
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+    _draw_watermark(canvas, cfg, width, height)
+    return canvas
+
+
 def layout_for(aspect: Aspect) -> HudLayout:
     if aspect.kind == "vertical":
         return HudLayout(
@@ -185,68 +266,75 @@ def build_hud(
     text_case: str = "preserve",
     tracking: float = 0.0,
     line_spacing: float = 1.12,
+    show_title: bool = True,
+    overlay: Image.Image | None = None,
 ) -> Path:
     font_face = font_face or resolve_face(None, font_path)
     meta_font_face = meta_font_face or font_face
-    title = apply_case(title, text_case)
-    layout = layout_for(aspect)
 
     canvas = Image.new("RGBA", (aspect.width, aspect.height), (0, 0, 0, 0))
 
-    gradient_start = int(aspect.height * 0.52)
-    ramp = np.linspace(0.0, 1.0, aspect.height - gradient_start) ** 1.7
-    gradient_alpha = (ramp * 190).astype(np.uint8)
-    pixels = np.array(canvas)
-    pixels[gradient_start:, :, 3] = np.maximum(
-        pixels[gradient_start:, :, 3], gradient_alpha[:, None]
-    )
-    canvas = Image.fromarray(pixels, "RGBA")
-    draw = ImageDraw.Draw(canvas)
+    if show_title:
+        title = apply_case(title, text_case)
+        layout = layout_for(aspect)
 
-    font = load_font(font_face, layout.fontsize)
-    tracking_px = float(tracking) * layout.fontsize
-    lines = wrap_to_width(title, font, layout.max_width, tracking_px)
-    title_height = _block_height(lines, font, line_spacing)
+        gradient_start = int(aspect.height * 0.52)
+        ramp = np.linspace(0.0, 1.0, aspect.height - gradient_start) ** 1.7
+        gradient_alpha = (ramp * 190).astype(np.uint8)
+        pixels = np.array(canvas)
+        pixels[gradient_start:, :, 3] = np.maximum(
+            pixels[gradient_start:, :, 3], gradient_alpha[:, None]
+        )
+        canvas = Image.fromarray(pixels, "RGBA")
+        draw = ImageDraw.Draw(canvas)
 
-    meta = meta_line(artist, handle)
-    if meta:
-        meta_size = int(layout.fontsize * 0.40)
-        meta_font = load_font(meta_font_face, meta_size)
-        gap = int(layout.fontsize * 0.28)
-        meta_height = _block_height([meta], meta_font)
-    else:
-        meta_font = None
-        gap = 0
-        meta_height = 0
+        font = load_font(font_face, layout.fontsize)
+        tracking_px = float(tracking) * layout.fontsize
+        lines = wrap_to_width(title, font, layout.max_width, tracking_px)
+        title_height = _block_height(lines, font, line_spacing)
 
-    title_top = layout.block_bottom - title_height - (gap + meta_height if meta else 0)
-    shadow = max(2, layout.fontsize // 40)
-    _draw_text_block(
-        draw,
-        lines,
-        font,
-        layout.x,
-        title_top,
-        fill=(255, 255, 255, 255),
-        shadow=(0, 0, 0, 150),
-        align=layout.align,
-        shadow_offset=shadow,
-        line_spacing=line_spacing,
-        tracking_px=tracking_px,
-    )
+        meta = meta_line(artist, handle)
+        if meta:
+            meta_size = int(layout.fontsize * 0.40)
+            meta_font = load_font(meta_font_face, meta_size)
+            gap = int(layout.fontsize * 0.28)
+            meta_height = _block_height([meta], meta_font)
+        else:
+            meta_font = None
+            gap = 0
+            meta_height = 0
 
-    if meta and meta_font is not None:
+        title_top = layout.block_bottom - title_height - (gap + meta_height if meta else 0)
+        shadow = max(2, layout.fontsize // 40)
         _draw_text_block(
             draw,
-            [meta],
-            meta_font,
+            lines,
+            font,
             layout.x,
-            title_top + title_height + gap,
-            fill=(255, 255, 255, 190),
-            shadow=(0, 0, 0, 120),
+            title_top,
+            fill=(255, 255, 255, 255),
+            shadow=(0, 0, 0, 150),
             align=layout.align,
-            shadow_offset=max(1, meta_size // 40),
+            shadow_offset=shadow,
+            line_spacing=line_spacing,
+            tracking_px=tracking_px,
         )
+
+        if meta and meta_font is not None:
+            _draw_text_block(
+                draw,
+                [meta],
+                meta_font,
+                layout.x,
+                title_top + title_height + gap,
+                fill=(255, 255, 255, 190),
+                shadow=(0, 0, 0, 120),
+                align=layout.align,
+                shadow_offset=max(1, meta_size // 40),
+            )
+
+    if overlay is not None:
+        canvas = Image.alpha_composite(canvas, overlay)
 
     canvas.save(path)
     return path

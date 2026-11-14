@@ -14,7 +14,7 @@ from PIL import Image
 
 from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
 from .fonts import resolve_face
-from .hud import build_hud
+from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import full_window, plan_timeline, preview_slice, select_hook
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
@@ -25,6 +25,14 @@ HUD_FADE_DUR = 0.8
 GRAIN_SEED = 2024
 PREVIEW_SECONDS = 4.0
 PREVIEW_SCALE = 4
+
+# Film grades for the `grade` style key (issue #37). Applied as an `eq` filter
+# in the finish chain, before vignette/grain, per the VGM reference look.
+GRADES: dict[str, str] = {
+    "sunset": "eq=contrast=1.08:saturation=1.15:gamma_r=1.04:gamma_b=0.96",
+    "night": "eq=contrast=1.10:saturation=0.80:brightness=-0.03:gamma_b=1.06",
+    "fog": "eq=contrast=0.90:saturation=0.40:brightness=0.02",
+}
 
 
 def _progress_percent(line: str, duration: float) -> float | None:
@@ -144,6 +152,12 @@ def render(
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
     try:
         hud = tmp / "hud.png"
+        vgm_cfg = VgmConfig.from_style(style)
+        vgm_img = (
+            build_vgm_overlay((aspect.width, aspect.height), vgm_cfg)
+            if vgm_cfg.active
+            else None
+        )
         build_hud(
             hud,
             aspect,
@@ -155,6 +169,8 @@ def render(
             text_case=str(style.get("text_case", "preserve")),
             tracking=float(style.get("tracking", 0.0)),
             line_spacing=float(style.get("line_spacing", 1.12)),
+            show_title=bool(style.get("show_title", True)),
+            overlay=vgm_img,
         )
 
         texture_path = resolve_texture(style.get("texture"), textures_dir)
@@ -261,6 +277,9 @@ def render(
             prev = "wv"
 
         finish: list[str] = []
+        grade = GRADES.get(style.get("grade", "none"))
+        if grade:
+            finish.append(grade)
         vignette = float(style.get("vignette", 0.0))
         if vignette > 0:
             angle = f"(PI/5)*(1+{vignette:.3f}*1.6)"

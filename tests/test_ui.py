@@ -128,6 +128,14 @@ def test_boot_endpoint(client):
     assert data["fields"]["texture"]["type"] == "texture"
 
 
+def test_boot_fields_include_vgm(client):
+    data = client.get("/api/boot").json()
+    assert "vgm" in data["presets"]
+    assert data["fields"]["grade"]["type"] == "choice"
+    assert data["fields"]["watermark_text"]["type"] == "text"
+    assert data["fields"]["show_title"]["type"] == "bool"
+
+
 def test_list_and_detail(client):
     tracks = client.get("/api/tracks").json()
     assert len(tracks) == 1

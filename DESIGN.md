@@ -1,6 +1,6 @@
 # Visualizer Pipeline — Design
 
-Status: **v1 + post-v1 web studio shipped** (decisions in §11; open work in §12)
+Status: **v1 + post-v1 web studio + VGM preset shipped** (decisions in §11; open work in §12)
 
 ## 1. Problem
 
@@ -408,11 +408,18 @@ visualizer-pipeline/
   (#19) and explicit presets always win.
 - **D14 — Color/effects.** `contrast`, `beat_punch`, `vignette`, `grain`, `texture`, and
   `texture_blend` shipped via `config.STYLE_FIELDS`. The `textures/` library feeds a
-  studio dropdown; relative names resolve through `vp/textures.py`. Saturation/grade and
-  beat-reactive color swings are backlog (#20/#21).
+  studio dropdown; relative names resolve through `vp/textures.py`. The `vgm` preset adds
+  `grade` (sunset/night/fog `eq` filter in the finish chain) plus a Pillow watermark layer
+  (`watermark`, `watermark_*`, `show_title`); issue #37. Standalone saturation/grade keys
+  and beat-reactive color swings remain backlog (#20/#21).
 - **D15 — Web studio.** `vp ui` is an optional FastAPI client over the same engine
   (preview/jobs/create-project); the CLI remains the source of truth. Issues #23–#25
   track the remaining UI work.
+- **D16 — VGM look (#37).** A single `vgm` preset supplies a film grade + a translucent
+  watermark overlay layer, all in the existing FFmpeg + Pillow pipeline (no
+  shaders/generators, single encode pass). Adds a `text` `STYLE_FIELDS` type for
+  `watermark_text`; overlays are gated by toggles + dropdowns in the UI (no path-based
+  inputs). Optional soft-blend watermark variant deferred.
 
 ## 12. Milestones
 
@@ -429,3 +436,7 @@ visualizer-pipeline/
 - **M4 — Expansion:** video snippets (#14) still open; waveform and overlays landed early.
 - **Post-v1 — Web studio:** foundation, jobs/progress/playback/A-B, and create-project are
   implemented; remaining UI work is tracked in #23–#25. Color backlog: #20/#21.
+- **Post-v1 — VGM preset (#37):** `vgm` preset ships with a `grade` filter (sunset/night/
+  fog), a Pillow `VGM` watermark (bundled Anton, `watermark` + `watermark_*` keys), and
+  `show_title` to compose or suppress the standard HUD; all overlay options are UI
+  toggles/dropdowns. Soft-blend watermark variant and standalone grade keys are deferred.

@@ -93,7 +93,11 @@ def styled_renders(tmp_path_factory):
     overlays_path = out_dir / "waveform_16x9.mp4"
     render(overlays, HORIZONTAL, beatmap, overlays_path, window=(0.0, beatmap["duration"]))
 
-    return punchy_path, overlays_path
+    vgm = load_track(SHORT, overrides={"preset": "vgm"})
+    vgm_path = out_dir / "vgm_9x16.mp4"
+    render(vgm, VERTICAL, beatmap, vgm_path, window=(0.0, beatmap["duration"]))
+
+    return punchy_path, overlays_path, vgm_path
 
 
 def test_resolutions(short_renders):
@@ -140,14 +144,22 @@ def test_hook_window_and_alignment(hook_render):
 
 
 def test_punchy_preset_renders(styled_renders):
-    punchy, _ = styled_renders
+    punchy, _, _ = styled_renders
     video = _video(_probe(punchy))
     assert (video["width"], video["height"]) == (1080, 1920)
     assert video["pix_fmt"] == "yuv420p"
 
 
 def test_waveform_overlay_renders(styled_renders):
-    _, waveform = styled_renders
+    _, waveform, _ = styled_renders
     video = _video(_probe(waveform))
     assert (video["width"], video["height"]) == (1920, 1080)
     assert float(_probe(waveform)["format"]["duration"]) <= 12.0 + 0.15
+
+
+def test_vgm_preset_renders(styled_renders):
+    _, _, vgm = styled_renders
+    video = _video(_probe(vgm))
+    assert (video["width"], video["height"]) == (1080, 1920)
+    assert video["pix_fmt"] == "yuv420p"
+    assert Fraction(_video(_probe(vgm))["r_frame_rate"]) == 30

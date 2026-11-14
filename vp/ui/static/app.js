@@ -78,6 +78,21 @@ function makeControl(key, spec, value) {
     sel.addEventListener("change", () =>
       onChange(numeric ? Number(sel.value) : sel.value)
     );
+  } else if (spec.type === "preset") {
+    el.innerHTML =
+      `<header><label>${key}${hint}</label><output></output></header>` +
+      `<select></select>`;
+    const sel = el.querySelector("select");
+    for (const name of state.boot.presets || []) {
+      sel.add(new Option(name, name));
+    }
+    const current = value == null ? "clean" : String(value);
+    if (![...sel.options].some((option) => option.value === current)) {
+      sel.add(new Option(`Custom: ${current}`, current));
+    }
+    sel.value = current;
+    out.textContent = current;
+    sel.addEventListener("change", () => onChange(sel.value || "clean"));
   } else if (spec.type === "texture") {
     el.innerHTML =
       `<header><label>${key}${hint}</label><output></output></header>` +
@@ -103,6 +118,15 @@ function makeControl(key, spec, value) {
     input.value = value || "";
     el.querySelector("label").innerHTML = `${key}${hint}`;
     input.addEventListener("input", () => onChange(input.value.trim() || null));
+  } else if (spec.type === "text") {
+    el.insertAdjacentHTML(
+      "beforeend",
+      `<div class="row"><input type="text" placeholder="null = off"></div>`
+    );
+    const input = el.querySelector("input");
+    input.value = value || "";
+    el.querySelector("label").innerHTML = `${key}${hint}`;
+    input.addEventListener("input", () => onChange(input.value || null));
   }
   return el;
 }

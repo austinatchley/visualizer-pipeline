@@ -32,6 +32,16 @@ DEFAULT_STYLE = {
     "grain": 0.0,
     "texture": None,
     "texture_blend": "multiply",
+    "grade": "none",
+    "show_title": True,
+    "watermark": False,
+    "watermark_text": None,
+    "watermark_font": "anton",
+    "watermark_opacity": 0.15,
+    "watermark_width": 0.95,
+    "watermark_stroke": 0.06,
+    "watermark_x": 0.0,
+    "watermark_y": 0.0,
 }
 
 TEXTURE_BLENDS = {"multiply", "overlay", "screen", "softlight"}
@@ -111,6 +121,45 @@ STYLE_FIELDS: dict[str, dict] = {
     },
     "texture_blend": {
         "type": "choice", "choices": sorted(TEXTURE_BLENDS), "help": "Texture blend mode",
+    },
+    "grade": {
+        "type": "choice",
+        "choices": ["none", "sunset", "night", "fog"],
+        "help": "Film grade applied to the footage",
+    },
+    "show_title": {"type": "bool", "help": "Show the title/artist/handle HUD"},
+    "watermark": {
+        "type": "bool",
+        "help": "Giant translucent watermark overlay (on/off)",
+    },
+    "watermark_text": {
+        "type": "text",
+        "help": "Watermark text (null = off)",
+    },
+    "watermark_font": {
+        "type": "choice",
+        "choices": FONT_CHOICES,
+        "help": "Watermark typeface (default: anton)",
+    },
+    "watermark_opacity": {
+        "type": "float", "min": 0.0, "max": 0.5, "step": 0.01,
+        "help": "Watermark opacity; 0 = invisible",
+    },
+    "watermark_width": {
+        "type": "float", "min": 0.2, "max": 1.0, "step": 0.01,
+        "help": "Watermark width as a fraction of frame width",
+    },
+    "watermark_stroke": {
+        "type": "float", "min": 0.0, "max": 0.25, "step": 0.005,
+        "help": "Watermark outline thickness as a fraction of font size",
+    },
+    "watermark_x": {
+        "type": "float", "min": -1.0, "max": 1.0, "step": 0.01,
+        "help": "Watermark horizontal offset (-1..1; 0 = center, magnitude bleeds)",
+    },
+    "watermark_y": {
+        "type": "float", "min": -1.0, "max": 1.0, "step": 0.01,
+        "help": "Watermark vertical offset (-1..1; 0 = center)",
     },
 }
 
@@ -205,7 +254,7 @@ def _validate_style(style: dict) -> dict:
                 if style[key] not in spec["choices"]:
                     raise ValueError(f"{key} must be one of {spec['choices']}")
                 continue
-            if kind in ("path", "texture"):
+            if kind in ("path", "texture", "text"):
                 style[key] = None if value is None else str(value)
                 continue
     except (TypeError, ValueError) as exc:

@@ -181,3 +181,31 @@ def test_text_controls_validation():
         resolve_style({"text_case": "title"})
     with pytest.raises(ValueError, match="tracking"):
         resolve_style({"tracking": 0.9})
+
+
+def test_vgm_preset_loads():
+    style = resolve_style(preset="vgm")
+    assert style["preset"] == "vgm"
+    assert style["grade"] == "sunset"
+    assert style["show_title"] is False
+    assert style["watermark"] is True
+    assert style["watermark_text"] == "VGM"
+    assert style["watermark_font"] == "anton"
+
+
+def test_vgm_grade_validation():
+    with pytest.raises(ValueError, match="grade"):
+        resolve_style({"grade": "vhs"})
+    assert resolve_style({"grade": "night"})["grade"] == "night"
+
+
+def test_watermark_text_is_stringable():
+    assert resolve_style({"watermark_text": "xyz"})["watermark_text"] == "xyz"
+    assert resolve_style({"watermark_text": None})["watermark_text"] is None
+
+
+def test_vgm_numeric_bounds_validation():
+    with pytest.raises(ValueError, match="watermark_opacity"):
+        resolve_style({"watermark_opacity": 0.9})
+    with pytest.raises(ValueError, match="watermark_x"):
+        resolve_style({"watermark_x": 1.5})

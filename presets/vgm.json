@@ -1,0 +1,14 @@
+{
+  "grade": "sunset",
+  "show_title": false,
+  "watermark": true,
+  "watermark_text": "VGM",
+  "watermark_font": "anton",
+  "watermark_opacity": 0.15,
+  "watermark_width": 0.95,
+  "watermark_stroke": 0.06,
+  "watermark_x": 0.0,
+  "watermark_y": 0.0,
+  "grain": 0.08,
+  "vignette": 0.2
+}

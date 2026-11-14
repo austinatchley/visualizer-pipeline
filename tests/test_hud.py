@@ -3,7 +3,16 @@ from PIL import Image, ImageFont
 
 from vp.aspects import HORIZONTAL, SQUARE, VERTICAL
 from vp.fonts import FONT_CHOICES, resolve_face
-from vp.hud import apply_case, build_hud, find_font, layout_for, meta_line, wrap_to_width
+from vp.hud import (
+    VgmConfig,
+    apply_case,
+    build_hud,
+    build_vgm_overlay,
+    find_font,
+    layout_for,
+    meta_line,
+    wrap_to_width,
+)
 
 
 def load_font(size: int = 80):
@@ -107,3 +116,66 @@ def test_all_font_choices_render(tmp_path, key):
     out = tmp_path / f"{key}.png"
     build_hud(out, SQUARE, "VGM", font_face=face)
     assert Image.open(out).size == (SQUARE.width, SQUARE.height)
+
+
+def test_vgm_config_active_flag():
+    assert VgmConfig().active is False
+    assert VgmConfig(watermark=True).active is True
+    assert VgmConfig(watermark=False, watermark_text="VGM").active is False
+
+
+def test_vgm_overlay_watermark():
+    img = build_vgm_overlay(
+        (SQUARE.width, SQUARE.height),
+        VgmConfig(watermark=True, watermark_text="VGM", watermark_opacity=0.2),
+    )
+    assert img.size == (SQUARE.width, SQUARE.height)
+    assert img.mode == "RGBA"
+    assert img.getbbox() is not None
+    extrema = img.getchannel("A").getextrema()
+    assert extrema[0] == 0
+    assert extrema[1] <= 0.2 * 255 + 4
+
+
+def test_vgm_overlay_empty_is_transparent():
+    assert build_vgm_overlay((SQUARE.width, SQUARE.height), VgmConfig()).getbbox() is None
+    # toggle on but no text -> nothing drawn
+    assert (
+        build_vgm_overlay((SQUARE.width, SQUARE.height), VgmConfig(watermark=True)).getbbox()
+        is None
+    )
+
+
+def test_vgm_overlay_off_with_text_is_transparent():
+    img = build_vgm_overlay(
+        (SQUARE.width, SQUARE.height),
+        VgmConfig(watermark=False, watermark_text="VGM"),
+    )
+    assert img.getbbox() is None
+
+
+def test_vgm_overlay_from_style():
+    img = build_vgm_overlay(
+        (SQUARE.width, SQUARE.height),
+        style={"watermark": True, "watermark_text": "VGM", "watermark_opacity": 0.15},
+    )
+    assert img.getbbox() is not None
+
+
+def test_build_hud_without_title_composes_overlay(tmp_path):
+    out = tmp_path / "vgm.png"
+    overlay = build_vgm_overlay(
+        (SQUARE.width, SQUARE.height),
+        VgmConfig(watermark=True, watermark_text="VGM"),
+    )
+    build_hud(out, SQUARE, "Hidden Title", show_title=False, overlay=overlay)
+    img = Image.open(out)
+    assert img.size == (SQUARE.width, SQUARE.height)
+    assert img.mode == "RGBA"
+    assert img.getbbox() is not None
+
+
+def test_build_hud_without_title_is_empty(tmp_path):
+    out = tmp_path / "hidden.png"
+    build_hud(out, SQUARE, "Hidden Title", show_title=False)
+    assert Image.open(out).getbbox() is None

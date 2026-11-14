@@ -139,12 +139,24 @@ Everything is optional. Only include what differs from the defaults.
 | `text_case` | `preserve` | `preserve`, `upper`, or `lower` |
 | `tracking` | `0.0` | Letter spacing in em (`-0.05`–`0.25`) |
 | `line_spacing` | `1.12` | Title line-height multiplier (`1.0`–`1.5`) |
+| `grade` | `none` | Film grade (`none`, `sunset`, `night`, or `fog`) |
+| `show_title` | `true` | Show the title/artist/handle HUD |
+| `watermark` | `false` | Giant translucent watermark overlay (on/off) |
+| `watermark_text` | `null` | Watermark text (`null` = off) |
+| `watermark_font` | `anton` | Watermark typeface (any bundled face) |
+| `watermark_opacity` | `0.15` | Watermark opacity (`0–0.5`) |
+| `watermark_width` | `0.95` | Watermark width as a fraction of frame width |
+| `watermark_stroke` | `0.06` | Watermark outline thickness as a fraction of font size |
+| `watermark_x` / `watermark_y` | `0.0` | Watermark offset (`-1..1`; `0` = center, magnitude bleeds off-frame) |
 
 Presets only set style keys and can be overridden per-track or per-command:
 
 - **`clean`** — the v1 defaults: calm Ken Burns, energy-reactive crossfades.
 - **`punchy`** — shorter cuts, a decaying scale punch on each downbeat, higher contrast.
 - **`balanced`** — a middle ground between the two.
+- **`vgm`** — graded held footage with a giant translucent `VGM` watermark:
+  `grade: sunset`, `show_title: false`, `watermark: true`, `grain: 0.08`,
+  `vignette: 0.2`.
 
 ### Fonts
 
@@ -208,7 +220,7 @@ Common options for `inspect`, `render`, and `batch`:
 ```
 --aspect vertical|horizontal|square|all   (default: all)
 --out DIR                                 output root (default: out/)
---preset NAME                              clean|punchy|balanced
+--preset NAME                              clean|punchy|balanced|vgm
 --beats-per-cut N  --crossfade S  --zoom F  --fps N  --supersample N
 --contrast F  --beat-punch F
 --vignette F  --grain F  --texture PATH  --texture-blend MODE
@@ -309,8 +321,9 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 
 ## Status
 
-v1 plus the post-v1 local web studio are shipped. CI installs `.[dev,ui]`, generates
-fixtures, and runs the full suite (141 tests at the time of writing).
+v1 plus the post-v1 local web studio are shipped, including the `vgm` preset
+(grade + watermark/tag/shield overlay, issue #37). CI installs `.[dev,ui]`, generates
+fixtures, and runs the full suite.
 
 Open work is tracked in
 [issues](https://github.com/austinatchley/visualizer-pipeline/issues):
@@ -323,4 +336,3 @@ Open work is tracked in
 - #21 beat-reactive `color_punch`
 - #23–#25 web studio follow-ups (jobs/A-B, drag-and-drop reorder, autosave)
 - #29 frontend componentization (Lit)
-- #37 VGM-style preset
