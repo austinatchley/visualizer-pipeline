@@ -132,18 +132,32 @@ def _render_track(track, beatmap, args, aspects, verbose: bool = True):
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, aspects)
     mtime = input_mtime(track)
-    written: list[Path] = []
+    variant_jobs = max(1, int(getattr(args, "variant_jobs", 1) or 1))
 
-    for variant in variants:
+    def work(variant):
         if not args.force and is_up_to_date(variant.path, mtime):
-            if verbose:
-                print(f"  skip {variant.path}")
-            continue
+            return variant, False
         render(track, variant.aspect, beatmap, variant.path, window=variant.window)
-        if verbose:
-            print(f"  {variant.path}")
-        written.append(variant.path)
+        return variant, True
 
+    if variant_jobs > 1 and len(variants) > 1:
+        # The 16:9 full render is the long pole while hooks are short; running
+        # them concurrently cuts wall-clock for `--aspect all` (issue #12).
+        # Finalize `auto` once up front so concurrent renders don't race.
+        finalize_auto_style(track, beatmap)
+        with ThreadPoolExecutor(
+            max_workers=min(variant_jobs, len(variants))
+        ) as pool:
+            results = list(pool.map(work, variants))
+    else:
+        results = [work(variant) for variant in variants]
+
+    written: list[Path] = []
+    for variant, did_render in results:
+        if verbose:
+            print(f"  {variant.path}" if did_render else f"  skip {variant.path}")
+        if did_render:
+            written.append(variant.path)
     return variants, written
 
 
@@ -317,6 +331,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common_args(p_render)
     p_render.add_argument("--force", action="store_true")
     p_render.add_argument("--reanalyze", action="store_true")
+    p_render.add_argument(
+        "--variant-jobs", type=int, default=1, dest="variant_jobs",
+        help="render aspects concurrently (default 1; try 2-3 for --aspect all)",
+    )
     p_render.set_defaults(func=_cmd_render)
 
     p_batch = sub.add_parser("batch", help="render every track folder under a directory")

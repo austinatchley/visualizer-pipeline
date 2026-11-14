@@ -51,6 +51,19 @@ def test_render_is_idempotent(tmp_path, capsys):
     assert "skip" in second
 
 
+def test_render_variant_jobs_renders_all(tmp_path):
+    _require(SHORT)
+    code = main(
+        [
+            "render", str(SHORT), "--aspect", "both", "--out", str(tmp_path),
+            "--variant-jobs", "2",
+        ]
+    )
+    assert code == 0
+    outputs = sorted((tmp_path / "interlude").glob("*.mp4"))
+    assert len(outputs) == 2
+
+
 def _link_track(root: Path, name: str, source: Path, with_images: bool) -> Path:
     folder = root / name
     folder.mkdir()
