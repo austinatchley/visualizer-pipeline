@@ -33,6 +33,8 @@ body {
 }
 
 .topbar h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+.brand-dot { color: var(--accent); }
+.brand-sub { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.04em; text-transform: lowercase; margin-left: 0.2rem; color: var(--dim); }
 .dim { color: var(--dim); }
 .topbar-right { display: flex; align-items: center; gap: 1rem; }
 .status { font-size: 0.8rem; color: var(--dim); }

@@ -276,7 +276,7 @@ def _cmd_ui(args: argparse.Namespace) -> int:
         import webbrowser
 
         webbrowser.open(url)
-    print(f"vp studio running at {url} (Ctrl-C to stop)")
+    print(f"os.10.vs running at {url} (Ctrl-C to stop)")
     try:
         uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     except KeyboardInterrupt:
@@ -285,7 +285,7 @@ def _cmd_ui(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="vp", description="Beat visualizer pipeline")
+    parser = argparse.ArgumentParser(prog="vp", description="os.10.vs — beat visualizer studio")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_analyze = sub.add_parser("analyze", help="analyze a track's audio")
@@ -319,7 +319,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("track")
     p_init.set_defaults(func=_cmd_init)
 
-    p_ui = sub.add_parser("ui", help="launch the local web UI")
+    p_ui = sub.add_parser("ui", help="launch os.10.vs (local web studio)")
     p_ui.add_argument("--host", default="127.0.0.1")
     p_ui.add_argument("--port", type=int, default=8321)
     p_ui.add_argument("--tracks", default="tracks", help="root directory of track folders")

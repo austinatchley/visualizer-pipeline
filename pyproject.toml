@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "visualizer-pipeline"
 version = "0.1.0"
-description = "Batch audio-reactive visualizer renderer for beats"
+description = "os.10.vs — batch audio-reactive visualizer renderer for beats"
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",

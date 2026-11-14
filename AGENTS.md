@@ -6,7 +6,7 @@ resuming work in a fresh session.
 
 ## What this is
 
-A CLI-first pipeline that turns a beat plus a few stills into:
+`os.10.vs` is a CLI-first visualizer studio that turns a beat plus a few stills into:
 
 - **16:9** full-track visualizer (YouTube)
 - **9:16** and **1:1** 30–60 s hooks (Reels / Shorts / feed)

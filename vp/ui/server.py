@@ -265,7 +265,7 @@ def create_app(
     out.mkdir(parents=True, exist_ok=True)
     (out / "preview").mkdir(parents=True, exist_ok=True)
 
-    app = FastAPI(title="vp studio", version="0.1.0")
+    app = FastAPI(title="os.10.vs", version="0.1.0")
     app.state.root = root
     app.state.out = out
     app.state.textures = textures

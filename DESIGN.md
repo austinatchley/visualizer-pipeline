@@ -1,4 +1,4 @@
-# Visualizer Pipeline — Design
+# os.10.vs — Design
 
 Status: **v1 + post-v1 web studio + VGM preset shipped** (decisions in §11; open work in §12)
 
@@ -293,8 +293,8 @@ Behavior:
 
 ### 5.1 Local web UI (post-v1)
 
-The CLI is the primary interface and the source of truth. `vp ui` (`vp/ui/server.py`)
-is a thin FastAPI wrapper over the same config/plan/render functions, keeping previews
+The CLI is the primary interface and the source of truth. **os.10.vs** (`vp ui`) is a
+thin FastAPI wrapper over the same config/plan/render functions, keeping previews
 and exports byte-identical to a headless run. Key constraints:
 
 - **One style schema.** `config.STYLE_FIELDS` declaratively describes every style key
@@ -421,9 +421,9 @@ visualizer-pipeline/
   `grade` (sunset/night/fog `eq` filter in the finish chain) plus a Pillow watermark layer
   (`watermark`, `watermark_*`, `show_title`); issue #37. Standalone saturation/grade keys
   and beat-reactive color swings remain backlog (#20/#21).
-- **D15 — Web studio.** `vp ui` is an optional FastAPI client over the same engine
-  (preview/jobs/create-project); the CLI remains the source of truth. Issues #23–#25
-  track the remaining UI work.
+- **D15 — Web studio (os.10.vs).** `vp ui` is an optional FastAPI client over the same
+  engine (preview/jobs/create-project); the CLI remains the source of truth. Issues
+  #23–#25 track the remaining UI work.
 - **D16 — VGM look (#37).** A single `vgm` preset supplies a film grade + a translucent
   watermark overlay layer, all in the existing FFmpeg + Pillow pipeline (no
   shaders/generators, single encode pass). Adds a `text` `STYLE_FIELDS` type for

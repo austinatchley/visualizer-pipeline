@@ -1,8 +1,8 @@
-# visualizer-pipeline
+# os.10.vs
 
 [![CI](https://github.com/austinatchley/visualizer-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/austinatchley/visualizer-pipeline/actions/workflows/ci.yml)
 
-Turn a beat plus a few stills into beat-synced visualizers from the command line:
+**Visualizer studio by os.10.** Turn a beat plus a few stills into beat-synced visualizers from the command line:
 
 - **16:9** full-track visualizer for YouTube
 - **9:16** and **1:1** short hooks for Reels / Shorts / feed
@@ -243,12 +243,13 @@ manifest, and beatmap.
 
 ## Local web UI
 
-The CLI stays the headless core; `vp ui` is a thin client over the same engine
-(config, resolution, rendering), so anything it produces matches a CLI run exactly.
+The CLI stays the headless core; **os.10.vs**, the `vp ui` web studio, is a thin client
+over the same engine (config, resolution, rendering), so anything it produces matches a
+CLI run exactly.
 
 ```bash
 pip install -e ".[ui]"
-vp ui --tracks tracks      # opens a local dark-theme studio
+vp ui --tracks tracks      # opens os.10.vs in the browser
 ```
 
 `vp ui` options: `--host`, `--port` (default `127.0.0.1:8321`), `--tracks DIR`
@@ -326,9 +327,9 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 
 ## Status
 
-v1 plus the post-v1 local web studio are shipped, including the `vgm` preset
-(grade + watermark/tag/shield overlay, issue #37). CI installs `.[dev,ui]`, generates
-fixtures, and runs the full suite.
+v1 plus os.10.vs, the post-v1 studio, are shipped, including the `vgm` preset
+(grade + watermark overlay, issue #37) and studio image editing / track deletion
+(#38/#39). CI installs `.[dev,ui]`, generates fixtures, and runs the full suite.
 
 Open work is tracked in
 [issues](https://github.com/austinatchley/visualizer-pipeline/issues):
