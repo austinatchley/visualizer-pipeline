@@ -4,10 +4,14 @@ const state = { boot: null, tracks: [], current: null, model: {} };
 const $ = (sel) => document.querySelector(sel);
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
+  const headers = {};
+  let body = opts.body;
+  if (opts.body instanceof FormData) {
+    body = opts.body; // let the browser set the multipart boundary
+  } else if (opts.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+  const res = await fetch(path, { ...opts, headers, body });
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -30,6 +34,20 @@ function toast(msg, kind = "ok") {
 function setBusy(busy, msg = "") {
   $("#status").textContent = msg;
   $("#status").classList.toggle("busy", busy);
+}
+
+// Load a video and start playback once the media is ready. Calling play()
+// immediately after load() rejects before metadata arrives, which whisked
+// renders that wouldn't autoplay; this retries on canplay/loadeddata.
+function playVideo(video, src) {
+  video.onloadeddata = null;
+  video.oncanplay = null;
+  const go = () => video.play().catch(() => {});
+  video.onloadeddata = go;
+  video.oncanplay = go;
+  video.src = src;
+  video.load();
+  go();
 }
 
 function makeControl(key, spec, value) {
@@ -146,6 +164,150 @@ function setStatusLine(key) {
   $("#track-meta").textContent = meta.artist ? `${line} · ${meta.artist}` : line;
 }
 
+function imageUrl(name) {
+  return `/api/tracks/${state.current.slug}/images/${encodeURIComponent(name)}`;
+}
+
+function renderImages() {
+  const wrap = $("#image-grid");
+  wrap.innerHTML = "";
+  if (!state.current || !state.current.images) return;
+  let dragName = null;
+  if (!state.current.images.length) {
+    const empty = document.createElement("span");
+    empty.className = "dim image-empty";
+    empty.textContent = "No images yet — use + Add.";
+    wrap.appendChild(empty);
+    return;
+  }
+  for (const name of state.current.images) {
+    const card = document.createElement("div");
+    card.className = "image-card";
+    card.draggable = true;
+    card.dataset.name = name;
+
+    const img = document.createElement("img");
+    img.src = imageUrl(name);
+    img.alt = name;
+    card.appendChild(img);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "btn small image-remove";
+    remove.title = "Remove";
+    remove.textContent = "×";
+    remove.addEventListener("click", () => removeImage(name));
+    card.appendChild(remove);
+
+    const label = document.createElement("span");
+    label.className = "image-name";
+    label.textContent = name;
+    card.appendChild(label);
+
+    card.addEventListener("dragstart", (e) => {
+      dragName = name;
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    });
+    card.addEventListener("dragover", (e) => e.preventDefault());
+    card.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!dragName || dragName === name) return;
+      const names = state.current.images.slice();
+      const from = names.indexOf(dragName);
+      const to = names.indexOf(name);
+      names.splice(from, 1);
+      // Insert before the card that was dropped on, compensating for the
+      // removal shifting everything after `from` one slot left.
+      names.splice(from < to ? to - 1 : to, 0, dragName);
+      reorderImages(names);
+    });
+    wrap.appendChild(card);
+  }
+}
+
+async function reorderImages(names) {
+  setBusy(true, "saving order…");
+  try {
+    const res = await api(`/api/tracks/${state.current.slug}/images`, {
+      method: "PUT",
+      body: JSON.stringify({ order: names }),
+    });
+    state.current.images = res.images;
+    renderImages();
+    schedulePreview();
+  } catch (err) {
+    toast(err.message, "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+function removeImage(name) {
+  if (!confirm(`Remove ${name}? The file will be deleted.`)) return;
+  setBusy(true, "removing…");
+  (async () => {
+    try {
+      const res = await api(`/api/tracks/${state.current.slug}/images`, {
+        method: "DELETE",
+        body: JSON.stringify({ names: [name] }),
+      });
+      state.current.images = res.images;
+      renderImages();
+      schedulePreview();
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setBusy(false);
+    }
+  })();
+}
+
+async function addImages(files) {
+  if (!files || !files.length) return;
+  const fd = new FormData();
+  for (const f of files) fd.append("images", f);
+  setBusy(true, "adding images…");
+  try {
+    const res = await api(`/api/tracks/${state.current.slug}/images`, {
+      method: "POST",
+      body: fd,
+    });
+    state.current.images = res.images;
+    renderImages();
+    schedulePreview();
+  } catch (err) {
+    toast(err.message, "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function deleteTrack() {
+  if (!confirm(`Delete track "${state.current.title}"? This removes the whole folder and cannot be undone.`)) {
+    return;
+  }
+  setBusy(true, "deleting…");
+  try {
+    await api(`/api/tracks/${state.current.slug}`, { method: "DELETE" });
+    state.current = null;
+    toast("track deleted");
+    await loadTrackList();
+    const first = state.tracks.find((t) => !t.error);
+    if (first) {
+      await selectTrack(first.slug);
+    } else {
+      renderTrackList();
+      $("#image-grid").innerHTML = "";
+      $("#track").classList.add("hidden");
+      $("#empty").classList.remove("hidden");
+    }
+  } catch (err) {
+    toast(err.message, "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function selectTrack(slug) {
   setBusy(true, "loading…");
   try {
@@ -154,6 +316,7 @@ async function selectTrack(slug) {
     state.model = { ...detail.style };
     renderControls();
     renderTrackList();
+    renderImages();
     $("#track-title").textContent = detail.title;
     $("#track-meta").textContent = "";
     setStatusLine();
@@ -219,8 +382,7 @@ async function preview() {
         `#preview-grid video[data-aspect="${key}"]`
       );
       if (!video) continue;
-      video.src = `${url}?t=${stamp}`;
-      video.load();
+      playVideo(video, `${url}?t=${stamp}`);
     }
   } catch (err) {
     toast(err.message, "error");
@@ -296,6 +458,7 @@ async function pollJobs() {
         cancelling: false,
         video,
         url: null,
+        lastStatus: null,
       };
       cancel.addEventListener("click", () => cancelJob(j.id, row));
       state.jobRows[j.id] = row;
@@ -324,12 +487,12 @@ async function pollJobs() {
     } else {
       row.err.classList.add("hidden");
     }
-    if (j.url && j.url !== row.url) {
+    const justFinished = j.status === "done" && row.lastStatus !== "done";
+    if (j.url && (j.url !== row.url || justFinished)) {
       row.url = j.url;
-      row.video.src = j.url;
-      row.video.load();
-      row.video.play().catch(() => {});
+      playVideo(row.video, `${j.url}?t=${Date.now()}`);
     }
+    row.lastStatus = j.status;
   }
   for (const id of Object.keys(state.jobRows)) {
     if (!seen.has(id)) {
@@ -525,6 +688,12 @@ async function init() {
   $("#new-project").addEventListener("click", openModal);
   $("#modal-close").addEventListener("click", closeModal);
   $("#create-track").addEventListener("click", createProject);
+  $("#add-images").addEventListener("click", () => $("#add-images-input").click());
+  $("#add-images-input").addEventListener("change", (e) => {
+    addImages(e.target.files);
+    e.target.value = "";
+  });
+  $("#delete-track").addEventListener("click", deleteTrack);
   state.dropFiles = [];
   initDropzone();
   startPolling();
@@ -543,10 +712,8 @@ function waitForCompare() {
     if (urls[state.cmpIds[0]] && urls[state.cmpIds[1]]) {
       clearInterval(ud);
       $("#compare").classList.remove("hidden");
-      $("#cmp-a-video").src = urls[state.cmpIds[0]] + `?t=${Date.now()}`;
-      $("#cmp-b-video").src = urls[state.cmpIds[1]] + `?t=${Date.now()}`;
-      $("#cmp-a-video").load();
-      $("#cmp-b-video").load();
+      playVideo($("#cmp-a-video"), urls[state.cmpIds[0]] + `?t=${Date.now()}`);
+      playVideo($("#cmp-b-video"), urls[state.cmpIds[1]] + `?t=${Date.now()}`);
     }
   }, 700);
 }

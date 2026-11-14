@@ -312,6 +312,15 @@ and exports byte-identical to a headless run. Key constraints:
 - **Create projects.** `POST /api/tracks` (multipart: one audio + images + title)
   scaffolds a valid track folder reusing the DESIGN §3 contract and `track.py`
   validation, so anything created in the UI is exactly what the CLI accepts.
+- **Manage projects.** Images are editable after creation: `GET/POST/DELETE/PUT
+  /api/tracks/{slug}/images` add, remove, and reorder (drag-and-drop). An explicit order
+  is persisted as root-relative paths in `track.json` (same shape the CLI reads); with no
+  explicit order the UI falls back to filename sorting. `DELETE /api/tracks/{slug}`
+  removes the folder after cancelling that track's jobs. Both resolve the folder
+  leniently, so broken tracks can still be deleted.
+- **Playback only after completion.** Job summaries expose `url` only for `done`/
+  `skipped` renders; publishing it mid-render let the browser latch onto a partially
+  written mp4 that never recovered.
 - Optional dependency: `pip install -e ".[ui]"`. Base install is unchanged.
 
 ## 6. Outputs

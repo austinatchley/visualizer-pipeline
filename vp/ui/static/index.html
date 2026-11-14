@@ -27,8 +27,22 @@
     <main class="main">
       <section id="track" class="hidden">
         <div class="track-head">
-          <h2 id="track-title">—</h2>
-          <span id="track-meta" class="dim"></span>
+          <div class="track-head-text">
+            <h2 id="track-title">—</h2>
+            <span id="track-meta" class="dim"></span>
+          </div>
+          <button id="delete-track" class="btn danger small">Delete track</button>
+        </div>
+
+        <div class="images-bar">
+          <div class="images-head">
+            <h3>Images</h3>
+            <div class="images-actions">
+              <button id="add-images" class="btn small">+ Add</button>
+              <input id="add-images-input" type="file" accept="image/*" multiple hidden>
+            </div>
+          </div>
+          <div id="image-grid" class="image-grid"></div>
         </div>
 
         <div class="preview-bar">

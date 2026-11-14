@@ -72,8 +72,62 @@ def _write_manifest(path: Path, manifest: dict) -> None:
     path.write_text(json.dumps(manifest, indent=2) + "\n")
 
 
+def _find_track_folder(root: Path, slug: str) -> Path:
+    """Locate a track folder by loaded slug or folder name (lenient, so broken
+    tracks are still deletable from the UI catalog)."""
+    for folder in _track_folders(root):
+        if folder.name == slug:
+            return folder
+        try:
+            if load_track(folder).slug == slug:
+                return folder
+        except Exception:
+            continue
+    raise HTTPException(status_code=404, detail=f"track {slug!r} not found")
+
+
+def _image_dir(folder: Path) -> Path:
+    img_dir = folder / "images"
+    return img_dir if img_dir.is_dir() else folder
+
+
+def _image_names(folder: Path) -> list[str]:
+    """Ordered bare image filenames (UI-facing). Manifest stores root-relative paths."""
+    manifest = _manifest(folder / "track.json")
+    if manifest.get("images") is not None:
+        return [
+            Path(p).name
+            for p in manifest["images"]
+            if (folder / str(p)).is_file()
+        ]
+    d = _image_dir(folder)
+    return sorted(
+        p.name for p in d.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTS
+    )
+
+
+def _persist_order(folder: Path, names: list[str]) -> None:
+    """Persist an explicit image order as root-relative paths in `track.json`."""
+    d = _image_dir(folder)
+    rel: list[str] = []
+    for n in names:
+        candidate = d / n
+        rel.append(str(candidate.relative_to(folder)) if candidate.is_file() else n)
+    manifest = _manifest(folder / "track.json")
+    manifest["images"] = rel
+    _write_manifest(folder / "track.json", manifest)
+
+
 class StylePayload(BaseModel):
     style: dict[str, object]
+
+
+class ImageNamesPayload(BaseModel):
+    names: list[str]
+
+
+class OrderPayload(BaseModel):
+    order: list[str]
 
 
 class RenderPayload(BaseModel):
@@ -175,7 +229,9 @@ def _job_summary(job: Job, out: Path) -> dict:
         ended = job.ended
         path_value = job.path
     url = None
-    if path_value:
+    # Only expose a URL once the file is complete; publishing it mid-render lets
+    # the browser latch onto a partially written mp4 that never recovers.
+    if path_value and status in {"done", "skipped"}:
         path = Path(path_value)
         if path.exists():
             try:
@@ -344,6 +400,92 @@ def create_app(
             "style": track.style,
             "hook": track.hook,
         }
+
+    @app.delete("/api/tracks/{slug}")
+    def delete_track(slug: str):
+        folder = _find_track_folder(root, slug)
+        with app.state.jobs_lock:
+            for job in app.state.jobs.values():
+                if job.slug == slug:
+                    job.cancel.set()
+        shutil.rmtree(folder)
+        return {"deleted": slug}
+
+    @app.get("/api/tracks/{slug}/images/{name}")
+    def track_image(slug: str, name: str):
+        track = _find_track(root, slug)
+        safe = Path(name).name
+        if safe != name:
+            raise HTTPException(status_code=400, detail="invalid image name")
+        candidates = [track.root / "images" / safe, track.root / safe]
+        for p in candidates:
+            if p.is_file():
+                return FileResponse(str(p))
+        raise HTTPException(status_code=404, detail=f"image {name!r} not found")
+
+    @app.post("/api/tracks/{slug}/images")
+    async def add_images(slug: str, images: list[UploadFile] = File(...)):
+        track = _find_track(root, slug)
+        bad = [
+            f.filename
+            for f in images
+            if f.filename and Path(f.filename).suffix.lower() not in IMAGE_EXTS
+        ]
+        if bad:
+            raise HTTPException(
+                status_code=400,
+                detail=f"images must be one of: {', '.join(sorted(IMAGE_EXTS))} (got {', '.join(bad)})",
+            )
+        img_dir = track.root / "images"
+        img_dir.mkdir(exist_ok=True)
+        existing = _image_names(track.root)
+        added: list[str] = []
+        for f in images:
+            if not f.filename:
+                continue
+            base = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(f.filename).name)
+            name, n = base, 2
+            while (img_dir / name).exists():
+                stem, _, ext = base.rpartition(".")
+                name = f"{stem}-{n}.{ext}" if ext else f"{base}-{n}"
+                n += 1
+            with (img_dir / name).open("wb") as fh:
+                shutil.copyfileobj(f.file, fh)
+            added.append(name)
+        _persist_order(track.root, existing + [n for n in added if n not in existing])
+        return {"added": added, "images": _image_names(track.root)}
+
+    @app.delete("/api/tracks/{slug}/images")
+    def remove_images(slug: str, payload: ImageNamesPayload):
+        track = _find_track(root, slug)
+        img_dir = track.root / "images"
+        for name in payload.names:
+            safe = Path(name).name
+            for p in (img_dir / safe, track.root / safe):
+                if p.is_file() and track.root in p.parents:
+                    p.unlink()
+                    break
+        remaining = [n for n in _image_names(track.root) if n not in payload.names]
+        if remaining:
+            _persist_order(track.root, remaining)
+        else:
+            manifest = _manifest(track.root / "track.json")
+            manifest.pop("images", None)
+            _write_manifest(track.root / "track.json", manifest)
+        return {"removed": payload.names, "images": remaining}
+
+    @app.put("/api/tracks/{slug}/images")
+    def reorder_images(slug: str, payload: OrderPayload):
+        track = _find_track(root, slug)
+        order = [str(n) for n in payload.order]
+        current = _image_names(track.root)
+        if sorted(order) != sorted(current):
+            raise HTTPException(
+                status_code=400,
+                detail="order must be a permutation of the current images",
+            )
+        _persist_order(track.root, order)
+        return {"images": order}
 
     @app.post("/api/tracks/{slug}/style")
     def save_style(slug: str, payload: StylePayload):

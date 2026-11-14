@@ -17,7 +17,7 @@ from vp.aspects import VERTICAL
 from vp.config import STYLE_FIELDS, resolve_style
 from vp.render import RenderCancelled, render
 from vp.track import load_track
-from vp.ui.server import _render_lock, create_app
+from vp.ui.server import Job, _job_summary, _render_lock, create_app
 
 def _has_asyncio_backend() -> bool:
     try:
@@ -314,6 +314,19 @@ def test_render_job_lifecycle_and_skip(client):
     assert job2["status"] == "skipped"  # unchanged inputs -> idempotent skip
 
 
+def test_job_url_hidden_until_complete(client):
+    """A running render must not publish a URL: the browser would latch onto a
+    partially written mp4 and never recover when the render completes."""
+    dest = Path(client.app.state.out) / "pending.mp4"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(b"\x00\x00\x00\x18ftypmp42")
+    job = Job(id="j1", slug="demo-track", aspect="vertical", style={}, path=str(dest))
+    job.status = "running"
+    assert _job_summary(job, Path(client.app.state.out))["url"] is None
+    job.status = "done"
+    assert _job_summary(job, Path(client.app.state.out))["url"] == "/api/files/pending.mp4"
+
+
 def test_render_job_accepts_library_texture(client):
     body = {
         "aspect": "vertical",
@@ -431,3 +444,84 @@ def test_create_track_rejects_bad_extension(client):
     )
     assert res.status_code == 400
     assert "images" in res.json()["detail"]
+
+
+def test_delete_track(client):
+    res = client.delete("/api/tracks/demo-track")
+    assert res.status_code == 200
+    assert res.json() == {"deleted": "demo-track"}
+    folder = Path(client.app.state.root) / "demo_track"
+    assert not folder.exists()
+    assert client.delete("/api/tracks/demo-track").status_code == 404
+
+
+def test_delete_track_unknown_404(client):
+    assert client.delete("/api/tracks/bogus").status_code == 404
+
+
+def test_serve_image(client):
+    res = client.get("/api/tracks/demo-track/images/01.jpg")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("image/")
+    assert res.content
+    assert client.get("/api/tracks/demo-track/images/nope.jpg").status_code == 404
+
+
+def test_add_images(client):
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.fromarray(np.zeros((32, 32, 3), dtype=np.uint8)).save(buf, format="PNG")
+    res = client.post(
+        "/api/tracks/demo-track/images",
+        files=[("images", ("03.png", buf.getvalue(), "image/png"))],
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert "03.png" in data["images"]
+    manifest = json.loads(
+        (Path(client.app.state.root) / "demo_track" / "track.json").read_text()
+    )
+    assert "images/03.png" in manifest["images"]
+
+
+def test_add_images_rejects_bad_extension(client):
+    res = client.post(
+        "/api/tracks/demo-track/images",
+        files=[("images", ("a.txt", b"x", "text/plain"))],
+    )
+    assert res.status_code == 400
+    assert "images must be" in res.json()["detail"]
+
+
+def test_remove_images(client):
+    res = client.request(
+        "DELETE", "/api/tracks/demo-track/images", json={"names": ["01.jpg"]}
+    )
+    assert res.status_code == 200
+    assert "01.jpg" not in res.json()["images"]
+    folder = Path(client.app.state.root) / "demo_track"
+    assert not (folder / "images" / "01.jpg").exists()
+
+
+def test_reorder_images(client):
+    res = client.put(
+        "/api/tracks/demo-track/images", json={"order": ["02.jpg", "01.jpg"]}
+    )
+    assert res.status_code == 200
+    assert res.json()["images"] == ["02.jpg", "01.jpg"]
+    manifest = json.loads(
+        (Path(client.app.state.root) / "demo_track" / "track.json").read_text()
+    )
+    assert manifest["images"] == ["images/02.jpg", "images/01.jpg"]
+
+
+def test_reorder_images_rejects_non_permutation(client):
+    res = client.put(
+        "/api/tracks/demo-track/images", json={"order": ["02.jpg"]}
+    )
+    assert res.status_code == 400
+    assert "permutation" in res.json()["detail"]

@@ -17,16 +17,18 @@ A post-v1 FastAPI web studio (`vp ui`) wraps the same engine.
 ## Current state (snapshot)
 
 - v1 + post-v1 web studio shipped. See `DESIGN.md` §11 (decisions) and §12 (milestones).
-- **141 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
+- **162 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
 - CI: `.github/workflows/ci.yml` installs ffmpeg + DejaVu fonts, `.[dev,ui]`, generates
   fixtures, then runs `pytest -q`.
 - Open issues: **#11** advanced sections, **#12** performance, **#14** video snippets,
   **#19** vibe-aware presets, **#20/#21** color keys, **#23–#25** web studio follow-ups,
-  **#29** Lit componentization. **#37 VGM preset shipped.**
+  **#29** Lit componentization. **#37 VGM preset, #38 image editing, #39 track deletion
+  shipped.**
 - Recent history: energy-reactive planner, hook windows, 3 aspects, Pillow HUD/waveform,
   presets, overlays, web UI, render jobs + cancellation, bundled OFL fonts + text
-  controls, texture library + studio picker, finer waveform dynamics, **VGM preset
-  (grade + watermark overlay, #37).**
+  controls, texture library + studio picker, finer waveform dynamics, VGM preset
+  (grade + watermark overlay, #37), **studio image management + track deletion
+  (#38/#39), job playback fix (URL only after completion).**
 
 ## Setup
 

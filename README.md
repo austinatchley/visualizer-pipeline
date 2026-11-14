@@ -263,6 +263,11 @@ that validates config (so new style keys appear automatically), three-up preview
 explicit "Save style" that writes only the diff back to `track.json`. Textures are
 selected from the `textures/` library instead of typing a path.
 
+An existing track's **Images** strip lives at the top of the track view: add images from
+disk, drag cards to reorder them (the order is written back to `track.json`), or remove a
+card (deletes the file). **Delete track** removes the whole folder after a confirmation;
+running jobs for that track are cancelled first.
+
 Full renders run as background **jobs** with live progress (streamed from ffmpeg), an
 up-to-date skip that matches the CLI's idempotency exactly, per-job cancel for queued and
 running renders, and in-browser playback of finished videos. The **Compare A/B** flow
