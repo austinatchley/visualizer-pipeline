@@ -317,9 +317,9 @@ and exports byte-identical to a headless run. Key constraints:
   scaffolds a valid track folder reusing the DESIGN §3 contract and `track.py`
   validation, so anything created in the UI is exactly what the CLI accepts.
 - **Manage projects.** Images are editable after creation: `GET/POST/DELETE/PUT
-  /api/tracks/{slug}/images` add, remove, and reorder (drag-and-drop). An explicit order
+  /api/tracks/{id}/images` add, remove, and reorder (drag-and-drop). An explicit order
   is persisted as root-relative paths in `track.json` (same shape the CLI reads); with no
-  explicit order the UI falls back to filename sorting. `DELETE /api/tracks/{slug}`
+  explicit order the UI falls back to filename sorting. `DELETE /api/tracks/{id}`
   removes the folder after cancelling that track's jobs. Both resolve the folder
   leniently, so broken tracks can still be deleted.
 - **Playback only after completion.** Job summaries expose `url` only for `done`/
@@ -330,10 +330,10 @@ and exports byte-identical to a headless run. Key constraints:
 ## 6. Outputs
 
 ```
-out/<track-slug>/
-  <track-slug>_16x9.mp4        # full track
-  <track-slug>_9x16_hook.mp4   # 30–60s excerpt
-  <track-slug>_1x1_hook.mp4    # 30–60s excerpt
+out/<id>/                # id = track folder name
+  <id>_16x9.mp4        # full track
+  <id>_9x16_hook.mp4   # 30–60s excerpt
+  <id>_1x1_hook.mp4    # 30–60s excerpt
 ```
 
 Slug = lowercased title with non-alphanumerics collapsed to `-`. Override the root with
@@ -409,7 +409,9 @@ visualizer-pipeline/
 - **D4 — Video snippets.** Still open: images only; `clips/` segments tracked in #14.
 - **D5 — Text.** Title + artist + handle; bundled OFL faces with `font`/`meta_font`,
   `text_case`, `tracking`, and `line_spacing`. `title_font` remains a path override.
-- **D6 — Naming.** `<slug>_16x9.mp4`, `<slug>_9x16_hook.mp4`, `<slug>_1x1_hook.mp4`.
+- **D6 — Naming.** `<id>_16x9.mp4`, `<id>_9x16_hook.mp4`, `<id>_1x1_hook.mp4`, where
+  `<id>` is the track folder name (#42; originally a title slug, which collided on
+  duplicate titles and moved outputs on rename). Titles are display-only.
 - **D7 — Tempo override.** `overrides.bpm` + `tempo_multiplier` + `--bpm`.
 - **D8 — Batch concurrency.** Default `--jobs 1`; expose the flag.
 - **D9 — Loudness.** -14 LUFS integrated, -1.5 dBTP true peak, 48 kHz AAC.

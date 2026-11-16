@@ -104,6 +104,8 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
   still accepts custom image files.
 - **Waveform.** Pillow strip only, with ~4 px RMS/peak bars (95th-percentile
   normalization, soft curve, noise floor). The old `showwaves` filter path crashed ffmpeg.
+- **Track identity.** `Track.id` is the folder name: output dir, output filenames, studio
+  routes, and jobs all key on it. Titles are display-only; never derive paths from them.
 - **Idempotency.** `vp/status.py` fingerprints every render input (style, HUD text,
   window, beatmap, file identities) into an `<output>.vp.json` sidecar; CLI and UI skip
   only on a match. `--force` overrides. **Bump `status.RENDER_VERSION`** when a code change

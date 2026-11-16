@@ -7,6 +7,7 @@ identical to a headless run.
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
@@ -28,7 +29,7 @@ from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
 from ..render import RenderCancelled, plan_variants, render, window_for
 from ..status import is_current, render_fingerprint, sidecar_path
 from ..textures import resolve_texture, texture_library
-from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track
+from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track, slugify
 
 STATIC_DIR = Path(__file__).parent / "static"
 _render_lock = threading.Lock()
@@ -46,20 +47,27 @@ def _track_folders(root: Path):
             yield folder
 
 
-def _slugify(title: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", (title or "untitled").lower()).strip("-")
-    return slug or "untitled"
+def _find_track_folder(root: Path, track_id: str) -> Path:
+    """Resolve a track id (its folder name) to a folder under `root` (issue #42).
+
+    O(1) and path-safe; does not load the track, so broken tracks are still
+    deletable from the studio catalog."""
+    if track_id in ("", ".", "..") or Path(track_id).name != track_id:
+        raise HTTPException(status_code=404, detail=f"track {track_id!r} not found")
+    folder = root / track_id
+    if not folder.is_dir() or not any(
+        p.is_file() and p.suffix.lower() in AUDIO_EXTS for p in folder.iterdir()
+    ):
+        raise HTTPException(status_code=404, detail=f"track {track_id!r} not found")
+    return folder
 
 
-def _find_track(root: Path, slug: str):
-    for folder in _track_folders(root):
-        try:
-            track = load_track(folder)
-        except Exception:
-            continue
-        if track.slug == slug:
-            return track
-    raise HTTPException(status_code=404, detail=f"track {slug!r} not found")
+def _find_track(root: Path, track_id: str):
+    folder = _find_track_folder(root, track_id)
+    try:
+        return load_track(folder)
+    except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
 
 
 def _manifest(path: Path) -> dict:
@@ -70,20 +78,6 @@ def _manifest(path: Path) -> dict:
 
 def _write_manifest(path: Path, manifest: dict) -> None:
     path.write_text(json.dumps(manifest, indent=2) + "\n")
-
-
-def _find_track_folder(root: Path, slug: str) -> Path:
-    """Locate a track folder by loaded slug or folder name (lenient, so broken
-    tracks are still deletable from the UI catalog)."""
-    for folder in _track_folders(root):
-        if folder.name == slug:
-            return folder
-        try:
-            if load_track(folder).slug == slug:
-                return folder
-        except Exception:
-            continue
-    raise HTTPException(status_code=404, detail=f"track {slug!r} not found")
 
 
 def _image_dir(folder: Path) -> Path:
@@ -146,7 +140,7 @@ class RenderPayload(BaseModel):
 @dataclass
 class Job:
     id: str
-    slug: str
+    track: str
     aspect: str
     style: dict
     status: str = "pending"  # pending|running|done|skipped|cancelled|failed
@@ -166,14 +160,14 @@ class Job:
 PREVIEW_JOB_KEEP = 8
 
 
-def _preview_job_path(out: Path, slug: str, aspect: str, fingerprint: str) -> Path:
-    return out / "preview" / f"{slug}_{aspect}_{fingerprint[:12]}.mp4"
+def _preview_job_path(out: Path, track_id: str, aspect: str, fingerprint: str) -> Path:
+    return out / "preview" / f"{track_id}_{aspect}_{fingerprint[:12]}.mp4"
 
 
-def _prune_preview_jobs(out: Path, slug: str, aspect: str, keep: Path) -> None:
+def _prune_preview_jobs(out: Path, track_id: str, aspect: str, keep: Path) -> None:
     """Bound preview-job clips per track/aspect: keep the newest few (plus `keep`)
     so repeated A/B comparisons don't fill the disk."""
-    pattern = f"{slug}_{aspect}_{'[0-9a-f]' * 12}.mp4"
+    pattern = f"{glob.escape(f'{track_id}_{aspect}_')}{'[0-9a-f]' * 12}.mp4"
     clips = sorted(
         (p for p in (out / "preview").glob(pattern) if p != keep),
         key=lambda p: p.stat().st_mtime,
@@ -186,7 +180,7 @@ def _prune_preview_jobs(out: Path, slug: str, aspect: str, keep: Path) -> None:
 
 def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
     try:
-        track = _find_track(root, job.slug)
+        track = _find_track(root, job.track)
         track.style = resolve_style(job.style)
         aspect = ASPECTS[job.aspect]
         beatmap = load_beatmap(track)
@@ -194,7 +188,7 @@ def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
         if job.preview:
             window = window_for(track, beatmap, aspect)
         else:
-            variant = plan_variants(track, beatmap, out / track.slug, [job.aspect])[0]
+            variant = plan_variants(track, beatmap, out / track.id, [job.aspect])[0]
             window = variant.window
         fingerprint = render_fingerprint(
             track, aspect, beatmap, window, preview=job.preview, textures_dir=textures
@@ -202,8 +196,8 @@ def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
         if job.preview:
             # Content-addressed so A/B jobs with different looks never share a
             # file (issue #41), while an identical look reuses its clip.
-            dest = _preview_job_path(out, track.slug, job.aspect, fingerprint)
-            _prune_preview_jobs(out, track.slug, job.aspect, keep=dest)
+            dest = _preview_job_path(out, track.id, job.aspect, fingerprint)
+            _prune_preview_jobs(out, track.id, job.aspect, keep=dest)
         else:
             dest = variant.path
         job.path = str(dest)
@@ -276,7 +270,7 @@ def _job_summary(job: Job, out: Path) -> dict:
                 url = None
     return {
         "id": job.id,
-        "slug": job.slug,
+        "track": job.track,
         "aspect": job.aspect,
         "preview": job.preview,
         "status": status,
@@ -339,7 +333,7 @@ def create_app(
                 track = load_track(folder)
                 tracks.append(
                     {
-                        "slug": track.slug,
+                        "id": track.id,
                         "title": track.title,
                         "artist": track.artist,
                         "path": str(folder),
@@ -351,7 +345,7 @@ def create_app(
             except Exception as exc:  # keep the catalog usable
                 tracks.append(
                     {
-                        "slug": folder.name,
+                        "id": folder.name,
                         "title": folder.name,
                         "path": str(folder),
                         "error": str(exc),
@@ -387,7 +381,7 @@ def create_app(
                 detail=f"images must be one of: {', '.join(sorted(IMAGE_EXTS))} (got {', '.join(bad)})",
             )
 
-        base = _slugify(title)
+        base = slugify(title)
         folder = root / base
         n = 2
         while folder.exists():
@@ -404,7 +398,7 @@ def create_app(
                 with (folder / "images" / name).open("wb") as fh:
                     shutil.copyfileobj(img.file, fh)
             (folder / "track.json").write_text(
-                json.dumps({"title": title or _slugify(title).replace("-", " ").title()}, indent=2)
+                json.dumps({"title": title or "Untitled"}, indent=2)
                 + "\n"
             )
         except Exception:
@@ -413,18 +407,18 @@ def create_app(
 
         track = load_track(folder)
         return {
-            "slug": track.slug,
+            "id": track.id,
             "title": track.title,
             "path": str(folder),
             "audio": track.audio.name,
             "image_count": len(track.images),
         }
 
-    @app.get("/api/tracks/{slug}")
-    def track_detail(slug: str):
-        track = _find_track(root, slug)
+    @app.get("/api/tracks/{track_id}")
+    def track_detail(track_id: str):
+        track = _find_track(root, track_id)
         return {
-            "slug": track.slug,
+            "id": track.id,
             "title": track.title,
             "artist": track.artist,
             "handle": track.handle,
@@ -436,19 +430,19 @@ def create_app(
             "hook": track.hook,
         }
 
-    @app.delete("/api/tracks/{slug}")
-    def delete_track(slug: str):
-        folder = _find_track_folder(root, slug)
+    @app.delete("/api/tracks/{track_id}")
+    def delete_track(track_id: str):
+        folder = _find_track_folder(root, track_id)
         with app.state.jobs_lock:
             for job in app.state.jobs.values():
-                if job.slug == slug:
+                if job.track == track_id:
                     job.cancel.set()
         shutil.rmtree(folder)
-        return {"deleted": slug}
+        return {"deleted": track_id}
 
-    @app.get("/api/tracks/{slug}/images/{name}")
-    def track_image(slug: str, name: str):
-        track = _find_track(root, slug)
+    @app.get("/api/tracks/{track_id}/images/{name}")
+    def track_image(track_id: str, name: str):
+        track = _find_track(root, track_id)
         safe = Path(name).name
         if safe != name:
             raise HTTPException(status_code=400, detail="invalid image name")
@@ -458,9 +452,9 @@ def create_app(
                 return FileResponse(str(p))
         raise HTTPException(status_code=404, detail=f"image {name!r} not found")
 
-    @app.post("/api/tracks/{slug}/images")
-    async def add_images(slug: str, images: list[UploadFile] = File(...)):
-        track = _find_track(root, slug)
+    @app.post("/api/tracks/{track_id}/images")
+    async def add_images(track_id: str, images: list[UploadFile] = File(...)):
+        track = _find_track(root, track_id)
         bad = [
             f.filename
             for f in images
@@ -490,9 +484,9 @@ def create_app(
         _persist_order(track.root, existing + [n for n in added if n not in existing])
         return {"added": added, "images": _image_names(track.root)}
 
-    @app.delete("/api/tracks/{slug}/images")
-    def remove_images(slug: str, payload: ImageNamesPayload):
-        track = _find_track(root, slug)
+    @app.delete("/api/tracks/{track_id}/images")
+    def remove_images(track_id: str, payload: ImageNamesPayload):
+        track = _find_track(root, track_id)
         img_dir = track.root / "images"
         for name in payload.names:
             safe = Path(name).name
@@ -509,9 +503,9 @@ def create_app(
             _write_manifest(track.root / "track.json", manifest)
         return {"removed": payload.names, "images": remaining}
 
-    @app.put("/api/tracks/{slug}/images")
-    def reorder_images(slug: str, payload: OrderPayload):
-        track = _find_track(root, slug)
+    @app.put("/api/tracks/{track_id}/images")
+    def reorder_images(track_id: str, payload: OrderPayload):
+        track = _find_track(root, track_id)
         order = [str(n) for n in payload.order]
         current = _image_names(track.root)
         if sorted(order) != sorted(current):
@@ -522,9 +516,9 @@ def create_app(
         _persist_order(track.root, order)
         return {"images": order}
 
-    @app.put("/api/tracks/{slug}/metadata")
-    def update_metadata(slug: str, payload: MetadataPayload):
-        track = _find_track(root, slug)
+    @app.put("/api/tracks/{track_id}/metadata")
+    def update_metadata(track_id: str, payload: MetadataPayload):
+        track = _find_track(root, track_id)
         manifest = _manifest(track.root / "track.json")
         if payload.title is not None:
             title = payload.title.strip()
@@ -538,15 +532,15 @@ def create_app(
         _write_manifest(track.root / "track.json", manifest)
         updated = load_track(track.root)
         return {
-            "slug": updated.slug,
+            "id": updated.id,
             "title": updated.title,
             "artist": updated.artist,
             "handle": updated.handle,
         }
 
-    @app.post("/api/tracks/{slug}/style")
-    def save_style(slug: str, payload: StylePayload):
-        track = _find_track(root, slug)
+    @app.post("/api/tracks/{track_id}/style")
+    def save_style(track_id: str, payload: StylePayload):
+        track = _find_track(root, track_id)
         try:
             resolved = resolve_style(payload.style)
             _check_texture(resolved)
@@ -569,13 +563,13 @@ def create_app(
         _write_manifest(track.root / "track.json", manifest)
         return {"saved": saved, "resolved": resolved}
 
-    @app.post("/api/tracks/{slug}/preview")
-    def render_preview(slug: str, payload: RenderPayload):
+    @app.post("/api/tracks/{track_id}/preview")
+    def render_preview(track_id: str, payload: RenderPayload):
         requested = list(dict.fromkeys(payload.aspects or [payload.aspect]))
         unknown = [key for key in requested if key not in ASPECTS]
         if unknown:
             raise HTTPException(status_code=400, detail=f"unknown aspect: {unknown[0]}")
-        track = _find_track(root, slug)
+        track = _find_track(root, track_id)
         try:
             track.style = resolve_style(payload.style)
         except ValueError as exc:
@@ -587,7 +581,7 @@ def create_app(
         with _render_lock:
             for key in requested:
                 aspect = ASPECTS[key]
-                dest = out / "preview" / f"{track.slug}_{key}.mp4"
+                dest = out / "preview" / f"{track.id}_{key}.mp4"
                 render(
                     track,
                     aspect,
@@ -600,15 +594,15 @@ def create_app(
                 urls[key] = f"/api/files/preview/{dest.name}"
         return {"urls": urls, "url": urls[requested[0]]}
 
-    @app.post("/api/tracks/{slug}/render")
-    def start_render(slug: str, payload: RenderPayload):
+    @app.post("/api/tracks/{track_id}/render")
+    def start_render(track_id: str, payload: RenderPayload):
         if payload.aspect not in ASPECTS:
             raise HTTPException(status_code=400, detail=f"unknown aspect: {payload.aspect}")
-        _find_track(root, slug)  # 404 fast if unknown
+        _find_track(root, track_id)  # 404 fast if unknown
         _check_texture(payload.style)
         job = Job(
             id=uuid.uuid4().hex[:12],
-            slug=slug,
+            track=track_id,
             aspect=payload.aspect,
             style=dict(payload.style),
             preview=payload.preview,

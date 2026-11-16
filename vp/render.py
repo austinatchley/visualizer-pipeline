@@ -461,7 +461,7 @@ def plan_variants(
                 aspect=aspect,
                 window=window,
                 is_hook=is_hook,
-                path=out_dir / f"{track.slug}_{label}.mp4",
+                path=out_dir / f"{track.id}_{label}.mp4",
             )
         )
     return variants

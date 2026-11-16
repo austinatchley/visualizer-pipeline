@@ -125,7 +125,7 @@ def _prepare(folder: Path, args: argparse.Namespace):
 
 def _out_dir(track, args: argparse.Namespace) -> Path:
     base = getattr(args, "out", None)
-    return Path(base) / track.slug if base else Path("out") / track.slug
+    return Path(base) / track.id if base else Path("out") / track.id
 
 
 def _render_track(track, beatmap, args, aspects, verbose: bool = True):
@@ -182,7 +182,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, _aspects(args.aspect))
 
-    print(f"{track.title} ({track.slug})")
+    print(f"{track.title} ({track.id})")
     print(
         f"  audio: {track.audio.name}  {beatmap['duration']:.2f}s  "
         f"{beatmap['tempo']:.1f} BPM  {len(beatmap['beats'])} beats"
@@ -213,7 +213,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
 
 def _cmd_render(args: argparse.Namespace) -> int:
     track, beatmap = _prepare(Path(args.track), args)
-    print(f"rendering {track.title} ({track.slug})")
+    print(f"rendering {track.title} ({track.id})")
     _, written = _render_track(track, beatmap, args, _aspects(args.aspect))
     if not written:
         print("  all outputs up to date")
@@ -262,7 +262,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
             failures += 1
             print(f"FAILED {folder.name}: {exc}", file=sys.stderr)
             continue
-        print(f"{track.title} ({track.slug}): {len(written)} rendered")
+        print(f"{track.title} ({track.id}): {len(written)} rendered")
         for path in written:
             print(f"  {path}")
 

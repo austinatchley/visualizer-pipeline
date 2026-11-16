@@ -283,7 +283,8 @@ through the same `resolve_style` path, so an invalid value never reaches disk), 
 An existing track's **Images** strip lives at the top of the track view: add images from
 disk, drag cards to reorder them (the order is written back to `track.json`), or remove a
 card (deletes the file). The track header has inline **title / artist / handle** fields
-that write back to `track.json`; a title change also updates the derived slug. **Delete
+that write back to `track.json`; the track keeps its folder-based id, so renaming never
+moves outputs. **Delete
 track** removes the whole folder after a confirmation; running jobs for that track are
 cancelled first.
 
@@ -291,21 +292,22 @@ Full renders run as background **jobs** with live progress (streamed from ffmpeg
 up-to-date skip that matches the CLI's idempotency exactly, per-job cancel for queued and
 running renders, and in-browser playback of finished videos. The **Compare A/B** flow
 snapshots two styles and renders a short preview clip of each side by side. A/B clips go
-to `out/preview/<slug>_<aspect>_<fingerprint>.mp4` (the newest 8 per track and aspect are
-kept), so comparing never overwrites the real exports in `out/<slug>/`.
+to `out/preview/<id>_<aspect>_<fingerprint>.mp4` (the newest 8 per track and aspect are
+kept), so comparing never overwrites the real exports in `out/<id>/`.
 
 ## Outputs
 
 ```
-out/<track-slug>/
-  <slug>_16x9.mp4        # full track
-  <slug>_9x16_hook.mp4   # 30–60s excerpt
-  <slug>_1x1_hook.mp4    # 30–60s excerpt
+out/<id>/
+  <id>_16x9.mp4        # full track
+  <id>_9x16_hook.mp4   # 30–60s excerpt
+  <id>_1x1_hook.mp4    # 30–60s excerpt
 ```
 
 If a track is shorter than the hook target, vertical/square render full-length as
-`<slug>_9x16.mp4` / `<slug>_1x1.mp4`. A custom `--out` nests by slug:
-`<out>/<slug>/...`.
+`<id>_9x16.mp4` / `<id>_1x1.mp4`. `<id>` is the track's folder name, so two tracks with
+the same title never collide and renaming a title keeps its outputs. A custom `--out`
+nests by id: `<out>/<id>/...`.
 
 ## How the edit is made
 
