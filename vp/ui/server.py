@@ -32,7 +32,11 @@ from ..textures import resolve_texture, texture_library
 from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track, slugify
 
 STATIC_DIR = Path(__file__).parent / "static"
-_render_lock = threading.Lock()
+# Two render lanes (issue #44): full exports run one at a time, and so do
+# previews, but a preview never waits behind a minutes-long export. Previews are
+# quarter-res and audio-less, so one alongside an export is cheap.
+_export_lock = threading.Lock()
+_preview_lock = threading.Lock()
 
 
 def _track_folders(root: Path):
@@ -213,7 +217,7 @@ def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
         def _progress(percent: float, _stage: str) -> None:
             job.progress = percent
 
-        with _render_lock:
+        with _preview_lock if job.preview else _export_lock:
             with job.status_lock:
                 if job.status == "cancelled" or job.cancel.is_set():
                     job.status = "cancelled"
@@ -578,7 +582,7 @@ def create_app(
 
         beatmap = load_beatmap(track)
         urls: dict[str, str] = {}
-        with _render_lock:
+        with _preview_lock:
             for key in requested:
                 aspect = ASPECTS[key]
                 dest = out / "preview" / f"{track.id}_{key}.mp4"

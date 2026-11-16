@@ -18,7 +18,7 @@ from vp.aspects import VERTICAL
 from vp.config import ANALYSIS_VERSION, STYLE_FIELDS, resolve_style
 from vp.render import RenderCancelled, render
 from vp.track import load_track
-from vp.ui.server import Job, _job_summary, _render_lock, create_app
+from vp.ui.server import Job, _export_lock, _job_summary, _preview_lock, create_app
 
 def _has_asyncio_backend() -> bool:
     try:
@@ -372,7 +372,7 @@ def test_cancel_job_endpoint(client):
 
 def test_cancel_pending_job_is_immediate(client):
     body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
-    _render_lock.acquire()
+    _preview_lock.acquire()
     try:
         job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
         job = client.get(f"/api/jobs/{job_id}").json()
@@ -384,7 +384,7 @@ def test_cancel_pending_job_is_immediate(client):
         job = client.get(f"/api/jobs/{job_id}").json()
         assert job["status"] == "cancelled"
     finally:
-        _render_lock.release()
+        _preview_lock.release()
 
 
 def test_create_track_with_uploads(client):
@@ -666,3 +666,48 @@ def test_track_id_with_spaces_resolves(client):
     res = client.get("/api/tracks/My%20Beat%20%232")
     assert res.status_code == 200, res.text
     assert res.json()["id"] == "My Beat #2"
+
+
+def _run_with_timeout(fn, timeout=30.0):
+    import threading
+
+    result = {}
+    thread = threading.Thread(target=lambda: result.setdefault("value", fn()), daemon=True)
+    thread.start()
+    thread.join(timeout)
+    assert not thread.is_alive(), "blocked: preview waited behind the export lane"
+    return result["value"]
+
+
+def test_preview_not_blocked_by_running_export(client):
+    """Issue #44: a grid preview and a preview job complete while an export
+    holds the export lane."""
+    _export_lock.acquire()  # simulate a long full-track export in progress
+    try:
+        res = _run_with_timeout(
+            lambda: client.post(
+                "/api/tracks/demo_track/preview",
+                json={"aspect": "vertical", "style": {"preset": "clean"}},
+            )
+        )
+        assert res.status_code == 200, res.text
+
+        body = {"aspect": "vertical", "style": {"preset": "clean", "zoom": 0.3}, "preview": True}
+        job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
+        job = _run_with_timeout(lambda: _wait_job(client, job_id))
+        assert job["status"] == "done", job.get("error")
+    finally:
+        _export_lock.release()
+
+
+def test_export_job_waits_for_export_lane(client):
+    """Exports still run one at a time."""
+    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": False}
+    _export_lock.acquire()
+    try:
+        job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
+        time.sleep(0.5)
+        assert client.get(f"/api/jobs/{job_id}").json()["status"] == "pending"
+    finally:
+        _export_lock.release()
+    assert _wait_job(client, job_id)["status"] == "done"

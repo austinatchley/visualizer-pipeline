@@ -113,6 +113,8 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 - **Preview/jobs.** `render(..., preview=True)` is a short, quarter-res, audio-less clip;
   the UI renders all three aspects side by side, slicing around a real cut so at least
   one transition is visible. `progress=`/`cancel=` support the UI job runner.
+  The studio has two render lanes (`_export_lock`, `_preview_lock`): exports run one at a
+  time, previews run one at a time, and a preview never waits behind an export.
 - **Determinism.** No random effects without a fixed seed (grain uses one).
 
 ## Workflow (issue-first)
