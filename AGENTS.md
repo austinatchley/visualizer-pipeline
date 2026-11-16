@@ -14,24 +14,6 @@ resuming work in a fresh session.
 Cuts are energy-reactive and beat-aligned; renders are deterministic and idempotent.
 A post-v1 FastAPI web studio (`vp ui`) wraps the same engine.
 
-## Current state (snapshot)
-
-- v1 + post-v1 web studio shipped. See `DESIGN.md` §11 (decisions) and §12 (milestones).
-- **185 tests** pass locally with `.[dev,ui]`; CI runs the same suite on Ubuntu.
-- CI: `.github/workflows/ci.yml` installs ffmpeg + DejaVu fonts, `.[dev,ui]`, generates
-  fixtures, then runs `pytest -q`.
-- Open issues: **#11** advanced sections, **#12** performance, **#14** video snippets,
-  **#29** Lit componentization. **#19 vibe-aware presets, #20/#21 color grading +
-  color_punch, #23 render jobs/A-B, #24 drag-and-drop builder + metadata, #25 autosave,
-  #37 VGM preset, #38 image editing, #39 track deletion shipped.**
-- Recent history: energy-reactive planner, hook windows, 3 aspects, Pillow HUD/waveform,
-  presets, overlays, web UI, render jobs + cancellation, bundled OFL fonts + text
-  controls, texture library + studio picker, finer waveform dynamics, VGM preset
-  (grade + watermark overlay, #37), studio image management + track deletion
-  (#38/#39), job playback fix, **`saturation`/`grade` (`analog`) + beat-reactive
-  `color_punch` (#20/#21), deterministic `auto` preset selection (#19), inline metadata +
-  debounced autosave (#24/#25), and `--variant-jobs` parallel aspect renders (#12).**
-
 ## Setup
 
 ```bash
@@ -146,13 +128,3 @@ Every change starts with an issue. See `CONTRIBUTING.md`.
 - UI tests `importorskip` FastAPI/httpx; install `.[dev,ui]` to run them.
 - Starlette currently warns that `httpx` is deprecated for `TestClient`; tests still pass.
 - `fixtures/` must exist before render/integration tests; otherwise they skip.
-
-## Suggested next steps
-
-1. #11 advanced section/phrase detection (feeds better cuts).
-2. #19 vibe-aware preset selection (uses `style.preset: "auto"`).
-3. #12 performance tuning (supersample/x264/variant parallelism).
-4. #14 video snippet segments.
-5. #20/#21 color grading keys and beat-reactive color swings (VGM-grade keys can be
-   extracted/generalized from #37).
-6. #23–#25 web studio follow-ups.
