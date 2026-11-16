@@ -13,9 +13,9 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient
 
-from vp.analyze import load_beatmap
+from vp.analyze import audio_source, load_beatmap
 from vp.aspects import VERTICAL
-from vp.config import STYLE_FIELDS, resolve_style
+from vp.config import ANALYSIS_VERSION, STYLE_FIELDS, resolve_style
 from vp.render import RenderCancelled, render
 from vp.track import load_track
 from vp.ui.server import Job, _job_summary, _render_lock, create_app
@@ -57,8 +57,9 @@ def _beatmap(path: Path, duration: float, bpm: float):
     beat = 60.0 / bpm
     beats = [round(b, 4) for b in np.arange(0, duration, beat)]
     return {
-        "analysis_version": 2,
-        "audio": str(path),
+        "analysis_version": ANALYSIS_VERSION,
+        "source": audio_source(path),
+        "bpm_hint": None,
         "sr": 22050,
         "duration": round(duration, 4),
         "tempo": bpm,

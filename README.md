@@ -312,7 +312,8 @@ nests by id: `<out>/<id>/...`.
 ## How the edit is made
 
 1. **Analyze** (`librosa`): tempo, beats, downbeats, per-beat energy, onset novelty,
-   bar/phrase energy. Cached at `<track>/.vp/beatmap.json`.
+   bar/phrase energy. Cached at `<track>/.vp/beatmap.json` (or `beatmap-bpm<N>.json` with a
+   BPM hint) and re-analyzed automatically when the audio file changes.
 2. **Plan** (pure Python): energy-reactive cut selection (section/drop boundaries plus
    an energy-scaled interval), hook-window scoring, and crossfade timing that keeps cuts
    on the beat.
