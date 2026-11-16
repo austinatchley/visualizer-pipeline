@@ -164,7 +164,9 @@ Presets only set style keys and can be overridden per-track or per-command:
 
 Set `style.preset: "auto"` (or `--preset auto`) to let the audio pick the look:
 loud, dynamic, fast tracks map to `punchy`; calmer tracks map to `clean`. The choice is
-deterministic and shown by `vp inspect`; an explicit preset always wins over `auto`.
+deterministic and shown by `vp inspect`; an explicit preset always wins over `auto`. Any
+style value you set yourself (in `track.json` or as a flag) is kept on top of the chosen
+preset, even if it equals the default.
 
 ### Fonts
 

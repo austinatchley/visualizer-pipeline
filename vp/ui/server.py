@@ -186,6 +186,7 @@ def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
     try:
         track = _find_track(root, job.track)
         track.style = resolve_style(job.style)
+        track.style_explicit = None  # full studio model, not layered values
         aspect = ASPECTS[job.aspect]
         beatmap = load_beatmap(track)
 
@@ -576,6 +577,7 @@ def create_app(
         track = _find_track(root, track_id)
         try:
             track.style = resolve_style(payload.style)
+            track.style_explicit = None  # full studio model, not layered values
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from None
         _check_texture(track.style)

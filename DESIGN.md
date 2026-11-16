@@ -220,7 +220,10 @@ Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfad
 everywhere automatically. `style.preset: "auto"` maps the beatmap's tempo, energy
 mean/variance, and transient balance to `clean` or `punchy` deterministically
 (`vp/vibe.py`, #19); explicit presets always win over `auto`, and `vp inspect` reports the
-chosen preset.
+chosen preset. The chosen preset is re-resolved under the track's explicit values
+(`Track.style_explicit`: track.json `style` + flags), so pinned values survive even when
+they equal a default (#46). Studio jobs send a full style model, so there values that
+differ from the defaults count as explicit.
 
 **Typography.** `vp/fonts.py` is the bundled OFL face registry (Redaction 50, Tiny5 Duo,
 Pixelify Sans, Silkscreen, Syne, Instrument Serif, Anton) plus the system `clean`

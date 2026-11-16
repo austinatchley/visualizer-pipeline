@@ -312,6 +312,27 @@ def resolve_style(
     return _validate_style(style)
 
 
+def explicit_style(
+    track_style: dict | None = None, flags: dict | None = None
+) -> dict:
+    """The style values a user set explicitly (track.json `style` + CLI flags),
+    excluding `preset`. Lets `auto` re-resolve over the chosen preset without
+    losing explicit values that happen to equal a default (issue #46)."""
+    explicit = {
+        k: v
+        for k, v in (track_style or {}).items()
+        if k in _STYLE_KEYS and k != "preset" and v is not None
+    }
+    explicit.update(
+        {
+            k: v
+            for k, v in (flags or {}).items()
+            if k in _STYLE_KEYS and k != "preset" and v is not None
+        }
+    )
+    return explicit
+
+
 def resolve_hook(
     track_hook: dict | None = None,
     overrides: dict | None = None,
