@@ -76,6 +76,24 @@ def test_vignette_and_grain_validation():
         resolve_style(flags={"grain": -0.2})
 
 
+def test_saturation_default_is_neutral():
+    assert resolve_style()["saturation"] == 1.0
+    assert resolve_style({"saturation": 0.0})["saturation"] == 0.0
+
+
+def test_saturation_range_raises():
+    with pytest.raises(ValueError, match="saturation"):
+        resolve_style(flags={"saturation": -0.1})
+    with pytest.raises(ValueError, match="saturation"):
+        resolve_style(flags={"saturation": 2.5})
+
+
+def test_analog_grade_validation():
+    assert resolve_style({"grade": "analog"})["grade"] == "analog"
+    with pytest.raises(ValueError, match="grade"):
+        resolve_style(flags={"grade": "vhs"})
+
+
 def test_texture_blend_validation():
     with pytest.raises(ValueError, match="texture_blend"):
         resolve_style(flags={"texture_blend": "burn"})

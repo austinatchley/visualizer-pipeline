@@ -120,14 +120,16 @@ Everything is optional. Only include what differs from the defaults.
 
 | Key | Default | Notes |
 |---|---|---|
-| `preset` | `clean` | `clean`, `punchy`, or `balanced` |
+| `preset` | `clean` | `clean`, `punchy`, `balanced`, `vgm`, or `auto` (picks `clean`/`punchy` from the audio) |
 | `beats_per_cut` | `8` | Base interval; energy-reactive cuts scale it |
 | `crossfade` | `0.35` | Seconds; clamped to 40% of the shortest segment |
 | `zoom` | `0.10` | Ken Burns amount (`1.0 → 1.1`) |
 | `fps` | `30` | `24`, `30`, or `60` |
 | `supersample` | `2` | Pre-zoom upscale factor (1–4); higher = sharper/slower |
 | `contrast` | `1.0` | Luma contrast (`0.5–2.0`); `punchy` uses `1.15` |
+| `saturation` | `1.0` | Color saturation (`0–2`); `0` renders true monochrome |
 | `beat_punch` | `0.0` | Extra zoom at each cut/downbeat that decays (`0–0.3`) |
+| `color_punch` | `0.0` | Saturation spike at each cut that decays over ~0.3s (`0–1`); baseline follows energy |
 | `vignette` | `0.0` | Edge darkening strength (`0–1`); `0` = off |
 | `grain` | `0.0` | Film-grain amount (`0–1`); `0` = off, fixed seed |
 | `texture` | `null` | Texture name from `textures/` (or a custom image path) |
@@ -139,7 +141,7 @@ Everything is optional. Only include what differs from the defaults.
 | `text_case` | `preserve` | `preserve`, `upper`, or `lower` |
 | `tracking` | `0.0` | Letter spacing in em (`-0.05`–`0.25`) |
 | `line_spacing` | `1.12` | Title line-height multiplier (`1.0`–`1.5`) |
-| `grade` | `none` | Film grade (`none`, `sunset`, `night`, or `fog`) |
+| `grade` | `none` | Film grade (`none`, `sunset`, `night`, `fog`, or `analog` — the warm poison cast) |
 | `show_title` | `true` | Show the title/artist/handle HUD |
 | `watermark` | `false` | Giant translucent watermark overlay (on/off) |
 | `watermark_text` | `null` | Watermark text (`null` = off) |
@@ -157,6 +159,10 @@ Presets only set style keys and can be overridden per-track or per-command:
 - **`vgm`** — graded held footage with a giant translucent `VGM` watermark:
   `grade: sunset`, `show_title: false`, `watermark: true`, `grain: 0.08`,
   `vignette: 0.2`.
+
+Set `style.preset: "auto"` (or `--preset auto`) to let the audio pick the look:
+loud, dynamic, fast tracks map to `punchy`; calmer tracks map to `clean`. The choice is
+deterministic and shown by `vp inspect`; an explicit preset always wins over `auto`.
 
 ### Fonts
 
@@ -222,7 +228,8 @@ Common options for `inspect`, `render`, and `batch`:
 --out DIR                                 output root (default: out/)
 --preset NAME                              clean|punchy|balanced|vgm
 --beats-per-cut N  --crossfade S  --zoom F  --fps N  --supersample N
---contrast F  --beat-punch F
+--contrast F  --saturation F  --grade NAME
+--beat-punch F  --color-punch F
 --vignette F  --grain F  --texture PATH  --texture-blend MODE
 --font PATH  --handle @name
 --hook auto|full|START-END
@@ -237,6 +244,10 @@ Common options for `inspect`, `render`, and `batch`:
 --reanalyze    ignore the cached beatmap
 --jobs N       batch concurrency (default 1; ffmpeg is already multi-threaded)
 ```
+
+`render` additionally accepts `--variant-jobs N` (default 1) to render aspects
+concurrently — useful for `--aspect all`, where the 16:9 full render is the long pole and
+the short hooks can run alongside it.
 
 Renders are idempotent: an output is skipped when it is newer than the audio, images,
 manifest, and beatmap.
@@ -260,14 +271,18 @@ The studio has a track picker, a **New Project** dialog that scaffolds a track f
 dragged-in (or browsed) audio + images (validated against the same extensions as the
 CLI), a style panel whose controls are generated from the same `STYLE_FIELDS` schema
 that validates config (so new style keys appear automatically), three-up previews for
-9:16 / 1:1 / 16:9 (a 4 s slice around a cut, quarter-resolution, audio-less), and an
-explicit "Save style" that writes only the diff back to `track.json`. Textures are
-selected from the `textures/` library instead of typing a path.
+9:16 / 1:1 / 16:9 (a 4 s slice around a cut, quarter-resolution, audio-less), and
+**autosave**: style edits persist to `track.json` ~1 s after you stop tweaking (validated
+through the same `resolve_style` path, so an invalid value never reaches disk), with a
+**Reset to preset** action to discard changes. Textures are selected from the
+`textures/` library instead of typing a path.
 
 An existing track's **Images** strip lives at the top of the track view: add images from
 disk, drag cards to reorder them (the order is written back to `track.json`), or remove a
-card (deletes the file). **Delete track** removes the whole folder after a confirmation;
-running jobs for that track are cancelled first.
+card (deletes the file). The track header has inline **title / artist / handle** fields
+that write back to `track.json`; a title change also updates the derived slug. **Delete
+track** removes the whole folder after a confirmation; running jobs for that track are
+cancelled first.
 
 Full renders run as background **jobs** with live progress (streamed from ffmpeg), an
 up-to-date skip that matches the CLI's idempotency exactly, per-job cancel for queued and
@@ -322,14 +337,19 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 - **No font found** — set `style.title_font` or pass `--font /path/to/font.ttf`.
 - **Hook not applied** — the track may be shorter than the target, or `hook.mode` is
   `full`. Check `vp inspect`.
-- **Renders too slow** — lower `--supersample` to 1 or use a faster x264 preset in a
-  future release (see issue #12).
+- **Renders too slow** — the renderer runs at roughly realtime (a 161 s 16:9 render takes
+  ~157 s on a 16-core box). `--supersample 1` is ~33% faster but slightly softer; the x264
+  preset barely matters because the `zoompan` filter dominates. Use `--variant-jobs 2-3`
+  to overlap the short hooks with the 16:9 full render.
 
 ## Status
 
 v1 plus os.10.vs, the post-v1 studio, are shipped, including the `vgm` preset
-(grade + watermark overlay, issue #37) and studio image editing / track deletion
-(#38/#39). CI installs `.[dev,ui]`, generates fixtures, and runs the full suite.
+(grade + watermark overlay, issue #37), studio image editing / track deletion
+(#38/#39), film color grading (`saturation`/`grade`, #20), beat-reactive `color_punch`
+(#21), vibe-aware `auto` presets (#19), the web studio render jobs / A-B / drag-and-drop
+builder (#23/#24), and autosave (#25). CI installs `.[dev,ui]`, generates fixtures, and
+runs the full suite.
 
 Open work is tracked in
 [issues](https://github.com/austinatchley/visualizer-pipeline/issues):
@@ -337,8 +357,5 @@ Open work is tracked in
 - #11 advanced section/phrase detection
 - #12 performance tuning
 - #14 video snippets
-- #19 vibe-aware preset selection
-- #20 `saturation`/`grade` style keys
-- #21 beat-reactive `color_punch`
-- #23–#25 web studio follow-ups (jobs/A-B, drag-and-drop reorder, autosave)
+- #29 frontend componentization (Lit)
 - #29 frontend componentization (Lit)

@@ -11,7 +11,6 @@
     <h1>os.10<span class="brand-dot">.vs</span> <span class="brand-sub">visualizer studio</span></h1>
     <div class="topbar-right">
       <span id="status" class="status"></span>
-      <button id="save" class="btn primary" disabled>Save style</button>
     </div>
   </header>
 
@@ -28,7 +27,11 @@
       <section id="track" class="hidden">
         <div class="track-head">
           <div class="track-head-text">
-            <h2 id="track-title">—</h2>
+            <input id="track-title" class="meta-input meta-title" placeholder="Track title" aria-label="Track title">
+            <div class="meta-row">
+              <input id="track-artist" class="meta-input" placeholder="Artist" aria-label="Artist">
+              <input id="track-handle" class="meta-input" placeholder="Handle (@name)" aria-label="Handle">
+            </div>
             <span id="track-meta" class="dim"></span>
           </div>
           <button id="delete-track" class="btn danger small">Delete track</button>
@@ -53,7 +56,10 @@
           <div id="preview-grid" class="preview-grid"></div>
         </div>
 
-        <h3>Style</h3>
+        <div class="style-head">
+          <h3>Style</h3>
+          <button id="reset-style" class="btn small">Reset to preset</button>
+        </div>
         <div id="style-controls" class="controls"></div>
 
         <h3>Render</h3>

@@ -216,8 +216,10 @@ Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfad
 **Presets and vibe.** `clean`, `punchy`, and `balanced` ship in `presets/*.json`, and
 `style.preset` lets each track pick a look. Style keys are declared once in
 `config.STYLE_FIELDS`; validation and the UI controls both read it, so new keys appear
-everywhere automatically. `style.preset: "auto"` (vibe-aware mapping from audio features)
-is still open (#19); explicit presets always win over `auto`.
+everywhere automatically. `style.preset: "auto"` maps the beatmap's tempo, energy
+mean/variance, and transient balance to `clean` or `punchy` deterministically
+(`vp/vibe.py`, #19); explicit presets always win over `auto`, and `vp inspect` reports the
+chosen preset.
 
 **Typography.** `vp/fonts.py` is the bundled OFL face registry (Redaction 50, Tiny5 Duo,
 Pixelify Sans, Silkscreen, Syne, Instrument Serif, Anton) plus the system `clean`
@@ -243,7 +245,8 @@ Build one `ffmpeg -filter_complex` graph per variant:
 
 ```
 [image per segment] → scale (supersample×) cover crop → zoompan (Ken Burns + beat_punch)
-→ settb/setpts → xfade chain (beat offsets) → grade (contrast/vignette/grain/texture)
+→ per-segment eq (color_punch saturation spike) → settb/setpts → xfade chain (beat offsets)
+→ grade (contrast/saturation/vignette/grain/texture)
 → [optional Pillow waveform strip] → HUD PNG overlay (alpha fade-in)
 → global fades → scale=out_range=tv,format=yuv420p
 audio: atrim(window) → loudnorm -14 LUFS → aresample 48k → afade
@@ -396,7 +399,7 @@ visualizer-pipeline/
 ## 11. Decisions (locked, status updated post-v1)
 
 - **D1 — Visual preset.** Shipped: `clean`, `punchy`, and `balanced` presets with
-  per-track `style.preset`. Vibe-aware `auto` selection is still open (#19).
+  per-track `style.preset`, plus deterministic vibe-aware `auto` selection (#19).
 - **D2 — Cut strategy.** Energy-reactive: hold through low-energy sections, cut faster on
   high-energy/drops. Fixed interval is the fallback and `overrides.cuts` is the escape
   hatch.
@@ -413,17 +416,23 @@ visualizer-pipeline/
 - **D11 — Length/versioning.** 16:9 is the full track; 9:16 and 1:1 are 30–60 s hooks
   (default 45 s), auto-selected or manually overridden.
 - **D12 — Formats.** 9:16, 1:1, and 16:9 at 30 fps.
-- **D13 — Vibe tailoring.** Per-track presets shipped; `style.preset: "auto"` is open
-  (#19) and explicit presets always win.
-- **D14 — Color/effects.** `contrast`, `beat_punch`, `vignette`, `grain`, `texture`, and
-  `texture_blend` shipped via `config.STYLE_FIELDS`. The `textures/` library feeds a
-  studio dropdown; relative names resolve through `vp/textures.py`. The `vgm` preset adds
-  `grade` (sunset/night/fog `eq` filter in the finish chain) plus a Pillow watermark layer
-  (`watermark`, `watermark_*`, `show_title`); issue #37. Standalone saturation/grade keys
-  and beat-reactive color swings remain backlog (#20/#21).
+- **D13 — Vibe tailoring.** Per-track presets plus deterministic `style.preset: "auto"`
+  (#19): tempo band, energy mean/variance, and transient balance map to `clean`/`punchy`;
+  explicit presets always win.
+- **D14 — Color/effects.** `contrast`, `saturation`, `beat_punch`, `color_punch`,
+  `vignette`, `grain`, `texture`, and `texture_blend` shipped via `config.STYLE_FIELDS`.
+  The `textures/` library feeds a studio dropdown; relative names resolve through
+  `vp/textures.py`. `grade` supports `sunset`/`night`/`fog` `eq` filters and `analog`
+  (a `colorbalance` warm-poison cast, #20); `saturation: 0` is true monochrome.
+  `color_punch` (#21) emits a per-segment `eq=saturation=...:eval=frame` that spikes at
+  each cut and decays ~0.3 s, with the baseline scaled by the segment's beat energy. The
+  `vgm` preset adds a Pillow watermark layer (`watermark`, `watermark_*`, `show_title`);
+  issue #37.
 - **D15 — Web studio (os.10.vs).** `vp ui` is an optional FastAPI client over the same
-  engine (preview/jobs/create-project); the CLI remains the source of truth. Issues
-  #23–#25 track the remaining UI work.
+  engine (preview/jobs/create-project); the CLI remains the source of truth. Render jobs,
+  progress/cancel, playback, A/B compare (#23), the drag-and-drop builder + image reorder
+  (#24), inline metadata, and debounced autosave (#25) are shipped. Frontend
+  componentization is tracked in #29.
 - **D16 — VGM look (#37).** A single `vgm` preset supplies a film grade + a translucent
   watermark overlay layer, all in the existing FFmpeg + Pillow pipeline (no
   shaders/generators, single encode pass). Adds a `text` `STYLE_FIELDS` type for
@@ -440,12 +449,14 @@ visualizer-pipeline/
   CLI (aspects, hook, idempotency, jobs, inspect), unit + ffprobe tests, CI (with the
   `.[dev,ui]` follow-up in #26).
 - **M3 — Polished (mostly shipped):** `clean`/`punchy`/`balanced` presets (#10), Pillow
-  waveform (#15), grain/vignette/texture (#16), README (#13). Open: advanced
-  section/phrase detection (#11), performance (#12), vibe-aware presets (#19).
+  waveform (#15), grain/vignette/texture (#16), README (#13), vibe-aware presets (#19).
+  Open: advanced section/phrase detection (#11), performance (#12).
 - **M4 — Expansion:** video snippets (#14) still open; waveform and overlays landed early.
 - **Post-v1 — Web studio:** foundation, jobs/progress/playback/A-B, create-project, image
-  editing (#38), and track deletion (#39) are implemented; remaining UI work is tracked in
-  #23–#25. Color backlog: #20/#21.
+  editing (#38), track deletion (#39), drag-and-drop builder + reorder (#24), inline
+  metadata, and autosave (#25) are implemented. Frontend componentization remains (#29).
+- **Post-v1 — Color (#20/#21):** `saturation`/`grade` (including `analog`) and
+  beat-reactive `color_punch` ship in the finish chain; mono at `saturation: 0`.
 - **Post-v1 — VGM preset (#37):** `vgm` preset ships with a `grade` filter (sunset/night/
   fog), a Pillow `VGM` watermark (bundled Anton, `watermark` + `watermark_*` keys), and
   `show_title` to compose or suppress the standard HUD; all overlay options are UI

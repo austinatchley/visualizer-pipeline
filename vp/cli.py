@@ -14,6 +14,7 @@ from .plan import plan_timeline
 from .render import plan_variants, render
 from .status import input_mtime, is_up_to_date
 from .track import AUDIO_EXTS, load_track
+from .vibe import finalize_auto_style
 
 
 def _aspects(value: str) -> list[str]:
@@ -36,7 +37,10 @@ def _add_style_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--font", dest="title_font")
     p.add_argument("--waveform", action=argparse.BooleanOptionalAction, default=None)
     p.add_argument("--contrast", type=float)
+    p.add_argument("--saturation", type=float)
+    p.add_argument("--grade")
     p.add_argument("--beat-punch", type=float, dest="beat_punch")
+    p.add_argument("--color-punch", type=float, dest="color_punch")
     p.add_argument("--vignette", type=float)
     p.add_argument("--grain", type=float)
     p.add_argument("--texture")
@@ -68,7 +72,10 @@ def _style_overrides(args: argparse.Namespace) -> dict:
         "title_font": getattr(args, "title_font", None),
         "waveform": getattr(args, "waveform", None),
         "contrast": getattr(args, "contrast", None),
+        "saturation": getattr(args, "saturation", None),
+        "grade": getattr(args, "grade", None),
         "beat_punch": getattr(args, "beat_punch", None),
+        "color_punch": getattr(args, "color_punch", None),
         "vignette": getattr(args, "vignette", None),
         "grain": getattr(args, "grain", None),
         "texture": getattr(args, "texture", None),
@@ -125,18 +132,32 @@ def _render_track(track, beatmap, args, aspects, verbose: bool = True):
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, aspects)
     mtime = input_mtime(track)
-    written: list[Path] = []
+    variant_jobs = max(1, int(getattr(args, "variant_jobs", 1) or 1))
 
-    for variant in variants:
+    def work(variant):
         if not args.force and is_up_to_date(variant.path, mtime):
-            if verbose:
-                print(f"  skip {variant.path}")
-            continue
+            return variant, False
         render(track, variant.aspect, beatmap, variant.path, window=variant.window)
-        if verbose:
-            print(f"  {variant.path}")
-        written.append(variant.path)
+        return variant, True
 
+    if variant_jobs > 1 and len(variants) > 1:
+        # The 16:9 full render is the long pole while hooks are short; running
+        # them concurrently cuts wall-clock for `--aspect all` (issue #12).
+        # Finalize `auto` once up front so concurrent renders don't race.
+        finalize_auto_style(track, beatmap)
+        with ThreadPoolExecutor(
+            max_workers=min(variant_jobs, len(variants))
+        ) as pool:
+            results = list(pool.map(work, variants))
+    else:
+        results = [work(variant) for variant in variants]
+
+    written: list[Path] = []
+    for variant, did_render in results:
+        if verbose:
+            print(f"  {variant.path}" if did_render else f"  skip {variant.path}")
+        if did_render:
+            written.append(variant.path)
     return variants, written
 
 
@@ -154,6 +175,8 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
 
 def _cmd_inspect(args: argparse.Namespace) -> int:
     track, beatmap = _prepare(Path(args.track), args)
+    requested = track.style.get("preset")
+    finalize_auto_style(track, beatmap)
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, _aspects(args.aspect))
 
@@ -162,8 +185,11 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
         f"  audio: {track.audio.name}  {beatmap['duration']:.2f}s  "
         f"{beatmap['tempo']:.1f} BPM  {len(beatmap['beats'])} beats"
     )
+    preset_note = f"{track.style['preset']}"
+    if requested == "auto":
+        preset_note += " (auto from audio)"
     print(
-        f"  preset: {track.style['preset']}  fps: {track.style['fps']}  "
+        f"  preset: {preset_note}  fps: {track.style['fps']}  "
         f"images: {len(track.images)}"
     )
     print(f"  hook: {track.hook['mode']}  target: {track.hook['target']:.0f}s")
@@ -305,6 +331,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common_args(p_render)
     p_render.add_argument("--force", action="store_true")
     p_render.add_argument("--reanalyze", action="store_true")
+    p_render.add_argument(
+        "--variant-jobs", type=int, default=1, dest="variant_jobs",
+        help="render aspects concurrently (default 1; try 2-3 for --aspect all)",
+    )
     p_render.set_defaults(func=_cmd_render)
 
     p_batch = sub.add_parser("batch", help="render every track folder under a directory")

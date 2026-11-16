@@ -27,7 +27,9 @@ DEFAULT_STYLE = {
     "line_spacing": 1.12,
     "supersample": 2,
     "contrast": 1.0,
+    "saturation": 1.0,
     "beat_punch": 0.0,
+    "color_punch": 0.0,
     "vignette": 0.0,
     "grain": 0.0,
     "texture": None,
@@ -103,9 +105,17 @@ STYLE_FIELDS: dict[str, dict] = {
     "contrast": {
         "type": "float", "min": 0.5, "max": 2.0, "step": 0.05, "help": "Luma contrast",
     },
+    "saturation": {
+        "type": "float", "min": 0.0, "max": 2.0, "step": 0.05,
+        "help": "Color saturation multiplier (0.0 = monochrome); 1.0 = natural",
+    },
     "beat_punch": {
         "type": "float", "min": 0.0, "max": 0.3, "step": 0.01,
         "help": "Downbeat zoom punch; 0 = off",
+    },
+    "color_punch": {
+        "type": "float", "min": 0.0, "max": 1.0, "step": 0.01,
+        "help": "Saturation boost at each cut that decays (~0.3s); 0 = off",
     },
     "vignette": {
         "type": "float", "min": 0.0, "max": 1.0, "step": 0.05,
@@ -124,7 +134,7 @@ STYLE_FIELDS: dict[str, dict] = {
     },
     "grade": {
         "type": "choice",
-        "choices": ["none", "sunset", "night", "fog"],
+        "choices": ["none", "sunset", "night", "fog", "analog"],
         "help": "Film grade applied to the footage",
     },
     "show_title": {"type": "bool", "help": "Show the title/artist/handle HUD"},
@@ -275,7 +285,9 @@ def resolve_style(
         raise ValueError(f"unknown style keys in track.json: {sorted(unknown)}")
 
     name = preset or flags.get("preset") or track_style.get("preset") or "clean"
-    preset_data = load_preset(name)
+    # `auto` is resolved to a concrete preset once the beatmap exists (issue #19);
+    # until then it resolves over the neutral defaults so `load_track` works.
+    preset_data = {} if name == "auto" else load_preset(name)
     style_flags = {
         k: v
         for k, v in flags.items()

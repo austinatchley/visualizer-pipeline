@@ -60,6 +60,7 @@ function makeControl(key, spec, value) {
     state.model[key] = v;
     out.textContent = v === null ? "null" : String(v);
     schedulePreview();
+    scheduleStyleSave();
   };
 
   if (spec.type === "bool") {
@@ -317,12 +318,13 @@ async function selectTrack(slug) {
     renderControls();
     renderTrackList();
     renderImages();
-    $("#track-title").textContent = detail.title;
+    $("#track-title").value = detail.title || "";
+    $("#track-artist").value = detail.artist || "";
+    $("#track-handle").value = detail.handle || "";
     $("#track-meta").textContent = "";
     setStatusLine();
     $("#track").classList.remove("hidden");
     $("#empty").classList.add("hidden");
-    $("#save").disabled = false;
     await preview();
   } catch (err) {
     toast(err.message, "error");
@@ -391,21 +393,86 @@ async function preview() {
   }
 }
 
-async function saveStyle() {
+let styleSaveId = null;
+// Autosave style ~1s after the last change (issue #25). The server validates
+// through resolve_style and only then writes, so invalid values never hit disk.
+function scheduleStyleSave() {
   if (!state.current) return;
-  setBusy(true, "saving…");
+  clearTimeout(styleSaveId);
+  styleSaveId = setTimeout(() => saveStyle(true), 1000);
+}
+
+async function saveStyle(silent = false) {
+  if (!state.current) return;
+  if (!silent) setBusy(true, "saving…");
   try {
     const res = await api(`/api/tracks/${state.current.slug}/style`, {
       method: "POST",
       body: JSON.stringify({ style: state.model }),
     });
     state.model = res.resolved;
-    renderControls();
-    toast(`saved ${Object.keys(res.saved).length} diff key(s)`);
+    if (silent) {
+      $("#status").textContent = "autosaved";
+    } else {
+      renderControls();
+      toast(`saved ${Object.keys(res.saved).length} diff key(s)`);
+    }
   } catch (err) {
     toast(err.message, "error");
   } finally {
-    setBusy(false);
+    if (!silent) setBusy(false);
+  }
+}
+
+async function resetStyle() {
+  if (!state.current) return;
+  const preset = state.model.preset || "clean";
+  try {
+    state.model = await api(`/api/style?preset=${encodeURIComponent(preset)}`);
+    renderControls();
+    schedulePreview();
+    scheduleStyleSave();
+    toast(`reset to ${preset}`);
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+let metaSaveId = null;
+function scheduleMetadataSave() {
+  if (!state.current) return;
+  clearTimeout(metaSaveId);
+  metaSaveId = setTimeout(saveMetadata, 800);
+}
+
+async function saveMetadata() {
+  if (!state.current) return;
+  const title = $("#track-title").value.trim();
+  if (!title) {
+    toast("title cannot be empty", "error");
+    return;
+  }
+  const body = {
+    title,
+    artist: $("#track-artist").value.trim(),
+    handle: $("#track-handle").value.trim(),
+  };
+  try {
+    const res = await api(`/api/tracks/${state.current.slug}/metadata`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+    const renamed = res.slug !== state.current.slug;
+    state.current.slug = res.slug;
+    state.current.title = res.title;
+    state.current.artist = res.artist;
+    state.current.handle = res.handle;
+    await loadTrackList();
+    setStatusLine();
+    if (renamed) schedulePreview();
+    $("#status").textContent = "metadata saved";
+  } catch (err) {
+    toast(err.message, "error");
   }
 }
 
@@ -660,7 +727,10 @@ async function init() {
     .join("");
   $("#aspect").value = "square";
   buildPreviewGrid();
-  $("#save").addEventListener("click", saveStyle);
+  $("#reset-style").addEventListener("click", resetStyle);
+  ["#track-title", "#track-artist", "#track-handle"].forEach((sel) =>
+    $(sel).addEventListener("input", scheduleMetadataSave)
+  );
   $("#preview").addEventListener("click", preview);
   document.querySelectorAll("[data-render]").forEach((btn) => {
     btn.addEventListener("click", () => startJob(btn.dataset.render, state.model));
