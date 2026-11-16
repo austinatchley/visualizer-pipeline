@@ -44,6 +44,31 @@ GRADES: dict[str, str] = {
 }
 
 
+def fade_times(fade_in: float, fade_out: float, duration: float) -> tuple[float, float]:
+    """Clamp the start/end fades to the clip (issue #45).
+
+    Negative values become 0. If the two fades together are longer than the clip,
+    both shrink proportionally so they meet without overlapping, which keeps the
+    fade-out start time non-negative on very short clips."""
+    fade_in, fade_out = max(0.0, float(fade_in)), max(0.0, float(fade_out))
+    duration = max(0.0, float(duration))
+    total = fade_in + fade_out
+    if total > duration and total > 0:
+        scale = duration / total
+        fade_in, fade_out = fade_in * scale, fade_out * scale
+    return fade_in, fade_out
+
+
+def _fade_filters(kind: str, fade_in: float, fade_out: float, duration: float) -> list[str]:
+    """`fade`/`afade` filters for the clamped fades; a zero-length fade is omitted."""
+    filters = []
+    if fade_in >= 0.001:
+        filters.append(f"{kind}=t=in:st=0:d={fade_in:.3f}")
+    if fade_out >= 0.001:
+        filters.append(f"{kind}=t=out:st={duration - fade_out:.3f}:d={fade_out:.3f}")
+    return filters
+
+
 def _progress_percent(line: str, duration: float) -> float | None:
     """Parse one ffmpeg `-progress` line into a 0-100 percentage.
 
@@ -355,23 +380,23 @@ def render(
         if contrast != 1.0:
             finish.append(f"eq=contrast={contrast:.3f}")
 
-        fade_in = float(style.get("fade_in", 0.4))
-        fade_out = float(style.get("fade_out", 0.8))
+        fade_in, fade_out = fade_times(
+            style["fade_in"], style["fade_out"], clip_duration
+        )
         if not preview:
-            finish += [
-                f"fade=t=in:st=0:d={fade_in:.3f}",
-                f"fade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}",
-            ]
+            finish += _fade_filters("fade", fade_in, fade_out, clip_duration)
         finish.append("scale=out_range=tv,format=yuv420p")
         parts.append(f"[{prev}]format=rgb24," + ",".join(finish) + "[vout]")
         if audio_src is not None:
-            parts.append(
-                f"{audio_src}atrim={window_start:.3f}:{window_end:.3f},asetpts=PTS-STARTPTS,"
-                f"loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,"
-                f"aformat=channel_layouts=stereo,"
-                f"afade=t=in:st=0:d={fade_in:.3f},"
-                f"afade=t=out:st={clip_duration - fade_out:.3f}:d={fade_out:.3f}[aout]"
-            )
+            audio_chain = [
+                f"atrim={window_start:.3f}:{window_end:.3f}",
+                "asetpts=PTS-STARTPTS",
+                "loudnorm=I=-14:TP=-1.5:LRA=11",
+                "aresample=48000",
+                "aformat=channel_layouts=stereo",
+                *_fade_filters("afade", fade_in, fade_out, clip_duration),
+            ]
+            parts.append(f"{audio_src}" + ",".join(audio_chain) + "[aout]")
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         invalidate(out_path)

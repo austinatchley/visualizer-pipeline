@@ -123,6 +123,8 @@ Everything is optional. Only include what differs from the defaults.
 | `preset` | `clean` | `clean`, `punchy`, `balanced`, `vgm`, or `auto` (picks `clean`/`punchy` from the audio) |
 | `beats_per_cut` | `8` | Base interval; energy-reactive cuts scale it |
 | `crossfade` | `0.35` | Seconds; clamped to 40% of the shortest segment |
+| `fade_in` | `0.4` | Seconds of fade from black + audio fade-in at the start; `0` = off |
+| `fade_out` | `0.8` | Seconds of fade to black + audio fade-out at the end; `0` = off. Both shrink proportionally on clips shorter than their sum |
 | `zoom` | `0.10` | Ken Burns amount (`1.0 → 1.1`) |
 | `fps` | `30` | `24`, `30`, or `60` |
 | `supersample` | `2` | Pre-zoom upscale factor (1–4); higher = sharper/slower |

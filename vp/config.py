@@ -16,6 +16,8 @@ DEFAULT_STYLE = {
     "preset": "clean",
     "beats_per_cut": 8,
     "crossfade": 0.35,
+    "fade_in": 0.4,
+    "fade_out": 0.8,
     "zoom": 0.10,
     "fps": 30,
     "waveform": False,
@@ -62,6 +64,14 @@ STYLE_FIELDS: dict[str, dict] = {
     "crossfade": {
         "type": "float", "min": 0.0, "max": 2.0, "exclusive_min": True,
         "step": 0.05, "help": "Crossfade length in seconds",
+    },
+    "fade_in": {
+        "type": "float", "min": 0.0, "max": 3.0, "step": 0.05,
+        "help": "Fade from black (and audio fade-in) at the start, in seconds; 0 = off",
+    },
+    "fade_out": {
+        "type": "float", "min": 0.0, "max": 3.0, "step": 0.05,
+        "help": "Fade to black (and audio fade-out) at the end, in seconds; 0 = off",
     },
     "zoom": {
         "type": "float", "min": 0.0, "max": 0.5, "step": 0.01,
