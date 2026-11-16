@@ -123,8 +123,9 @@ Use `librosa` at 22050 Hz mono. Extract:
 - bar (4-beat) and phrase (16-beat) energy aggregates, normalized
 - onset novelty per beat (for section/drop detection)
 
-Cache to `<track>/.vp/beatmap.json`. Invalidate when the audio file's size/mtime or the
-`analysis_version` changes. `--reanalyze` forces a rebuild.
+Cache to `<track>/.vp/beatmap.json` (BPM-hinted analyses to `beatmap-bpm<N>.json`). The
+beatmap records the audio file's size/mtime (`source`) and `bpm_hint`; it is reused only
+while those and `analysis_version` match (#43). `--reanalyze` forces a rebuild.
 
 **Tempo ambiguity:** beat trackers routinely detect half/double time (the `c_mixed`
 fixture at 140 BPM reads 92.3). Provide `overrides.bpm`, `overrides.tempo_multiplier`

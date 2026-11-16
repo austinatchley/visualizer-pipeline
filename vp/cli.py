@@ -8,7 +8,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from .analyze import load_beatmap
+from .analyze import beatmap_cache_path, load_beatmap
 from .aspects import ASPECTS
 from .plan import plan_timeline
 from .render import plan_variants, render
@@ -170,8 +170,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
         f"{track.title}: {beatmap['duration']:.1f}s, "
         f"{beatmap['tempo']:.1f} BPM, {len(beatmap['beats'])} beats"
     )
-    if not track.overrides.get("bpm"):
-        print(f"wrote {track.beatmap_path}")
+    print(f"wrote {beatmap_cache_path(track, track.overrides.get('bpm'))}")
     return 0
 
 

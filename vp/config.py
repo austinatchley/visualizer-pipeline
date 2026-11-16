@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .fonts import FONT_CHOICES
 
-ANALYSIS_VERSION = 2
+ANALYSIS_VERSION = 3
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PRESETS_DIR = PROJECT_ROOT / "presets"

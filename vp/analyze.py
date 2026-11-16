@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from .config import ANALYSIS_VERSION
@@ -21,6 +22,13 @@ def _aggregate(beatmap: dict) -> dict:
     beatmap["bar_energy"] = _group_mean(energy, 4)
     beatmap["phrase_energy"] = _group_mean(energy, 16)
     return beatmap
+
+
+def audio_source(audio: Path) -> dict:
+    """Identity of the analyzed audio file. A cached beatmap is reused only while
+    this matches, so replacing the audio invalidates it (issue #43)."""
+    stat = Path(audio).stat()
+    return {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
 
 
 def analyze_audio(audio: Path, sr: int = 22050, bpm: float | None = None) -> dict:
@@ -60,7 +68,8 @@ def analyze_audio(audio: Path, sr: int = 22050, bpm: float | None = None) -> dic
     return _aggregate(
         {
             "analysis_version": ANALYSIS_VERSION,
-            "audio": str(audio),
+            "source": audio_source(audio),
+            "bpm_hint": float(bpm) if bpm else None,
             "sr": sr,
             "duration": round(duration, 4),
             "tempo": round(tempo, 3),
@@ -116,29 +125,55 @@ def apply_tempo_multiplier(beatmap: dict, multiplier: float) -> dict:
     return _aggregate(data)
 
 
-def _analyze_and_cache(track) -> dict:
-    beatmap = analyze_audio(track.audio)
-    track.cache_dir.mkdir(parents=True, exist_ok=True)
-    track.beatmap_path.write_text(json.dumps(beatmap, indent=2))
-    return beatmap
+def beatmap_cache_path(track, bpm: float | None = None) -> Path:
+    """`.vp/beatmap.json`, or `.vp/beatmap-bpm<N>.json` for a BPM-hinted analysis."""
+    if not bpm:
+        return track.beatmap_path
+    return track.cache_dir / f"beatmap-bpm{float(bpm):g}.json"
+
+
+def _cache_is_valid(cached: object, audio: Path, bpm: float | None) -> bool:
+    if not isinstance(cached, dict):
+        return False
+    try:
+        source = audio_source(audio)
+    except OSError:
+        return False
+    return (
+        cached.get("analysis_version") == ANALYSIS_VERSION
+        and cached.get("source") == source
+        and cached.get("bpm_hint") == (float(bpm) if bpm else None)
+    )
+
+
+def _read_cache(path: Path) -> object:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def _write_cache(path: Path, beatmap: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(beatmap, indent=2))
+    os.replace(tmp, path)
 
 
 def load_beatmap(track, reanalyze: bool = False) -> dict:
+    """Load the cached beatmap, re-analyzing when it is missing, from an older
+    analysis version, for different audio, or for a different BPM hint."""
     overrides = getattr(track, "overrides", {}) or {}
-    bpm = overrides.get("bpm")
+    bpm = float(overrides["bpm"]) if overrides.get("bpm") else None
     multiplier = float(overrides.get("tempo_multiplier") or 1.0)
 
-    if bpm:
-        beatmap = analyze_audio(track.audio, bpm=float(bpm))
-    elif track.beatmap_path.is_file() and not reanalyze:
-        cached = json.loads(track.beatmap_path.read_text())
-        beatmap = (
-            cached
-            if cached.get("analysis_version") == ANALYSIS_VERSION
-            else _analyze_and_cache(track)
-        )
+    path = beatmap_cache_path(track, bpm)
+    cached = None if reanalyze else _read_cache(path)
+    if _cache_is_valid(cached, track.audio, bpm):
+        beatmap = cached
     else:
-        beatmap = _analyze_and_cache(track)
+        beatmap = analyze_audio(track.audio, bpm=bpm)
+        _write_cache(path, beatmap)
 
     if multiplier != 1.0:
         beatmap = apply_tempo_multiplier(beatmap, multiplier)
