@@ -67,8 +67,13 @@ def finalize_auto_style(track, beatmap: dict) -> str:
     """Resolve a track's `auto` preset to a concrete one in place.
 
     Returns the concrete preset name (or the already-explicit one). The style is
-    re-resolved from the chosen preset plus the track's own non-default values, so
-    per-track overrides survive the switch.
+    re-resolved from the chosen preset plus the values the user set explicitly
+    (`track.style_explicit`, from track.json and flags), so those survive the
+    switch even when they equal a global default (issue #46).
+
+    When the explicit values are unknown (`style_explicit is None`, e.g. the studio
+    sent a full style model), values that differ from the neutral defaults are
+    treated as explicit. That is the best available signal for a full model.
     """
     style = getattr(track, "style", None) or {}
     requested = style.get("preset")
@@ -76,12 +81,14 @@ def finalize_auto_style(track, beatmap: dict) -> str:
         return requested
 
     chosen = choose_preset(beatmap)
-    overrides = {
-        key: value
-        for key, value in style.items()
-        if key != "preset" and key in DEFAULT_STYLE and value != DEFAULT_STYLE[key]
-    }
-    track.style = resolve_style(overrides, preset=chosen)
+    explicit = getattr(track, "style_explicit", None)
+    if explicit is None:
+        explicit = {
+            key: value
+            for key, value in style.items()
+            if key != "preset" and key in DEFAULT_STYLE and value != DEFAULT_STYLE[key]
+        }
+    track.style = resolve_style(explicit, preset=chosen)
     return chosen
 
 
