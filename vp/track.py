@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import explicit_style, resolve_hook, resolve_overrides, resolve_style
-
-AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".aiff", ".aif", ".ogg", ".opus"}
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+from .manifest import AUDIO_EXTS, image_dir, read_manifest, scan_images
 
 
 @dataclass
@@ -82,13 +79,9 @@ def _find_images(root: Path, manifest: dict) -> list[Path]:
             raise FileNotFoundError("manifest images not found: " + ", ".join(missing))
         return imgs
 
-    img_dir = root / "images"
-    search_dir = img_dir if img_dir.is_dir() else root
-    imgs = sorted(
-        p for p in search_dir.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTS
-    )
+    imgs = scan_images(root)
     if not imgs:
-        raise FileNotFoundError(f"no images found in {search_dir}")
+        raise FileNotFoundError(f"no images found in {image_dir(root)}")
     return imgs
 
 
@@ -97,10 +90,7 @@ def load_track(root: Path, overrides: dict | None = None) -> Track:
     if not root.is_dir():
         raise NotADirectoryError(f"not a directory: {root}")
 
-    manifest: dict = {}
-    manifest_path = root / "track.json"
-    if manifest_path.is_file():
-        manifest = json.loads(manifest_path.read_text())
+    manifest = read_manifest(root)
 
     audio = _find_audio(root, manifest)
     images = _find_images(root, manifest)
