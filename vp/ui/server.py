@@ -8,7 +8,6 @@ identical to a headless run.
 from __future__ import annotations
 
 import glob
-import json
 import os
 import re
 import shutil
@@ -26,10 +25,21 @@ from pydantic import BaseModel
 from ..analyze import load_beatmap
 from ..aspects import ASPECTS
 from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
+from ..manifest import (
+    AUDIO_EXTS,
+    IMAGE_EXTS,
+    IMAGES_DIRNAME,
+    discover_tracks,
+    image_dir,
+    is_track_folder,
+    read_manifest,
+    scan_images,
+    write_manifest,
+)
 from ..render import RenderCancelled, plan_variants, render, window_for
 from ..status import is_current, render_fingerprint, sidecar_path
 from ..textures import resolve_texture, texture_library
-from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track, slugify
+from ..track import load_track, slugify
 
 STATIC_DIR = Path(__file__).parent / "static"
 # Two render lanes (issue #44): full exports run one at a time, and so do
@@ -37,18 +47,6 @@ STATIC_DIR = Path(__file__).parent / "static"
 # quarter-res and audio-less, so one alongside an export is cheap.
 _export_lock = threading.Lock()
 _preview_lock = threading.Lock()
-
-
-def _track_folders(root: Path):
-    if not root.is_dir():
-        return
-    for folder in sorted(root.iterdir()):
-        if not folder.is_dir():
-            continue
-        if any(
-            p.is_file() and p.suffix.lower() in AUDIO_EXTS for p in folder.iterdir()
-        ):
-            yield folder
 
 
 def _find_track_folder(root: Path, track_id: str) -> Path:
@@ -59,9 +57,7 @@ def _find_track_folder(root: Path, track_id: str) -> Path:
     if track_id in ("", ".", "..") or Path(track_id).name != track_id:
         raise HTTPException(status_code=404, detail=f"track {track_id!r} not found")
     folder = root / track_id
-    if not folder.is_dir() or not any(
-        p.is_file() and p.suffix.lower() in AUDIO_EXTS for p in folder.iterdir()
-    ):
+    if not is_track_folder(folder):
         raise HTTPException(status_code=404, detail=f"track {track_id!r} not found")
     return folder
 
@@ -74,46 +70,28 @@ def _find_track(root: Path, track_id: str):
         raise HTTPException(status_code=422, detail=str(exc)) from None
 
 
-def _manifest(path: Path) -> dict:
-    if path.is_file():
-        return json.loads(path.read_text())
-    return {}
-
-
-def _write_manifest(path: Path, manifest: dict) -> None:
-    path.write_text(json.dumps(manifest, indent=2) + "\n")
-
-
-def _image_dir(folder: Path) -> Path:
-    img_dir = folder / "images"
-    return img_dir if img_dir.is_dir() else folder
-
-
 def _image_names(folder: Path) -> list[str]:
     """Ordered bare image filenames (UI-facing). Manifest stores root-relative paths."""
-    manifest = _manifest(folder / "track.json")
+    manifest = read_manifest(folder)
     if manifest.get("images") is not None:
         return [
             Path(p).name
             for p in manifest["images"]
             if (folder / str(p)).is_file()
         ]
-    d = _image_dir(folder)
-    return sorted(
-        p.name for p in d.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTS
-    )
+    return [p.name for p in scan_images(folder)]
 
 
 def _persist_order(folder: Path, names: list[str]) -> None:
     """Persist an explicit image order as root-relative paths in `track.json`."""
-    d = _image_dir(folder)
+    d = image_dir(folder)
     rel: list[str] = []
     for n in names:
         candidate = d / n
         rel.append(str(candidate.relative_to(folder)) if candidate.is_file() else n)
-    manifest = _manifest(folder / "track.json")
+    manifest = read_manifest(folder)
     manifest["images"] = rel
-    _write_manifest(folder / "track.json", manifest)
+    write_manifest(folder, manifest)
 
 
 class StylePayload(BaseModel):
@@ -333,7 +311,7 @@ def create_app(
     @app.get("/api/tracks")
     def list_tracks():
         tracks = []
-        for folder in _track_folders(root):
+        for folder in discover_tracks(root):
             try:
                 track = load_track(folder)
                 tracks.append(
@@ -393,19 +371,16 @@ def create_app(
             folder = root / f"{base}-{n}"
             n += 1
         folder.mkdir()
-        (folder / "images").mkdir()
+        (folder / IMAGES_DIRNAME).mkdir()
         try:
             p = folder / f"audio{Path(audio.filename).suffix.lower()}"
             with p.open("wb") as fh:
                 shutil.copyfileobj(audio.file, fh)
             for img in images:
                 name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(img.filename).name)
-                with (folder / "images" / name).open("wb") as fh:
+                with (folder / IMAGES_DIRNAME / name).open("wb") as fh:
                     shutil.copyfileobj(img.file, fh)
-            (folder / "track.json").write_text(
-                json.dumps({"title": title or "Untitled"}, indent=2)
-                + "\n"
-            )
+            write_manifest(folder, {"title": title or "Untitled"})
         except Exception:
             shutil.rmtree(folder, ignore_errors=True)
             raise
@@ -451,7 +426,7 @@ def create_app(
         safe = Path(name).name
         if safe != name:
             raise HTTPException(status_code=400, detail="invalid image name")
-        candidates = [track.root / "images" / safe, track.root / safe]
+        candidates = [track.root / IMAGES_DIRNAME / safe, track.root / safe]
         for p in candidates:
             if p.is_file():
                 return FileResponse(str(p))
@@ -470,7 +445,7 @@ def create_app(
                 status_code=400,
                 detail=f"images must be one of: {', '.join(sorted(IMAGE_EXTS))} (got {', '.join(bad)})",
             )
-        img_dir = track.root / "images"
+        img_dir = track.root / IMAGES_DIRNAME
         img_dir.mkdir(exist_ok=True)
         existing = _image_names(track.root)
         added: list[str] = []
@@ -492,7 +467,7 @@ def create_app(
     @app.delete("/api/tracks/{track_id}/images")
     def remove_images(track_id: str, payload: ImageNamesPayload):
         track = _find_track(root, track_id)
-        img_dir = track.root / "images"
+        img_dir = track.root / IMAGES_DIRNAME
         for name in payload.names:
             safe = Path(name).name
             for p in (img_dir / safe, track.root / safe):
@@ -503,9 +478,9 @@ def create_app(
         if remaining:
             _persist_order(track.root, remaining)
         else:
-            manifest = _manifest(track.root / "track.json")
+            manifest = read_manifest(track.root)
             manifest.pop("images", None)
-            _write_manifest(track.root / "track.json", manifest)
+            write_manifest(track.root, manifest)
         return {"removed": payload.names, "images": remaining}
 
     @app.put("/api/tracks/{track_id}/images")
@@ -524,7 +499,7 @@ def create_app(
     @app.put("/api/tracks/{track_id}/metadata")
     def update_metadata(track_id: str, payload: MetadataPayload):
         track = _find_track(root, track_id)
-        manifest = _manifest(track.root / "track.json")
+        manifest = read_manifest(track.root)
         if payload.title is not None:
             title = payload.title.strip()
             if not title:
@@ -534,7 +509,7 @@ def create_app(
             manifest["artist"] = payload.artist.strip() or None
         if payload.handle is not None:
             manifest["handle"] = payload.handle.strip() or None
-        _write_manifest(track.root / "track.json", manifest)
+        write_manifest(track.root, manifest)
         updated = load_track(track.root)
         return {
             "id": updated.id,
@@ -563,9 +538,9 @@ def create_app(
         if resolved["preset"] != DEFAULT_STYLE["preset"]:
             saved["preset"] = resolved["preset"]
 
-        manifest = _manifest(track.root / "track.json")
+        manifest = read_manifest(track.root)
         manifest["style"] = saved
-        _write_manifest(track.root / "track.json", manifest)
+        write_manifest(track.root, manifest)
         return {"saved": saved, "resolved": resolved}
 
     @app.post("/api/tracks/{track_id}/preview")

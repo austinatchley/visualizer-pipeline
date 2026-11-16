@@ -47,7 +47,8 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 
 | Path | Responsibility |
 |---|---|
-| `vp/track.py` | Track discovery, manifest, title precedence, resolved options |
+| `vp/manifest.py` | `track.json` read/atomic write, track-folder discovery, image dir/scan (shared by CLI + UI) |
+| `vp/track.py` | Track loading, title precedence, resolved options |
 | `vp/config.py` | Defaults, `STYLE_FIELDS`, presets, hook/override resolution |
 | `vp/analyze.py` | librosa analysis, cache, BPM/multiplier overrides |
 | `vp/plan.py` | Pure planner: energy-reactive cuts, hook window, crossfade timing |

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -11,10 +10,11 @@ from pathlib import Path
 from .analyze import beatmap_cache_path, load_beatmap
 from .aspects import ASPECTS
 from .config import PRESETS_DIR, STYLE_FIELDS
+from .manifest import IMAGES_DIRNAME, discover_tracks, manifest_path, write_manifest
 from .plan import plan_timeline
 from .render import plan_variants, render
 from .status import is_current, render_fingerprint
-from .track import AUDIO_EXTS, load_track
+from .track import load_track
 from .vibe import finalize_auto_style
 
 
@@ -225,17 +225,13 @@ def _cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
-def _looks_like_track(path: Path) -> bool:
-    return any(p.suffix.lower() in AUDIO_EXTS for p in path.iterdir() if p.is_file())
-
-
 def _cmd_batch(args: argparse.Namespace) -> int:
     root = Path(args.root)
     if not root.is_dir():
         print(f"not a directory: {root}", file=sys.stderr)
         return 2
 
-    tracks = sorted(p for p in root.iterdir() if p.is_dir() and _looks_like_track(p))
+    tracks = discover_tracks(root)
     if not tracks:
         print(f"no track folders found under {root}", file=sys.stderr)
         return 2
@@ -278,15 +274,11 @@ def _cmd_batch(args: argparse.Namespace) -> int:
 def _cmd_init(args: argparse.Namespace) -> int:
     folder = Path(args.track)
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / "images").mkdir(exist_ok=True)
+    (folder / IMAGES_DIRNAME).mkdir(exist_ok=True)
 
-    manifest = folder / "track.json"
-    if not manifest.exists():
+    if not manifest_path(folder).exists():
         title = folder.name.replace("_", " ").replace("-", " ").strip().title()
-        manifest.write_text(
-            json.dumps({"title": title, "artist": None, "handle": None}, indent=2)
-            + "\n"
-        )
+        write_manifest(folder, {"title": title, "artist": None, "handle": None})
 
     print(f"initialized {folder}")
     print(f"  add audio to {folder}/ and images to {folder}/images/")
