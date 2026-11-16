@@ -26,10 +26,13 @@ class Track:
     overrides: dict = field(default_factory=dict)
 
     @property
-    def slug(self) -> str:
-        raw = self.title or self.root.name
-        slug = re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-")
-        return slug or "track"
+    def id(self) -> str:
+        """Stable track identity: the folder name (issue #42).
+
+        Used for the output directory, output filenames, studio routes, and jobs.
+        Unlike the title it never changes on rename and is unique per tracks root.
+        """
+        return self.root.name
 
     @property
     def cache_dir(self) -> Path:
@@ -38,6 +41,11 @@ class Track:
     @property
     def beatmap_path(self) -> Path:
         return self.cache_dir / "beatmap.json"
+
+
+def slugify(text: str | None, default: str = "untitled") -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return slug or default
 
 
 def _clean_title(name: str) -> str:

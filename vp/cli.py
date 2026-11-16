@@ -12,7 +12,7 @@ from .analyze import load_beatmap
 from .aspects import ASPECTS
 from .plan import plan_timeline
 from .render import plan_variants, render
-from .status import input_mtime, is_up_to_date
+from .status import is_current, render_fingerprint
 from .track import AUDIO_EXTS, load_track
 from .vibe import finalize_auto_style
 
@@ -125,17 +125,19 @@ def _prepare(folder: Path, args: argparse.Namespace):
 
 def _out_dir(track, args: argparse.Namespace) -> Path:
     base = getattr(args, "out", None)
-    return Path(base) / track.slug if base else Path("out") / track.slug
+    return Path(base) / track.id if base else Path("out") / track.id
 
 
 def _render_track(track, beatmap, args, aspects, verbose: bool = True):
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, aspects)
-    mtime = input_mtime(track)
     variant_jobs = max(1, int(getattr(args, "variant_jobs", 1) or 1))
 
     def work(variant):
-        if not args.force and is_up_to_date(variant.path, mtime):
+        if not args.force and is_current(
+            variant.path,
+            render_fingerprint(track, variant.aspect, beatmap, variant.window),
+        ):
             return variant, False
         render(track, variant.aspect, beatmap, variant.path, window=variant.window)
         return variant, True
@@ -180,7 +182,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, _aspects(args.aspect))
 
-    print(f"{track.title} ({track.slug})")
+    print(f"{track.title} ({track.id})")
     print(
         f"  audio: {track.audio.name}  {beatmap['duration']:.2f}s  "
         f"{beatmap['tempo']:.1f} BPM  {len(beatmap['beats'])} beats"
@@ -211,7 +213,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
 
 def _cmd_render(args: argparse.Namespace) -> int:
     track, beatmap = _prepare(Path(args.track), args)
-    print(f"rendering {track.title} ({track.slug})")
+    print(f"rendering {track.title} ({track.id})")
     _, written = _render_track(track, beatmap, args, _aspects(args.aspect))
     if not written:
         print("  all outputs up to date")
@@ -260,7 +262,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
             failures += 1
             print(f"FAILED {folder.name}: {exc}", file=sys.stderr)
             continue
-        print(f"{track.title} ({track.slug}): {len(written)} rendered")
+        print(f"{track.title} ({track.id}): {len(written)} rendered")
         for path in written:
             print(f"  {path}")
 

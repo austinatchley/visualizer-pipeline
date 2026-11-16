@@ -51,6 +51,24 @@ def test_render_is_idempotent(tmp_path, capsys):
     assert "skip" in second
 
 
+def test_render_rerenders_when_style_changes(tmp_path, capsys):
+    """Issue #40: a different preset/flag must not be reported as up to date."""
+    _require(SHORT)
+    args = ["render", str(SHORT), "--aspect", "vertical", "--out", str(tmp_path)]
+    assert main(args) == 0
+    capsys.readouterr()
+
+    assert main([*args, "--preset", "punchy"]) == 0
+    out = capsys.readouterr().out
+    assert "skip" not in out and "up to date" not in out
+
+    assert main([*args, "--preset", "punchy"]) == 0
+    assert "skip" in capsys.readouterr().out
+
+    sidecars = list(tmp_path.rglob("*.mp4.vp.json"))
+    assert len(sidecars) == 1
+
+
 def test_render_variant_jobs_renders_all(tmp_path):
     _require(SHORT)
     code = main(
@@ -60,7 +78,7 @@ def test_render_variant_jobs_renders_all(tmp_path):
         ]
     )
     assert code == 0
-    outputs = sorted((tmp_path / "interlude").glob("*.mp4"))
+    outputs = sorted((tmp_path / "d_short").glob("*.mp4"))
     assert len(outputs) == 2
 
 
@@ -89,3 +107,16 @@ def test_batch_isolates_failures(tmp_path, capsys):
     assert code == 1
     assert "FAILED broken" in captured.err
     assert "1/2" in captured.out
+
+def test_duplicate_titles_render_to_distinct_dirs(tmp_path, capsys):
+    """Issue #42: outputs are keyed by folder, so equal titles don't collide."""
+    _require(SHORT)
+    tracks = tmp_path / "tracks"
+    tracks.mkdir()
+    for name in ("one", "two"):
+        folder = _link_track(tracks, name, SHORT, with_images=True)
+        (folder / "track.json").write_text('{"title": "Same Title"}')
+    out = tmp_path / "out"
+    assert main(["batch", str(tracks), "--aspect", "vertical", "--out", str(out)]) == 0
+    assert (out / "one" / "one_9x16.mp4").is_file()
+    assert (out / "two" / "two_9x16.mp4").is_file()

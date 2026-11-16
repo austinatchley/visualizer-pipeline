@@ -16,6 +16,7 @@ from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
 from .fonts import resolve_face
 from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import full_window, plan_timeline, preview_slice, select_hook
+from .status import invalidate, record, render_fingerprint
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
 from .vibe import finalize_auto_style
@@ -159,6 +160,9 @@ def render(
     width, height = aspect.width, aspect.height
     if window is None:
         window = window_for(track, beatmap, aspect)
+    fingerprint = render_fingerprint(
+        track, aspect, beatmap, window, preview=preview, textures_dir=textures_dir
+    )
     if preview:
         width, height = max(1, width // PREVIEW_SCALE), max(1, height // PREVIEW_SCALE)
         aspect = Aspect(aspect.key, width, height, aspect.label, aspect.kind)
@@ -370,6 +374,7 @@ def render(
             )
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        invalidate(out_path)
         maps = ["-map", "[vout]"] + ([] if audio_src is None else ["-map", "[aout]"])
         enc = [
             "-c:v", "libx264",
@@ -435,6 +440,7 @@ def render(
         if returncode != 0:
             tail = "\n".join(stderr_text.strip().splitlines()[-40:])
             raise RuntimeError(f"ffmpeg failed (exit {returncode}):\n{tail}")
+        record(out_path, fingerprint)
         return out_path
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -455,7 +461,7 @@ def plan_variants(
                 aspect=aspect,
                 window=window,
                 is_hook=is_hook,
-                path=out_dir / f"{track.slug}_{label}.mp4",
+                path=out_dir / f"{track.id}_{label}.mp4",
             )
         )
     return variants

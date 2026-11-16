@@ -166,7 +166,7 @@ function setStatusLine(key) {
 }
 
 function imageUrl(name) {
-  return `/api/tracks/${state.current.slug}/images/${encodeURIComponent(name)}`;
+  return `/api/tracks/${encodeURIComponent(state.current.id)}/images/${encodeURIComponent(name)}`;
 }
 
 function renderImages() {
@@ -229,7 +229,7 @@ function renderImages() {
 async function reorderImages(names) {
   setBusy(true, "saving order…");
   try {
-    const res = await api(`/api/tracks/${state.current.slug}/images`, {
+    const res = await api(`/api/tracks/${encodeURIComponent(state.current.id)}/images`, {
       method: "PUT",
       body: JSON.stringify({ order: names }),
     });
@@ -248,7 +248,7 @@ function removeImage(name) {
   setBusy(true, "removing…");
   (async () => {
     try {
-      const res = await api(`/api/tracks/${state.current.slug}/images`, {
+      const res = await api(`/api/tracks/${encodeURIComponent(state.current.id)}/images`, {
         method: "DELETE",
         body: JSON.stringify({ names: [name] }),
       });
@@ -269,7 +269,7 @@ async function addImages(files) {
   for (const f of files) fd.append("images", f);
   setBusy(true, "adding images…");
   try {
-    const res = await api(`/api/tracks/${state.current.slug}/images`, {
+    const res = await api(`/api/tracks/${encodeURIComponent(state.current.id)}/images`, {
       method: "POST",
       body: fd,
     });
@@ -289,13 +289,13 @@ async function deleteTrack() {
   }
   setBusy(true, "deleting…");
   try {
-    await api(`/api/tracks/${state.current.slug}`, { method: "DELETE" });
+    await api(`/api/tracks/${encodeURIComponent(state.current.id)}`, { method: "DELETE" });
     state.current = null;
     toast("track deleted");
     await loadTrackList();
     const first = state.tracks.find((t) => !t.error);
     if (first) {
-      await selectTrack(first.slug);
+      await selectTrack(first.id);
     } else {
       renderTrackList();
       $("#image-grid").innerHTML = "";
@@ -309,10 +309,10 @@ async function deleteTrack() {
   }
 }
 
-async function selectTrack(slug) {
+async function selectTrack(id) {
   setBusy(true, "loading…");
   try {
-    const detail = await api(`/api/tracks/${slug}`);
+    const detail = await api(`/api/tracks/${encodeURIComponent(id)}`);
     state.current = detail;
     state.model = { ...detail.style };
     renderControls();
@@ -350,8 +350,8 @@ function renderTrackList() {
     } else {
       li.innerHTML =
         `<span>${t.title}</span><span class="sub">${t.preset} · ${t.image_count} img</span>`;
-      li.classList.toggle("active", state.current && state.current.slug === t.slug);
-      li.addEventListener("click", () => selectTrack(t.slug));
+      li.classList.toggle("active", state.current && state.current.id === t.id);
+      li.addEventListener("click", () => selectTrack(t.id));
     }
     ul.appendChild(li);
   }
@@ -374,7 +374,7 @@ async function preview() {
   setBusy(true, "rendering…");
   try {
     const aspects = Object.keys(state.boot.aspects);
-    const res = await api(`/api/tracks/${state.current.slug}/preview`, {
+    const res = await api(`/api/tracks/${encodeURIComponent(state.current.id)}/preview`, {
       method: "POST",
       body: JSON.stringify({ aspects, style: state.model }),
     });
@@ -406,7 +406,7 @@ async function saveStyle(silent = false) {
   if (!state.current) return;
   if (!silent) setBusy(true, "saving…");
   try {
-    const res = await api(`/api/tracks/${state.current.slug}/style`, {
+    const res = await api(`/api/tracks/${encodeURIComponent(state.current.id)}/style`, {
       method: "POST",
       body: JSON.stringify({ style: state.model }),
     });
@@ -458,12 +458,11 @@ async function saveMetadata() {
     handle: $("#track-handle").value.trim(),
   };
   try {
-    const res = await api(`/api/tracks/${state.current.slug}/metadata`, {
+    const res = await api(`/api/tracks/${encodeURIComponent(state.current.id)}/metadata`, {
       method: "PUT",
       body: JSON.stringify(body),
     });
-    const renamed = res.slug !== state.current.slug;
-    state.current.slug = res.slug;
+    const renamed = res.title !== state.current.title;
     state.current.title = res.title;
     state.current.artist = res.artist;
     state.current.handle = res.handle;
@@ -479,7 +478,7 @@ async function saveMetadata() {
 async function startJob(aspect, style, preview = false) {
   if (!state.current) return null;
   try {
-    const res = await api(`/api/tracks/${state.current.slug}/render`, {
+    const res = await api(`/api/tracks/${encodeURIComponent(state.current.id)}/render`, {
       method: "POST",
       body: JSON.stringify({ aspect, style, preview }),
     });
@@ -530,7 +529,7 @@ async function pollJobs() {
       cancel.addEventListener("click", () => cancelJob(j.id, row));
       state.jobRows[j.id] = row;
     }
-    row.label.textContent = `${j.slug} · ${j.aspect}${j.preview ? " (preview)" : ""}`;
+    row.label.textContent = `${j.track} · ${j.aspect}${j.preview ? " (preview)" : ""}`;
     row.status.textContent = `${j.status} ${j.progress}%`;
     row.status.className = "job-status " + j.status;
     row.fill.style.width = `${j.progress}%`;
@@ -665,7 +664,7 @@ async function createProject() {
     const track = await res.json();
     closeModal();
     await loadTrackList();
-    await selectTrack(track.slug);
+    await selectTrack(track.id);
     toast(`created ${track.title}`);
   } catch (err) {
     toast(err.message, "error");
@@ -749,8 +748,11 @@ async function init() {
       return;
     }
     const aspect = $("#aspect").value;
-    const idA = await startJob(aspect, state.cmpA);
-    const idB = await startJob(aspect, state.cmpB);
+    // Short preview clips, content-addressed per look (#41): fast, and never
+    // overwrite the real exports in out/<id>/.
+    const idA = await startJob(aspect, state.cmpA, true);
+    const idB = await startJob(aspect, state.cmpB, true);
+    if (!idA || !idB) return;
     state.cmpIds = [idA, idB];
     toast("rendering A/B…");
     waitForCompare();
@@ -769,23 +771,39 @@ async function init() {
   startPolling();
   await loadTrackList();
   const first = state.tracks.find((t) => !t.error);
-  if (first) await selectTrack(first.slug);
+  if (first) await selectTrack(first.id);
 }
 
 function waitForCompare() {
+  clearInterval(state.cmpTimer);
+  const ids = state.cmpIds;
   const ud = setInterval(async () => {
-    const jobs = await api("/api/jobs");
+    let jobs;
+    try {
+      jobs = await api("/api/jobs");
+    } catch (err) {
+      clearInterval(ud);
+      toast(err.message, "error");
+      return;
+    }
     const urls = {};
     for (const j of jobs) {
-      if (state.cmpIds.includes(j.id) && j.url) urls[j.id] = j.url;
+      if (!ids.includes(j.id)) continue;
+      if (j.status === "failed" || j.status === "cancelled") {
+        clearInterval(ud);
+        toast(`A/B ${j.status}${j.error ? `: ${j.error}` : ""}`, "error");
+        return;
+      }
+      if (j.url) urls[j.id] = j.url;
     }
-    if (urls[state.cmpIds[0]] && urls[state.cmpIds[1]]) {
+    if (urls[ids[0]] && urls[ids[1]]) {
       clearInterval(ud);
       $("#compare").classList.remove("hidden");
-      playVideo($("#cmp-a-video"), urls[state.cmpIds[0]] + `?t=${Date.now()}`);
-      playVideo($("#cmp-b-video"), urls[state.cmpIds[1]] + `?t=${Date.now()}`);
+      playVideo($("#cmp-a-video"), urls[ids[0]] + `?t=${Date.now()}`);
+      playVideo($("#cmp-b-video"), urls[ids[1]] + `?t=${Date.now()}`);
     }
   }, 700);
+  state.cmpTimer = ud;
 }
 
 init().catch((err) => toast(err.message, "error"));

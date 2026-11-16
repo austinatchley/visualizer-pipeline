@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import time
 import wave
@@ -139,15 +140,15 @@ def test_boot_fields_include_vgm(client):
 def test_list_and_detail(client):
     tracks = client.get("/api/tracks").json()
     assert len(tracks) == 1
-    assert tracks[0]["slug"] == "demo-track"
-    detail = client.get("/api/tracks/demo-track").json()
+    assert tracks[0]["id"] == "demo_track"
+    detail = client.get("/api/tracks/demo_track").json()
     assert detail["title"] == "Demo Track"
     assert detail["image_count"] == 2
 
 
 def test_save_style_writes_minimal_diff(client):
     res = client.post(
-        "/api/tracks/demo-track/style",
+        "/api/tracks/demo_track/style",
         json={"style": resolve_style({"zoom": 0.2, "preset": "clean"})},
     )
     assert res.status_code == 200
@@ -163,7 +164,7 @@ def test_save_style_writes_minimal_diff(client):
 
 def test_save_style_rejects_invalid(client):
     res = client.post(
-        "/api/tracks/demo-track/style",
+        "/api/tracks/demo_track/style",
         json={"style": {"contrast": 5.0, "preset": "clean"}},
     )
     assert res.status_code == 400
@@ -171,26 +172,26 @@ def test_save_style_rejects_invalid(client):
 
 def test_save_style_accepts_library_texture(client):
     style = resolve_style({"preset": "clean", "texture": "grain.png"})
-    res = client.post("/api/tracks/demo-track/style", json={"style": style})
+    res = client.post("/api/tracks/demo_track/style", json={"style": style})
     assert res.status_code == 200, res.text
     assert res.json()["saved"].get("texture") == "grain.png"
 
 
 def test_unknown_texture_is_rejected(client):
     style = {"preset": "clean", "texture": "missing.png"}
-    res = client.post("/api/tracks/demo-track/style", json={"style": style})
+    res = client.post("/api/tracks/demo_track/style", json={"style": style})
     assert res.status_code == 400
     assert "unknown texture" in res.json()["detail"]
 
     res = client.post(
-        "/api/tracks/demo-track/preview",
+        "/api/tracks/demo_track/preview",
         json={"aspect": "vertical", "style": style},
     )
     assert res.status_code == 400
     assert "unknown texture" in res.json()["detail"]
 
     res = client.post(
-        "/api/tracks/demo-track/render",
+        "/api/tracks/demo_track/render",
         json={"aspect": "vertical", "style": style, "preview": True},
     )
     assert res.status_code == 400
@@ -200,30 +201,30 @@ def test_unknown_texture_is_rejected(client):
 def test_preview_with_waveform_does_not_break(client):
     style = {"preset": "punchy", "waveform": True, "contrast": 1.1}
     res = client.post(
-        "/api/tracks/demo-track/preview",
+        "/api/tracks/demo_track/preview",
         json={"aspect": "horizontal", "style": style},
     )
     assert res.status_code == 200
-    dest = Path(client.app.state.out) / "preview" / "demo-track_horizontal.mp4"
+    dest = Path(client.app.state.out) / "preview" / "demo_track_horizontal.mp4"
     assert dest.exists()
 
 
 def test_preview_with_library_texture(client):
     res = client.post(
-        "/api/tracks/demo-track/preview",
+        "/api/tracks/demo_track/preview",
         json={
             "aspect": "vertical",
             "style": {"preset": "clean", "texture": "grain.png"},
         },
     )
     assert res.status_code == 200, res.text
-    dest = Path(client.app.state.out) / "preview" / "demo-track_vertical.mp4"
+    dest = Path(client.app.state.out) / "preview" / "demo_track_vertical.mp4"
     assert dest.exists()
 
 
 def test_preview_renders_short_no_audio(client):
     res = client.post(
-        "/api/tracks/demo-track/preview",
+        "/api/tracks/demo_track/preview",
         json={"aspect": "vertical", "style": resolve_style({"preset": "punchy"})},
     )
     assert res.status_code == 200
@@ -249,7 +250,7 @@ def test_preview_renders_short_no_audio(client):
 
 def test_preview_renders_all_aspects(client):
     res = client.post(
-        "/api/tracks/demo-track/preview",
+        "/api/tracks/demo_track/preview",
         json={
             "aspects": ["vertical", "square", "horizontal"],
             "style": {"preset": "clean"},
@@ -265,7 +266,7 @@ def test_preview_renders_all_aspects(client):
 
 def test_preview_rejects_unknown_aspect_in_list(client):
     res = client.post(
-        "/api/tracks/demo-track/preview",
+        "/api/tracks/demo_track/preview",
         json={"aspects": ["vertical", "bogus"], "style": {"preset": "clean"}},
     )
     assert res.status_code == 400
@@ -305,13 +306,24 @@ def _wait_job(client, job_id, timeout=40.0):
 
 def test_render_job_lifecycle_and_skip(client):
     body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
-    job1 = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    job1 = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
     assert job1["status"] == "done", job1.get("error")
     assert job1["url"]
     assert (Path(client.app.state.out) / job1["url"].removeprefix("/api/files/")).exists()
 
-    job2 = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    job2 = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
     assert job2["status"] == "skipped"  # unchanged inputs -> idempotent skip
+
+
+def test_render_job_rerenders_when_style_changes(client):
+    """Issue #40: a job with an unsaved style change must not be skipped."""
+    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    job1 = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
+    assert job1["status"] == "done", job1.get("error")
+
+    body["style"] = {"preset": "clean", "zoom": 0.2}
+    job2 = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
+    assert job2["status"] == "done", job2.get("error")
 
 
 def test_job_url_hidden_until_complete(client):
@@ -320,7 +332,7 @@ def test_job_url_hidden_until_complete(client):
     dest = Path(client.app.state.out) / "pending.mp4"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(b"\x00\x00\x00\x18ftypmp42")
-    job = Job(id="j1", slug="demo-track", aspect="vertical", style={}, path=str(dest))
+    job = Job(id="j1", track="demo_track", aspect="vertical", style={}, path=str(dest))
     job.status = "running"
     assert _job_summary(job, Path(client.app.state.out))["url"] is None
     job.status = "done"
@@ -335,7 +347,7 @@ def test_render_job_accepts_library_texture(client):
     }
     job = _wait_job(
         client,
-        client.post("/api/tracks/demo-track/render", json=body).json()["id"],
+        client.post("/api/tracks/demo_track/render", json=body).json()["id"],
     )
     assert job["status"] == "done", job.get("error")
     assert job["url"]
@@ -343,14 +355,14 @@ def test_render_job_accepts_library_texture(client):
 
 def test_render_job_failed_reports_error(client):
     body = {"aspect": "vertical", "style": {"contrast": 9}, "preview": True}
-    job = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    job = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
     assert job["status"] == "failed"
     assert "contrast" in job["error"]
 
 
 def test_cancel_job_endpoint(client):
     body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
-    job_id = client.post("/api/tracks/demo-track/render", json=body).json()["id"]
+    job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
     res = client.post(f"/api/jobs/{job_id}/cancel")
     assert res.status_code == 200
     job = _wait_job(client, job_id)
@@ -361,7 +373,7 @@ def test_cancel_pending_job_is_immediate(client):
     body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
     _render_lock.acquire()
     try:
-        job_id = client.post("/api/tracks/demo-track/render", json=body).json()["id"]
+        job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
         job = client.get(f"/api/jobs/{job_id}").json()
         assert job["status"] == "pending"
         assert job["started"] is None
@@ -396,7 +408,7 @@ def test_create_track_with_uploads(client):
     )
     assert res.status_code == 200, res.text
     data = res.json()
-    assert data["slug"] == "new-beat"
+    assert data["id"] == "new-beat"
 
     assert (Path(client.app.state.root) / "new-beat" / "audio.wav").is_file()
     detail = client.get("/api/tracks/new-beat").json()
@@ -447,12 +459,12 @@ def test_create_track_rejects_bad_extension(client):
 
 
 def test_delete_track(client):
-    res = client.delete("/api/tracks/demo-track")
+    res = client.delete("/api/tracks/demo_track")
     assert res.status_code == 200
-    assert res.json() == {"deleted": "demo-track"}
+    assert res.json() == {"deleted": "demo_track"}
     folder = Path(client.app.state.root) / "demo_track"
     assert not folder.exists()
-    assert client.delete("/api/tracks/demo-track").status_code == 404
+    assert client.delete("/api/tracks/demo_track").status_code == 404
 
 
 def test_delete_track_unknown_404(client):
@@ -460,11 +472,11 @@ def test_delete_track_unknown_404(client):
 
 
 def test_serve_image(client):
-    res = client.get("/api/tracks/demo-track/images/01.jpg")
+    res = client.get("/api/tracks/demo_track/images/01.jpg")
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("image/")
     assert res.content
-    assert client.get("/api/tracks/demo-track/images/nope.jpg").status_code == 404
+    assert client.get("/api/tracks/demo_track/images/nope.jpg").status_code == 404
 
 
 def test_add_images(client):
@@ -476,7 +488,7 @@ def test_add_images(client):
     buf = io.BytesIO()
     Image.fromarray(np.zeros((32, 32, 3), dtype=np.uint8)).save(buf, format="PNG")
     res = client.post(
-        "/api/tracks/demo-track/images",
+        "/api/tracks/demo_track/images",
         files=[("images", ("03.png", buf.getvalue(), "image/png"))],
     )
     assert res.status_code == 200, res.text
@@ -490,7 +502,7 @@ def test_add_images(client):
 
 def test_add_images_rejects_bad_extension(client):
     res = client.post(
-        "/api/tracks/demo-track/images",
+        "/api/tracks/demo_track/images",
         files=[("images", ("a.txt", b"x", "text/plain"))],
     )
     assert res.status_code == 400
@@ -499,7 +511,7 @@ def test_add_images_rejects_bad_extension(client):
 
 def test_remove_images(client):
     res = client.request(
-        "DELETE", "/api/tracks/demo-track/images", json={"names": ["01.jpg"]}
+        "DELETE", "/api/tracks/demo_track/images", json={"names": ["01.jpg"]}
     )
     assert res.status_code == 200
     assert "01.jpg" not in res.json()["images"]
@@ -509,7 +521,7 @@ def test_remove_images(client):
 
 def test_reorder_images(client):
     res = client.put(
-        "/api/tracks/demo-track/images", json={"order": ["02.jpg", "01.jpg"]}
+        "/api/tracks/demo_track/images", json={"order": ["02.jpg", "01.jpg"]}
     )
     assert res.status_code == 200
     assert res.json()["images"] == ["02.jpg", "01.jpg"]
@@ -521,7 +533,7 @@ def test_reorder_images(client):
 
 def test_reorder_images_rejects_non_permutation(client):
     res = client.put(
-        "/api/tracks/demo-track/images", json={"order": ["02.jpg"]}
+        "/api/tracks/demo_track/images", json={"order": ["02.jpg"]}
     )
     assert res.status_code == 400
     assert "permutation" in res.json()["detail"]
@@ -529,13 +541,13 @@ def test_reorder_images_rejects_non_permutation(client):
 
 def test_update_metadata_round_trips(client):
     res = client.put(
-        "/api/tracks/demo-track/metadata",
+        "/api/tracks/demo_track/metadata",
         json={"title": "Renamed Beat", "artist": "AUSTIN", "handle": "@austin"},
     )
     assert res.status_code == 200, res.text
     data = res.json()
     assert data["title"] == "Renamed Beat"
-    assert data["slug"] == "renamed-beat"
+    assert data["id"] == "demo_track"  # id is the folder; renames keep it (#42)
     assert data["artist"] == "AUSTIN"
     assert data["handle"] == "@austin"
 
@@ -545,24 +557,111 @@ def test_update_metadata_round_trips(client):
     assert manifest["artist"] == "AUSTIN"
     assert manifest["handle"] == "@austin"
 
-    # The folder keeps its name; the new title-derived slug resolves.
-    assert client.get("/api/tracks/renamed-beat").json()["title"] == "Renamed Beat"
+    # The id is stable across renames, so the open editor keeps working.
+    assert client.get("/api/tracks/demo_track").json()["title"] == "Renamed Beat"
+    assert client.get("/api/tracks/renamed-beat").status_code == 404
 
 
 def test_update_metadata_rejects_empty_title(client):
-    res = client.put("/api/tracks/demo-track/metadata", json={"title": "   "})
+    res = client.put("/api/tracks/demo_track/metadata", json={"title": "   "})
     assert res.status_code == 400
     assert "title" in res.json()["detail"]
 
 
 def test_update_metadata_clears_optional_fields(client):
     client.put(
-        "/api/tracks/demo-track/metadata",
+        "/api/tracks/demo_track/metadata",
         json={"artist": "AUSTIN", "handle": "@austin"},
     )
     res = client.put(
-        "/api/tracks/demo-track/metadata", json={"artist": "", "handle": ""}
+        "/api/tracks/demo_track/metadata", json={"artist": "", "handle": ""}
     )
     assert res.status_code == 200
     assert res.json()["artist"] is None
     assert res.json()["handle"] is None
+
+def test_ab_preview_jobs_render_distinct_files(client):
+    """Issue #41: A and B with different looks must not share an output file,
+    and preview jobs must never touch the real exports in out/<id>/."""
+    out = Path(client.app.state.out)
+    exports = out / "demo_track"
+    before = sorted(exports.rglob("*")) if exports.exists() else []
+
+    def run(style):
+        body = {"aspect": "vertical", "style": style, "preview": True}
+        job = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
+        assert job["status"] in ("done", "skipped"), job.get("error")
+        return job["url"]
+
+    url_a = run({"preset": "clean"})
+    url_b = run({"preset": "punchy"})
+    assert url_a != url_b
+    for url in (url_a, url_b):
+        assert (out / url.removeprefix("/api/files/")).is_file()
+
+    assert run({"preset": "clean"}) == url_a  # same look reuses its clip
+    after = sorted(exports.rglob("*")) if exports.exists() else []
+    assert after == before
+
+
+def test_preview_job_clips_are_pruned(tmp_path):
+    from vp.ui.server import PREVIEW_JOB_KEEP, _preview_job_path, _prune_preview_jobs
+
+    (tmp_path / "preview").mkdir()
+    clips = []
+    for i in range(PREVIEW_JOB_KEEP + 3):
+        clip = _preview_job_path(tmp_path, "demo", "vertical", f"{i:012x}")
+        clip.write_bytes(b"x")
+        os.utime(clip, (1000 + i, 1000 + i))
+        clips.append(clip)
+    other = _preview_job_path(tmp_path, "demo", "square", "f" * 12)
+    other.write_bytes(b"x")
+    grid = tmp_path / "preview" / "demo_vertical.mp4"  # grid preview, not a job clip
+    grid.write_bytes(b"x")
+
+    keep = clips[0]  # oldest, but the one being rendered now
+    _prune_preview_jobs(tmp_path, "demo", "vertical", keep=keep)
+
+    remaining = sorted(p for p in clips if p.exists())
+    assert keep in remaining
+    assert len(remaining) == PREVIEW_JOB_KEEP
+    assert clips[-1].exists()  # newest kept
+    assert other.exists() and grid.exists()
+
+
+def test_duplicate_titles_are_distinct_tracks(client):
+    """Issue #42: two folders with the same title are separate tracks."""
+    root = Path(client.app.state.root)
+    twin = _make_track(root, "demo_track_2")
+    (twin / "track.json").write_text(json.dumps({"title": "Demo Track"}))
+
+    ids = sorted(t["id"] for t in client.get("/api/tracks").json())
+    assert ids == ["demo_track", "demo_track_2"]
+    assert client.get("/api/tracks/demo_track_2").json()["path"] == str(twin)
+
+
+@pytest.mark.parametrize("bad", ["..%2Fdemo_track", "nope"])
+def test_track_lookup_rejects_unknown_and_traversal(client, bad):
+    assert client.get(f"/api/tracks/{bad}").status_code == 404
+
+
+@pytest.mark.parametrize("bad", ["", ".", "..", "../demo_track", "a/b"])
+def test_find_track_folder_rejects_non_names(tmp_path, bad):
+    from fastapi import HTTPException
+
+    from vp.ui.server import _find_track_folder
+
+    root = tmp_path / "tracks"
+    root.mkdir()
+    _make_track(root, "demo_track")
+    with pytest.raises(HTTPException) as exc:
+        _find_track_folder(root / "demo_track", bad)
+    assert exc.value.status_code == 404
+
+
+def test_track_id_with_spaces_resolves(client):
+    root = Path(client.app.state.root)
+    _make_track(root, "My Beat #2")
+    res = client.get("/api/tracks/My%20Beat%20%232")
+    assert res.status_code == 200, res.text
+    assert res.json()["id"] == "My Beat #2"
