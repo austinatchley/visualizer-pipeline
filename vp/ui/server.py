@@ -26,7 +26,7 @@ from ..analyze import load_beatmap
 from ..aspects import ASPECTS
 from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
 from ..render import RenderCancelled, plan_variants, render, window_for
-from ..status import input_mtime, is_up_to_date
+from ..status import is_current, render_fingerprint
 from ..textures import resolve_texture, texture_library
 from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track
 
@@ -178,8 +178,10 @@ def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
             dest, window = variant.path, variant.window
         job.path = str(dest)
 
-        mtime = input_mtime(track)
-        if is_up_to_date(dest, mtime):
+        fingerprint = render_fingerprint(
+            track, aspect, beatmap, window, preview=job.preview, textures_dir=textures
+        )
+        if is_current(dest, fingerprint):
             with job.status_lock:
                 if job.status == "cancelled" or job.cancel.is_set():
                     job.status = "cancelled"

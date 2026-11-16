@@ -249,8 +249,11 @@ Common options for `inspect`, `render`, and `batch`:
 concurrently — useful for `--aspect all`, where the 16:9 full render is the long pole and
 the short hooks can run alongside it.
 
-Renders are idempotent: an output is skipped when it is newer than the audio, images,
-manifest, and beatmap.
+Renders are idempotent: each output gets a `<name>.mp4.vp.json` sidecar recording a
+fingerprint of everything that shaped it (resolved style and preset, title/artist/handle,
+aspect, hook window, beatmap, audio/image/texture/font files, renderer version). A rerun
+skips an output only when the fingerprint matches, so changing `--preset`, a style flag,
+a preset file, or a texture re-renders it. `--force` always re-renders.
 
 ## Local web UI
 

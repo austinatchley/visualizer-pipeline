@@ -73,7 +73,7 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 | `vp/textures.py` | Texture library discovery + library/custom path resolution |
 | `vp/waveform.py` | Pillow scrolling waveform strip |
 | `vp/render.py` | FFmpeg graph, variants, preview, progress/cancel, encoding |
-| `vp/status.py` | Shared idempotency helpers (CLI + UI) |
+| `vp/status.py` | Render fingerprints + `.vp.json` sidecars for idempotency (CLI + UI) |
 | `vp/cli.py` | `analyze`, `inspect`, `render`, `batch`, `init`, `ui` |
 | `vp/ui/` | FastAPI server + static studio (track picker, editor, jobs, A/B) |
 | `presets/*.json` | `clean`, `punchy`, `balanced` style overrides |
@@ -104,7 +104,10 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
   still accepts custom image files.
 - **Waveform.** Pillow strip only, with ~4 px RMS/peak bars (95th-percentile
   normalization, soft curve, noise floor). The old `showwaves` filter path crashed ffmpeg.
-- **Idempotency.** `vp/status.py` decides skips; CLI and UI share it. `--force` overrides.
+- **Idempotency.** `vp/status.py` fingerprints every render input (style, HUD text,
+  window, beatmap, file identities) into an `<output>.vp.json` sidecar; CLI and UI skip
+  only on a match. `--force` overrides. **Bump `status.RENDER_VERSION`** when a code change
+  alters rendered output for the same inputs.
 - **Preview/jobs.** `render(..., preview=True)` is a short, quarter-res, audio-less clip;
   the UI renders all three aspects side by side, slicing around a real cut so at least
   one transition is visible. `progress=`/`cancel=` support the UI job runner.

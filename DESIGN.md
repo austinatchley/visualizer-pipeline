@@ -289,10 +289,11 @@ Behavior:
 
 - `--aspect`: `vertical`, `horizontal`, `square`, or `all` (default: all).
 - `--hook`: `auto` (default), `full` (no trimming), or `START-END` seconds.
-- `--force`: re-render even if outputs are newer than inputs.
+- `--force`: re-render even if outputs are current.
 - `--jobs`: tracks rendered concurrently (default 1; ffmpeg is already multithreaded).
 - Batch isolates failures, prints a `rendered n/m` summary, exits non-zero if any failed.
-- Idempotency: skip when output mtime > newest input/beatmap mtime unless `--force`.
+- Idempotency: skip when the output's sidecar fingerprint matches the current render
+  inputs unless `--force` (see D17).
 
 ### 5.1 Local web UI (post-v1)
 
@@ -438,6 +439,13 @@ visualizer-pipeline/
   shaders/generators, single encode pass). Adds a `text` `STYLE_FIELDS` type for
   `watermark_text`; overlays are gated by toggles + dropdowns in the UI (no path-based
   inputs). Optional soft-blend watermark variant deferred.
+- **D17 — Fingerprint idempotency (#40).** Skips are decided by a sha256 fingerprint stored
+  in `<output>.vp.json`, not by mtimes. It covers the resolved style (after preset and
+  `auto`), HUD text, aspect, window, preview flag, cut overrides, the beatmap, input file
+  identities (path + size + mtime for audio, images, texture, fonts) and
+  `status.RENDER_VERSION`. `render()` deletes the sidecar before encoding and writes it
+  only on success, so partial renders are never treated as current. Bump
+  `RENDER_VERSION` when a code change alters output for identical inputs.
 
 ## 12. Milestones
 

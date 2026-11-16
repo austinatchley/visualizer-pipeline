@@ -314,6 +314,17 @@ def test_render_job_lifecycle_and_skip(client):
     assert job2["status"] == "skipped"  # unchanged inputs -> idempotent skip
 
 
+def test_render_job_rerenders_when_style_changes(client):
+    """Issue #40: a job with an unsaved style change must not be skipped."""
+    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    job1 = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    assert job1["status"] == "done", job1.get("error")
+
+    body["style"] = {"preset": "clean", "zoom": 0.2}
+    job2 = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+    assert job2["status"] == "done", job2.get("error")
+
+
 def test_job_url_hidden_until_complete(client):
     """A running render must not publish a URL: the browser would latch onto a
     partially written mp4 and never recover when the render completes."""

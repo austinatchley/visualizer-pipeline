@@ -12,7 +12,7 @@ from .analyze import load_beatmap
 from .aspects import ASPECTS
 from .plan import plan_timeline
 from .render import plan_variants, render
-from .status import input_mtime, is_up_to_date
+from .status import is_current, render_fingerprint
 from .track import AUDIO_EXTS, load_track
 from .vibe import finalize_auto_style
 
@@ -131,11 +131,13 @@ def _out_dir(track, args: argparse.Namespace) -> Path:
 def _render_track(track, beatmap, args, aspects, verbose: bool = True):
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, aspects)
-    mtime = input_mtime(track)
     variant_jobs = max(1, int(getattr(args, "variant_jobs", 1) or 1))
 
     def work(variant):
-        if not args.force and is_up_to_date(variant.path, mtime):
+        if not args.force and is_current(
+            variant.path,
+            render_fingerprint(track, variant.aspect, beatmap, variant.window),
+        ):
             return variant, False
         render(track, variant.aspect, beatmap, variant.path, window=variant.window)
         return variant, True

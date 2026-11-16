@@ -51,6 +51,24 @@ def test_render_is_idempotent(tmp_path, capsys):
     assert "skip" in second
 
 
+def test_render_rerenders_when_style_changes(tmp_path, capsys):
+    """Issue #40: a different preset/flag must not be reported as up to date."""
+    _require(SHORT)
+    args = ["render", str(SHORT), "--aspect", "vertical", "--out", str(tmp_path)]
+    assert main(args) == 0
+    capsys.readouterr()
+
+    assert main([*args, "--preset", "punchy"]) == 0
+    out = capsys.readouterr().out
+    assert "skip" not in out and "up to date" not in out
+
+    assert main([*args, "--preset", "punchy"]) == 0
+    assert "skip" in capsys.readouterr().out
+
+    sidecars = list(tmp_path.rglob("*.mp4.vp.json"))
+    assert len(sidecars) == 1
+
+
 def test_render_variant_jobs_renders_all(tmp_path):
     _require(SHORT)
     code = main(
