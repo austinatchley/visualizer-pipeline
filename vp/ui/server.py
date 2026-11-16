@@ -26,7 +26,7 @@ from ..analyze import load_beatmap
 from ..aspects import ASPECTS
 from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
 from ..render import RenderCancelled, plan_variants, render, window_for
-from ..status import is_current, render_fingerprint
+from ..status import is_current, render_fingerprint, sidecar_path
 from ..textures import resolve_texture, texture_library
 from ..track import AUDIO_EXTS, IMAGE_EXTS, load_track
 
@@ -163,6 +163,27 @@ class Job:
     )
 
 
+PREVIEW_JOB_KEEP = 8
+
+
+def _preview_job_path(out: Path, slug: str, aspect: str, fingerprint: str) -> Path:
+    return out / "preview" / f"{slug}_{aspect}_{fingerprint[:12]}.mp4"
+
+
+def _prune_preview_jobs(out: Path, slug: str, aspect: str, keep: Path) -> None:
+    """Bound preview-job clips per track/aspect: keep the newest few (plus `keep`)
+    so repeated A/B comparisons don't fill the disk."""
+    pattern = f"{slug}_{aspect}_{'[0-9a-f]' * 12}.mp4"
+    clips = sorted(
+        (p for p in (out / "preview").glob(pattern) if p != keep),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for stale in clips[PREVIEW_JOB_KEEP - 1 :]:
+        stale.unlink(missing_ok=True)
+        sidecar_path(stale).unlink(missing_ok=True)
+
+
 def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
     try:
         track = _find_track(root, job.slug)
@@ -171,16 +192,22 @@ def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
         beatmap = load_beatmap(track)
 
         if job.preview:
-            dest = out / "preview" / f"{track.slug}_{job.aspect}.mp4"
             window = window_for(track, beatmap, aspect)
         else:
             variant = plan_variants(track, beatmap, out / track.slug, [job.aspect])[0]
-            dest, window = variant.path, variant.window
-        job.path = str(dest)
-
+            window = variant.window
         fingerprint = render_fingerprint(
             track, aspect, beatmap, window, preview=job.preview, textures_dir=textures
         )
+        if job.preview:
+            # Content-addressed so A/B jobs with different looks never share a
+            # file (issue #41), while an identical look reuses its clip.
+            dest = _preview_job_path(out, track.slug, job.aspect, fingerprint)
+            _prune_preview_jobs(out, track.slug, job.aspect, keep=dest)
+        else:
+            dest = variant.path
+        job.path = str(dest)
+
         if is_current(dest, fingerprint):
             with job.status_lock:
                 if job.status == "cancelled" or job.cancel.is_set():

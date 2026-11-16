@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import time
 import wave
@@ -577,3 +578,51 @@ def test_update_metadata_clears_optional_fields(client):
     assert res.status_code == 200
     assert res.json()["artist"] is None
     assert res.json()["handle"] is None
+
+def test_ab_preview_jobs_render_distinct_files(client):
+    """Issue #41: A and B with different looks must not share an output file,
+    and preview jobs must never touch the real exports in out/<slug>/."""
+    out = Path(client.app.state.out)
+    exports = out / "demo-track"
+    before = sorted(exports.rglob("*")) if exports.exists() else []
+
+    def run(style):
+        body = {"aspect": "vertical", "style": style, "preview": True}
+        job = _wait_job(client, client.post("/api/tracks/demo-track/render", json=body).json()["id"])
+        assert job["status"] in ("done", "skipped"), job.get("error")
+        return job["url"]
+
+    url_a = run({"preset": "clean"})
+    url_b = run({"preset": "punchy"})
+    assert url_a != url_b
+    for url in (url_a, url_b):
+        assert (out / url.removeprefix("/api/files/")).is_file()
+
+    assert run({"preset": "clean"}) == url_a  # same look reuses its clip
+    after = sorted(exports.rglob("*")) if exports.exists() else []
+    assert after == before
+
+
+def test_preview_job_clips_are_pruned(tmp_path):
+    from vp.ui.server import PREVIEW_JOB_KEEP, _preview_job_path, _prune_preview_jobs
+
+    (tmp_path / "preview").mkdir()
+    clips = []
+    for i in range(PREVIEW_JOB_KEEP + 3):
+        clip = _preview_job_path(tmp_path, "demo", "vertical", f"{i:012x}")
+        clip.write_bytes(b"x")
+        os.utime(clip, (1000 + i, 1000 + i))
+        clips.append(clip)
+    other = _preview_job_path(tmp_path, "demo", "square", "f" * 12)
+    other.write_bytes(b"x")
+    grid = tmp_path / "preview" / "demo_vertical.mp4"  # grid preview, not a job clip
+    grid.write_bytes(b"x")
+
+    keep = clips[0]  # oldest, but the one being rendered now
+    _prune_preview_jobs(tmp_path, "demo", "vertical", keep=keep)
+
+    remaining = sorted(p for p in clips if p.exists())
+    assert keep in remaining
+    assert len(remaining) == PREVIEW_JOB_KEEP
+    assert clips[-1].exists()  # newest kept
+    assert other.exists() and grid.exists()

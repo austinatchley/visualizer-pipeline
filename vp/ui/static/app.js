@@ -749,8 +749,11 @@ async function init() {
       return;
     }
     const aspect = $("#aspect").value;
-    const idA = await startJob(aspect, state.cmpA);
-    const idB = await startJob(aspect, state.cmpB);
+    // Short preview clips, content-addressed per look (#41): fast, and never
+    // overwrite the real exports in out/<slug>/.
+    const idA = await startJob(aspect, state.cmpA, true);
+    const idB = await startJob(aspect, state.cmpB, true);
+    if (!idA || !idB) return;
     state.cmpIds = [idA, idB];
     toast("rendering A/B…");
     waitForCompare();
@@ -773,19 +776,35 @@ async function init() {
 }
 
 function waitForCompare() {
+  clearInterval(state.cmpTimer);
+  const ids = state.cmpIds;
   const ud = setInterval(async () => {
-    const jobs = await api("/api/jobs");
+    let jobs;
+    try {
+      jobs = await api("/api/jobs");
+    } catch (err) {
+      clearInterval(ud);
+      toast(err.message, "error");
+      return;
+    }
     const urls = {};
     for (const j of jobs) {
-      if (state.cmpIds.includes(j.id) && j.url) urls[j.id] = j.url;
+      if (!ids.includes(j.id)) continue;
+      if (j.status === "failed" || j.status === "cancelled") {
+        clearInterval(ud);
+        toast(`A/B ${j.status}${j.error ? `: ${j.error}` : ""}`, "error");
+        return;
+      }
+      if (j.url) urls[j.id] = j.url;
     }
-    if (urls[state.cmpIds[0]] && urls[state.cmpIds[1]]) {
+    if (urls[ids[0]] && urls[ids[1]]) {
       clearInterval(ud);
       $("#compare").classList.remove("hidden");
-      playVideo($("#cmp-a-video"), urls[state.cmpIds[0]] + `?t=${Date.now()}`);
-      playVideo($("#cmp-b-video"), urls[state.cmpIds[1]] + `?t=${Date.now()}`);
+      playVideo($("#cmp-a-video"), urls[ids[0]] + `?t=${Date.now()}`);
+      playVideo($("#cmp-b-video"), urls[ids[1]] + `?t=${Date.now()}`);
     }
   }, 700);
+  state.cmpTimer = ud;
 }
 
 init().catch((err) => toast(err.message, "error"));

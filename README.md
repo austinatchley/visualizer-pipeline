@@ -290,7 +290,9 @@ cancelled first.
 Full renders run as background **jobs** with live progress (streamed from ffmpeg), an
 up-to-date skip that matches the CLI's idempotency exactly, per-job cancel for queued and
 running renders, and in-browser playback of finished videos. The **Compare A/B** flow
-snapshots two styles and renders them side by side.
+snapshots two styles and renders a short preview clip of each side by side. A/B clips go
+to `out/preview/<slug>_<aspect>_<fingerprint>.mp4` (the newest 8 per track and aspect are
+kept), so comparing never overwrites the real exports in `out/<slug>/`.
 
 ## Outputs
 
