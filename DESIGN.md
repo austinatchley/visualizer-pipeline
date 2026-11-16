@@ -284,10 +284,10 @@ vp init    <track>                     # scaffold track.json / images/
 vp ui      [--host H] [--port P] [--tracks DIR] [--out DIR] [--textures DIR] [--no-browser]
 ```
 
-Common flags: `--preset`, `--beats-per-cut`, `--crossfade`, `--zoom`, `--fps`,
-`--supersample`, `--contrast`, `--beat-punch`, `--vignette`, `--grain`, `--texture`,
-`--texture-blend`, `--font`, `--handle`, `--bpm`, `--tempo-multiplier`,
-`--waveform/--no-waveform`.
+Common flags: `--aspect`, `--out`, `--handle`, `--hook`, `--bpm`, `--tempo-multiplier`,
+plus one flag per `STYLE_FIELDS` key (`--beats-per-cut`, `--font`, `--title-font`,
+`--grade`, `--no-show-title`, ...), generated from the schema with its choices and ranges
+(#48). `--font` is the bundled-face choice; `--title-font PATH` is the `.ttf` override.
 
 Behavior:
 

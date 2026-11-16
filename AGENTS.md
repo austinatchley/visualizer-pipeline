@@ -56,9 +56,10 @@ vp batch   tracks --jobs 2            # render every track folder
 vp ui --tracks tracks                 # local web studio (optional [ui] extra)
 ```
 
-Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
-`--bpm`, `--tempo-multiplier 0.5|1|2`, `--force`, `--reanalyze`, `--out DIR`,
-`--supersample`, `--waveform/--no-waveform`.
+Useful flags: `--preset clean|punchy|balanced|vgm|auto`, `--hook auto|full|START-END`,
+`--bpm`, `--tempo-multiplier 0.5|1|2`, `--force`, `--reanalyze`, `--out DIR`, plus one
+flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; see
+`vp render --help`).
 
 ## Architecture map
 
@@ -84,8 +85,8 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 
 ## Invariants and quirks
 
-- **One style schema.** Add a key to `DEFAULT_STYLE` *and* `config.STYLE_FIELDS`; validation
-  and the UI controls both derive from it. Presets may only contain style keys.
+- **One style schema.** Add a key to `DEFAULT_STYLE` *and* `config.STYLE_FIELDS`; validation,
+  the UI controls, and the CLI flags all derive from it. Presets may only contain style keys.
 - **Aspects.** 16:9 is always full-length; 9:16 and 1:1 use hooks. Hooks are 30–60 s
   (default 45) and auto-scored; short tracks render full and omit the `_hook` suffix.
 - **Audio.** `loudnorm -14 LUFS`, true peak -1.5 dBTP, then `aresample=48000`. AAC 192k.

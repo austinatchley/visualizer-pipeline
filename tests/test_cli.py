@@ -120,3 +120,73 @@ def test_duplicate_titles_render_to_distinct_dirs(tmp_path, capsys):
     assert main(["batch", str(tracks), "--aspect", "vertical", "--out", str(out)]) == 0
     assert (out / "one" / "one_9x16.mp4").is_file()
     assert (out / "two" / "two_9x16.mp4").is_file()
+
+
+# ---- style flags generated from STYLE_FIELDS (issue #48) ----
+
+from vp.cli import _flags, build_parser  # noqa: E402
+from vp.config import STYLE_FIELDS  # noqa: E402
+
+
+def _parse(*argv):
+    return build_parser().parse_args(["render", "tracks/x", *argv])
+
+
+def test_every_style_field_has_a_cli_flag():
+    for command in ("render", "inspect", "batch"):
+        parser = build_parser()
+        sub = next(a for a in parser._actions if a.dest == "command").choices[command]
+        dests = {a.dest for a in sub._actions}
+        assert set(STYLE_FIELDS) <= dests, (command, set(STYLE_FIELDS) - dests)
+
+
+def test_font_is_the_choice_and_title_font_the_path():
+    args = _parse("--font", "anton", "--title-font", "/fonts/x.ttf")
+    flags = _flags(args)
+    assert flags["font"] == "anton"
+    assert flags["title_font"] == "/fonts/x.ttf"
+
+
+def test_style_flags_parse_types():
+    flags = _flags(_parse(
+        "--fps", "60", "--zoom", "0.2", "--no-show-title", "--watermark",
+        "--watermark-text", "VGM", "--text-case", "upper", "--fade-in", "0",
+    ))
+    assert flags["fps"] == 60
+    assert flags["zoom"] == 0.2
+    assert flags["show_title"] is False
+    assert flags["watermark"] is True
+    assert flags["watermark_text"] == "VGM"
+    assert flags["text_case"] == "upper"
+    assert flags["fade_in"] == 0.0
+
+
+def test_unset_style_flags_are_none():
+    flags = _flags(_parse())
+    assert all(flags[key] is None for key in STYLE_FIELDS)
+
+
+@pytest.mark.parametrize(
+    "argv", [["--font", "comic-sans"], ["--grade", "sepia"], ["--fps", "25"], ["--preset", "loud"]]
+)
+def test_invalid_choices_are_rejected_by_argparse(argv, capsys):
+    with pytest.raises(SystemExit) as exc:
+        _parse(*argv)
+    assert exc.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_help_lists_choices():
+    help_text = build_parser()._subparsers._group_actions[0].choices["render"].format_help()
+    assert "--grade {" in help_text and "analog" in help_text
+    assert "--title-font PATH" in help_text
+
+
+def test_style_flag_reaches_the_track(tmp_path):
+    _require(SHORT)
+    from vp.cli import _load
+
+    track = _load(SHORT, _parse("--font", "anton", "--grade", "night", "--fade-out", "0"))
+    assert track.style["font"] == "anton"
+    assert track.style["grade"] == "night"
+    assert track.style["fade_out"] == 0.0
