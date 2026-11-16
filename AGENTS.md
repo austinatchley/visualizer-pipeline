@@ -72,7 +72,7 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
 | `vp/fonts.py` | Bundled OFL font registry, font resolution, variable-axis loading |
 | `vp/textures.py` | Texture library discovery + library/custom path resolution |
 | `vp/waveform.py` | Pillow scrolling waveform strip |
-| `vp/render.py` | FFmpeg graph, variants, preview, progress/cancel, encoding |
+| `vp/render.py` | `prepare_assets` (PNGs) → pure `build_graph`/`build_command` → `run_ffmpeg`; variants, preview |
 | `vp/status.py` | Render fingerprints + `.vp.json` sidecars for idempotency (CLI + UI) |
 | `vp/cli.py` | `analyze`, `inspect`, `render`, `batch`, `init`, `ui` |
 | `vp/ui/` | FastAPI server + static studio (track picker, editor, jobs, A/B) |
@@ -110,6 +110,10 @@ Useful flags: `--preset clean|punchy|balanced`, `--hook auto|full|START-END`,
   window, beatmap, file identities) into an `<output>.vp.json` sidecar; CLI and UI skip
   only on a match. `--force` overrides. **Bump `status.RENDER_VERSION`** when a code change
   alters rendered output for the same inputs.
+- **Render graph snapshots.** `tests/snapshots/render_graphs.json` pins the ffmpeg
+  command per preset/aspect/feature. An intended graph change: regenerate with
+  `UPDATE_SNAPSHOTS=1 pytest tests/test_render_graph.py`, review the diff, and bump
+  `RENDER_VERSION`.
 - **Preview/jobs.** `render(..., preview=True)` is a short, quarter-res, audio-less clip;
   the UI renders all three aspects side by side, slicing around a real cut so at least
   one transition is visible. `progress=`/`cancel=` support the UI job runner.
