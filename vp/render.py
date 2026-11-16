@@ -12,10 +12,10 @@ from pathlib import Path
 
 from PIL import Image
 
-from .aspects import ASPECTS, Aspect, HORIZONTAL, SQUARE, VERTICAL
+from .aspects import ASPECTS, Aspect
 from .fonts import resolve_face
 from .hud import VgmConfig, build_hud, build_vgm_overlay
-from .plan import full_window, plan_timeline, preview_slice, select_hook
+from .plan import Plan, full_window, plan_timeline, preview_slice, select_hook
 from .status import invalidate, record, render_fingerprint
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
@@ -162,6 +162,334 @@ def window_for(track: Track, beatmap: dict, aspect: Aspect) -> tuple[float, floa
     return select_hook(beatmap, track.hook)
 
 
+@dataclass(frozen=True)
+class RenderAssets:
+    """Prepared overlay PNGs for one render (see `prepare_assets`)."""
+
+    hud: Path
+    texture: Path | None = None  # already cover-cropped to the output size
+    waveform: Path | None = None
+    waveform_height: int = 0
+
+
+@dataclass(frozen=True)
+class RenderGraph:
+    """Everything ffmpeg needs except encoder settings (see `build_command`)."""
+
+    inputs: list[str]
+    filter_complex: str
+    maps: list[str]
+    has_audio: bool
+
+
+def _still_input(path: Path, fps: int, duration: float) -> list[str]:
+    return ["-loop", "1", "-framerate", str(fps), "-t", f"{duration:.3f}", "-i", str(path)]
+
+
+def plan_for(
+    track: Track, beatmap: dict, window: tuple[float, float], preview: bool = False
+) -> Plan:
+    """The timeline to render: the full plan, or a short slice of it for previews."""
+    plan = plan_timeline(beatmap, window, len(track.images), track.style, track.overrides)
+    if preview:
+        return preview_slice(plan, len(track.images), PREVIEW_SECONDS)
+    return plan
+
+
+def output_size(aspect: Aspect, preview: bool = False) -> tuple[int, int]:
+    if preview:
+        return max(1, aspect.width // PREVIEW_SCALE), max(1, aspect.height // PREVIEW_SCALE)
+    return aspect.width, aspect.height
+
+
+def prepare_assets(
+    track: Track,
+    size: tuple[int, int],
+    aspect: Aspect,
+    beatmap: dict,
+    window: tuple[float, float],
+    tmp: Path,
+    textures_dir: str | Path = DEFAULT_TEXTURES_DIR,
+) -> RenderAssets:
+    """Write the HUD (with VGM overlay), texture, and waveform PNGs into `tmp`."""
+    style = track.style
+    width, height = size
+    font_face = resolve_face(style["font"] or "clean", style["title_font"])
+    meta_name = style["meta_font"] or "auto"
+    meta_face = (
+        font_face if meta_name == "auto" else resolve_face(meta_name, style["title_font"])
+    )
+    hud_aspect = Aspect(aspect.key, width, height, aspect.label, aspect.kind)
+    vgm_cfg = VgmConfig.from_style(style)
+    vgm_img = build_vgm_overlay((width, height), vgm_cfg) if vgm_cfg.active else None
+    hud = tmp / "hud.png"
+    build_hud(
+        hud,
+        hud_aspect,
+        track.title,
+        track.artist,
+        track.handle,
+        font_face=font_face,
+        meta_font_face=meta_face,
+        text_case=str(style["text_case"]),
+        tracking=float(style["tracking"]),
+        line_spacing=float(style["line_spacing"]),
+        show_title=bool(style["show_title"]),
+        overlay=vgm_img,
+    )
+
+    texture = None
+    texture_path = resolve_texture(style["texture"], textures_dir)
+    if texture_path:
+        texture = _cover_image(texture_path, width, height, tmp / "texture.png")
+
+    waveform, waveform_height = None, 0
+    if style["waveform"]:
+        strip_h = max(64, int(height * 0.07))
+        strip = build_strip(track.audio, window, width * 2, strip_h, beatmap)
+        waveform = tmp / "waveform.png"
+        strip.save(waveform)
+        waveform_height = strip.height
+    return RenderAssets(hud, texture, waveform, waveform_height)
+
+
+def _segment_chain(
+    seg, i: int, style: dict, size: tuple[int, int], beatmap: dict, window_start: float
+) -> str:
+    width, height = size
+    fps = int(style["fps"])
+    supersample = int(style["supersample"])
+    color_punch = float(style["color_punch"])
+    frames = max(2, math.ceil(seg.duration * fps) + 2)
+    zexpr = _zoom_expr(
+        i, fps, frames, 1.0 + float(style["zoom"]), float(style["beat_punch"])
+    )
+    chain = [
+        f"scale={width * supersample}:{height * supersample}:"
+        f"force_original_aspect_ratio=increase",
+        f"crop={width * supersample}:{height * supersample}",
+        "setsar=1",
+        f"zoompan=z='{zexpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+        f"d={frames}:s={width}x{height}:fps={fps}",
+    ]
+    if color_punch > 0:
+        # Baseline follows the segment's energy; the punch decays from the cut.
+        # `n` is this segment's own frame counter.
+        abs_start = window_start + seg.offset
+        base = _energy_saturation(
+            _mean_beat_energy(beatmap, abs_start, abs_start + seg.duration),
+            float(style["saturation"]),
+        )
+        chain.append(_saturation_expr(base, color_punch, fps))
+    chain += ["settb=AVTB", "setpts=PTS-STARTPTS"]
+    return f"[{i}:v]" + ",".join(chain) + f"[v{i}]"
+
+
+def _finish_filters(style: dict, duration: float, fades: tuple[float, float], preview: bool) -> list[str]:
+    """Grade, saturation, vignette, grain, contrast, fades, then output range."""
+    finish: list[str] = []
+    grade = GRADES.get(style["grade"])
+    if grade:
+        finish.append(grade)
+    saturation = float(style["saturation"])
+    if float(style["color_punch"]) <= 0 and saturation != 1.0:
+        # When color_punch is active the per-segment eq already carries the base
+        # saturation, so only apply a static one when it is off. 0.0 must give a
+        # true monochrome phase: eq=saturation=0 yields R=G=B per frame.
+        finish.append(f"eq=saturation={saturation:.3f}")
+    vignette = float(style["vignette"])
+    if vignette > 0:
+        finish.append(f"vignette=angle=(PI/5)*(1+{vignette:.3f}*1.6)")
+    grain = float(style["grain"])
+    if grain > 0:
+        finish.append(f"noise=alls={int(grain * 25)}:allf=t+u:all_seed={GRAIN_SEED}")
+    contrast = float(style["contrast"])
+    if contrast != 1.0:
+        finish.append(f"eq=contrast={contrast:.3f}")
+    if not preview:
+        finish += _fade_filters("fade", *fades, duration)
+    finish.append("scale=out_range=tv,format=yuv420p")
+    return finish
+
+
+def build_graph(
+    track: Track,
+    plan: Plan,
+    beatmap: dict,
+    size: tuple[int, int],
+    assets: RenderAssets,
+    preview: bool = False,
+) -> RenderGraph:
+    """Pure: inputs + filtergraph for a plan. No file I/O and no subprocesses, so
+    the graph can be snapshot-tested without ffmpeg (issue #47)."""
+    style = track.style
+    fps = int(style["fps"])
+    width, height = size
+    window_start, window_end = plan.window
+    duration = plan.duration
+    segments = plan.segments
+
+    # Inputs: one image per segment, then audio, HUD, texture, waveform. Every
+    # input adds exactly one "-i", so indices follow an explicit counter.
+    inputs: list[str] = []
+    for seg in segments:
+        inputs += ["-i", str(track.images[seg.image_index])]
+    index = len(segments)
+    audio_idx = None
+    if not preview:
+        audio_idx, index = index, index + 1
+        inputs += ["-i", str(track.audio)]
+    hud_idx, index = index, index + 1
+    inputs += _still_input(assets.hud, fps, duration)
+    tex_idx = None
+    if assets.texture:
+        tex_idx, index = index, index + 1
+        inputs += _still_input(assets.texture, fps, duration)
+    wf_idx = None
+    if assets.waveform:
+        wf_idx, index = index, index + 1
+        inputs += _still_input(assets.waveform, fps, duration)
+
+    parts = [
+        _segment_chain(seg, i, style, size, beatmap, window_start)
+        for i, seg in enumerate(segments)
+    ]
+    prev = "v0"
+    for i in range(1, len(segments)):
+        parts.append(
+            f"[{prev}][v{i}]xfade=transition=fade:duration={plan.xfade:.3f}:"
+            f"offset={segments[i].offset:.3f}[x{i}]"
+        )
+        prev = f"x{i}"
+
+    if tex_idx is not None:
+        parts.append(f"[{tex_idx}:v]format=rgb24,settb=AVTB,setpts=PTS-STARTPTS[tex]")
+        parts.append(f"[{prev}]format=rgb24[base]")
+        parts.append(f"[tex][base]blend=all_mode={style['texture_blend']}[comp]")
+        prev = "comp"
+
+    parts.append(
+        f"[{hud_idx}:v]format=rgba,"
+        f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
+        f"settb=AVTB,setpts=PTS-STARTPTS[hud]"
+    )
+    parts.append(f"[{prev}][hud]overlay=0:0:format=auto[vg]")
+    prev = "vg"
+
+    if wf_idx is not None:
+        margin = max(24, int(height * 0.02))
+        y = height - assets.waveform_height - margin
+        parts.append(
+            f"[{wf_idx}:v]format=rgba,"
+            f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
+            f"settb=AVTB,setpts=PTS-STARTPTS[wf]"
+        )
+        xexpr = f"-(t/{duration:.3f})*{width}"
+        parts.append(f"[{prev}][wf]overlay=x='{xexpr}':y={y}:format=auto[wv]")
+        prev = "wv"
+
+    fades = fade_times(style["fade_in"], style["fade_out"], duration)
+    finish = _finish_filters(style, duration, fades, preview)
+    parts.append(f"[{prev}]format=rgb24," + ",".join(finish) + "[vout]")
+
+    maps = ["-map", "[vout]"]
+    if audio_idx is not None:
+        audio_chain = [
+            f"atrim={window_start:.3f}:{window_end:.3f}",
+            "asetpts=PTS-STARTPTS",
+            "loudnorm=I=-14:TP=-1.5:LRA=11",
+            "aresample=48000",
+            "aformat=channel_layouts=stereo",
+            *_fade_filters("afade", *fades, duration),
+        ]
+        parts.append(f"[{audio_idx}:a]" + ",".join(audio_chain) + "[aout]")
+        maps += ["-map", "[aout]"]
+
+    return RenderGraph(inputs, ";".join(parts), maps, audio_idx is not None)
+
+
+def build_command(
+    graph: RenderGraph, fps: int, duration: float, out_path: Path, preview: bool = False
+) -> list[str]:
+    """Pure: the full ffmpeg argument list for a graph."""
+    enc = [
+        "-c:v", "libx264",
+        "-preset", "veryfast" if preview else "medium",
+        "-crf", "23" if preview else "18",
+    ]
+    audio_enc = ["-c:a", "aac", "-b:a", "192k"] if graph.has_audio else []
+    return [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+        *graph.inputs,
+        "-filter_complex", graph.filter_complex,
+        *graph.maps,
+        *enc,
+        "-pix_fmt", "yuv420p", "-r", str(fps),
+        *audio_enc,
+        "-movflags", "+faststart",
+        "-t", f"{duration:.3f}",
+        str(out_path),
+    ]
+
+
+def run_ffmpeg(
+    cmd: list[str],
+    duration: float,
+    progress: Callable[[float, str], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
+) -> None:
+    """Run an ffmpeg command, streaming progress and honoring cancellation.
+
+    Raises `RenderCancelled` when `cancel()` turns true, and `RuntimeError` with
+    the stderr tail when ffmpeg fails."""
+    if progress is None and cancel is None:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        returncode, stderr_text = proc.returncode, proc.stderr or ""
+    else:
+        if cancel is not None and cancel():
+            raise RenderCancelled("render cancelled")
+        if progress is not None:
+            progress(0.0, "rendering")
+        returncode, stderr_text = _stream(cmd, duration, progress, cancel)
+        if returncode == 0 and progress is not None:
+            progress(100.0, "done")
+    if returncode != 0:
+        tail = "\n".join(stderr_text.strip().splitlines()[-40:])
+        raise RuntimeError(f"ffmpeg failed (exit {returncode}):\n{tail}")
+
+
+def _stream(cmd, duration, progress, cancel) -> tuple[int, str]:
+    proc = subprocess.Popen(
+        [*cmd, "-nostats", "-progress", "pipe:1"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        errors="replace",
+    )
+    assert proc.stdout is not None
+    try:
+        for line in proc.stdout:
+            if cancel is not None and cancel():
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+                raise RenderCancelled("render cancelled")
+            pct = _progress_percent(line, duration)
+            if pct is not None:
+                if progress is not None:
+                    progress(pct, "rendering")
+            elif line.strip() == "progress=end" and progress is not None:
+                progress(100.0, "done")
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+    err = proc.stderr.read() if proc.stderr else ""
+    return proc.wait(), err
+
+
 def render(
     track: Track,
     aspect: Aspect,
@@ -180,291 +508,22 @@ def render(
     progresses; `cancel`, when given, is polled and raises `RenderCancelled` early.
     Both are optional and change nothing when omitted."""
     finalize_auto_style(track, beatmap)
-    style = track.style
-    fps = int(style.get("fps", 30))
-    width, height = aspect.width, aspect.height
     if window is None:
         window = window_for(track, beatmap, aspect)
     fingerprint = render_fingerprint(
         track, aspect, beatmap, window, preview=preview, textures_dir=textures_dir
     )
-    if preview:
-        width, height = max(1, width // PREVIEW_SCALE), max(1, height // PREVIEW_SCALE)
-        aspect = Aspect(aspect.key, width, height, aspect.label, aspect.kind)
-        full_plan = plan_timeline(
-            beatmap, window, len(track.images), style, track.overrides
-        )
-        plan = preview_slice(full_plan, len(track.images), PREVIEW_SECONDS)
-    else:
-        plan = plan_timeline(
-            beatmap, window, len(track.images), style, track.overrides
-        )
-    window_start, window_end = plan.window
-    clip_duration = plan.duration
-    segments, xfade = plan.segments, plan.xfade
-    n = len(segments)
-
-    font_face = resolve_face(
-        style.get("font") or "clean", style.get("title_font")
-    )
-    meta_name = style.get("meta_font") or "auto"
-    meta_face = (
-        font_face
-        if meta_name == "auto"
-        else resolve_face(meta_name, style.get("title_font"))
-    )
-    max_zoom = 1.0 + float(style.get("zoom", 0.10))
-    punch = float(style.get("beat_punch", 0.0))
-    color_punch = float(style.get("color_punch", 0.0))
-    base_saturation = float(style.get("saturation", 1.0))
-    supersample = int(style.get("supersample", 2))
+    plan = plan_for(track, beatmap, window, preview)
+    size = output_size(aspect, preview)
 
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
     try:
-        hud = tmp / "hud.png"
-        vgm_cfg = VgmConfig.from_style(style)
-        vgm_img = (
-            build_vgm_overlay((aspect.width, aspect.height), vgm_cfg)
-            if vgm_cfg.active
-            else None
-        )
-        build_hud(
-            hud,
-            aspect,
-            track.title,
-            track.artist,
-            track.handle,
-            font_face=font_face,
-            meta_font_face=meta_face,
-            text_case=str(style.get("text_case", "preserve")),
-            tracking=float(style.get("tracking", 0.0)),
-            line_spacing=float(style.get("line_spacing", 1.12)),
-            show_title=bool(style.get("show_title", True)),
-            overlay=vgm_img,
-        )
-
-        texture_path = resolve_texture(style.get("texture"), textures_dir)
-
-        # ---- inputs: one image per segment, then audio, then HUD overlay ----
-        # Track file indices via an explicit counter (every input adds ONE "-i").
-        inputs: list[str] = []
-        file_count = 0
-        for seg in segments:
-            inputs += ["-i", str(track.images[seg.image_index])]
-            file_count += 1
-        audio_idx = None
-        if not preview:
-            audio_idx = file_count
-            inputs += ["-i", str(track.audio)]
-            file_count += 1
-        hud_idx = file_count
-        inputs += [
-            "-loop", "1", "-framerate", str(fps), "-t", f"{clip_duration:.3f}",
-            "-i", str(hud),
-        ]
-        file_count += 1
-        tex_idx = None
-        if texture_path:
-            tex_idx = file_count
-            file_count += 1
-            tex = tmp / "texture.png"
-            _cover_image(texture_path, width, height, tex)
-            inputs += [
-                "-loop", "1", "-framerate", str(fps), "-t",
-                f"{clip_duration:.3f}", "-i", str(tex),
-            ]
-
-        wf_idx = None
-        strip_img = None
-        if style.get("waveform"):
-            wf_idx = file_count
-            file_count += 1
-            strip_h = max(64, int(height * 0.07))
-            strip_img = build_strip(
-                track.audio, window, width * 2, strip_h, beatmap
-            )
-            wf = tmp / "waveform.png"
-            strip_img.save(wf)
-            inputs += [
-                "-loop", "1", "-framerate", str(fps), "-t",
-                f"{clip_duration:.3f}", "-i", str(wf),
-            ]
-
-        parts: list[str] = []
-        prev = "v0"
-        for i, seg in enumerate(segments):
-            frames = max(2, math.ceil(seg.duration * fps) + 2)
-            zexpr = _zoom_expr(i, fps, frames, max_zoom, punch)
-            chain = [
-                f"scale={width * supersample}:{height * supersample}:"
-                f"force_original_aspect_ratio=increase",
-                f"crop={width * supersample}:{height * supersample}",
-                "setsar=1",
-                f"zoompan=z='{zexpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-                f"d={frames}:s={width}x{height}:fps={fps}",
-            ]
-            if color_punch > 0:
-                # Baseline follows the segment's energy; the punch decays from
-                # the cut. `n` is this segment's own frame counter.
-                abs_start = window_start + seg.offset
-                base = _energy_saturation(
-                    _mean_beat_energy(beatmap, abs_start, abs_start + seg.duration),
-                    base_saturation,
-                )
-                chain.append(_saturation_expr(base, color_punch, fps))
-            chain += ["settb=AVTB", "setpts=PTS-STARTPTS"]
-            parts.append(f"[{i}:v]" + ",".join(chain) + f"[v{i}]")
-
-        for i in range(1, n):
-            label = f"x{i}"
-            parts.append(
-                f"[{prev}][v{i}]xfade=transition=fade:duration={xfade:.3f}:"
-                f"offset={segments[i].offset:.3f}[{label}]"
-            )
-            prev = label
-
-        audio_src = f"[{audio_idx}:a]" if audio_idx is not None else None
-
-        if texture_path:
-            parts.append(
-                f"[{tex_idx}:v]format=rgb24,settb=AVTB,setpts=PTS-STARTPTS[tex]"
-            )
-            parts.append(f"[{prev}]format=rgb24[base]")
-            blend_mode = style.get("texture_blend", "multiply")
-            parts.append(f"[tex][base]blend=all_mode={blend_mode}[comp]")
-            prev = "comp"
-
-        parts.append(
-            f"[{hud_idx}:v]format=rgba,"
-            f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
-            f"settb=AVTB,setpts=PTS-STARTPTS[hud]"
-        )
-        parts.append(f"[{prev}][hud]overlay=0:0:format=auto[vg]")
-        prev = "vg"
-
-        if strip_img is not None:
-            strip_h = strip_img.height
-            margin = max(24, int(height * 0.02))
-            y = height - strip_h - margin
-            parts.append(
-                f"[{wf_idx}:v]format=rgba,"
-                f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
-                f"settb=AVTB,setpts=PTS-STARTPTS[wf]"
-            )
-            xexpr = f"-(t/{clip_duration:.3f})*{width}"
-            parts.append(
-                f"[{prev}][wf]overlay=x='{xexpr}':y={y}:format=auto[wv]"
-            )
-            prev = "wv"
-
-        finish: list[str] = []
-        grade = GRADES.get(style.get("grade", "none"))
-        if grade:
-            finish.append(grade)
-        saturation = float(style.get("saturation", 1.0))
-        if color_punch <= 0 and saturation != 1.0:
-            # When color_punch is active the per-segment eq already carries the
-            # base saturation, so only apply a static grade when it is off.
-            # 0.0 must reproduce a true monochrome phase: eq=saturation=0 yields
-            # R=G=B per-frame (the reference's hard grayscale cut).
-            finish.append(f"eq=saturation={saturation:.3f}")
-        vignette = float(style.get("vignette", 0.0))
-        if vignette > 0:
-            angle = f"(PI/5)*(1+{vignette:.3f}*1.6)"
-            finish.append(f"vignette=angle={angle}")
-        grain = float(style.get("grain", 0.0))
-        if grain > 0:
-            strength = int(grain * 25)
-            finish.append(f"noise=alls={strength}:allf=t+u:all_seed={GRAIN_SEED}")
-        contrast = float(style.get("contrast", 1.0))
-        if contrast != 1.0:
-            finish.append(f"eq=contrast={contrast:.3f}")
-
-        fade_in, fade_out = fade_times(
-            style["fade_in"], style["fade_out"], clip_duration
-        )
-        if not preview:
-            finish += _fade_filters("fade", fade_in, fade_out, clip_duration)
-        finish.append("scale=out_range=tv,format=yuv420p")
-        parts.append(f"[{prev}]format=rgb24," + ",".join(finish) + "[vout]")
-        if audio_src is not None:
-            audio_chain = [
-                f"atrim={window_start:.3f}:{window_end:.3f}",
-                "asetpts=PTS-STARTPTS",
-                "loudnorm=I=-14:TP=-1.5:LRA=11",
-                "aresample=48000",
-                "aformat=channel_layouts=stereo",
-                *_fade_filters("afade", fade_in, fade_out, clip_duration),
-            ]
-            parts.append(f"{audio_src}" + ",".join(audio_chain) + "[aout]")
-
+        assets = prepare_assets(track, size, aspect, beatmap, window, tmp, textures_dir)
+        graph = build_graph(track, plan, beatmap, size, assets, preview)
+        cmd = build_command(graph, int(track.style["fps"]), plan.duration, out_path, preview)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         invalidate(out_path)
-        maps = ["-map", "[vout]"] + ([] if audio_src is None else ["-map", "[aout]"])
-        enc = [
-            "-c:v", "libx264",
-            "-preset", "veryfast" if preview else "medium",
-            "-crf", "23" if preview else "18",
-        ]
-        audio_enc = [] if audio_src is None else ["-c:a", "aac", "-b:a", "192k"]
-        cmd = [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-            *inputs,
-            "-filter_complex", ";".join(parts),
-            *maps,
-            *enc,
-            "-pix_fmt", "yuv420p", "-r", str(fps),
-            *audio_enc,
-            "-movflags", "+faststart",
-            "-t", f"{clip_duration:.3f}",
-            str(out_path),
-        ]
-        def _run_with_progress() -> tuple[int, str]:
-            if cancel is not None and cancel():
-                raise RenderCancelled("render cancelled")
-            proc = subprocess.Popen(
-                [*cmd, "-nostats", "-progress", "pipe:1"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                errors="replace",
-            )
-            assert proc.stdout is not None
-            try:
-                for line in proc.stdout:
-                    if cancel is not None and cancel():
-                        proc.terminate()
-                        try:
-                            proc.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            proc.kill()
-                            proc.wait()
-                        raise RenderCancelled("render cancelled")
-                    pct = _progress_percent(line, clip_duration)
-                    if pct is not None:
-                        if progress is not None:
-                            progress(pct, "rendering")
-                    elif line.strip() == "progress=end" and progress is not None:
-                        progress(100.0, "done")
-            finally:
-                if proc.poll() is None:
-                    proc.terminate()
-            err = proc.stderr.read() if proc.stderr else ""
-            return proc.wait(), err
-
-        if progress is None and cancel is None:
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            returncode, stderr_text = proc.returncode, proc.stderr or ""
-        else:
-            if progress is not None:
-                progress(0.0, "rendering")
-            returncode, stderr_text = _run_with_progress()
-            if returncode == 0 and progress is not None:
-                progress(100.0, "done")
-
-        if returncode != 0:
-            tail = "\n".join(stderr_text.strip().splitlines()[-40:])
-            raise RuntimeError(f"ffmpeg failed (exit {returncode}):\n{tail}")
+        run_ffmpeg(cmd, plan.duration, progress, cancel)
         record(out_path, fingerprint)
         return out_path
     finally:
