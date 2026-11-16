@@ -230,16 +230,19 @@ Common options for `inspect`, `render`, and `batch`:
 ```
 --aspect vertical|horizontal|square|all   (default: all)
 --out DIR                                 output root (default: out/)
---preset NAME                              clean|punchy|balanced|vgm
---beats-per-cut N  --crossfade S  --zoom F  --fps N  --supersample N
---contrast F  --saturation F  --grade NAME
---beat-punch F  --color-punch F
---vignette F  --grain F  --texture PATH  --texture-blend MODE
---font PATH  --handle @name
+--handle @name
 --hook auto|full|START-END
 --bpm N  --tempo-multiplier 0.5|1|2
---waveform / --no-waveform
 ```
+
+Every style key also has a flag: the key with dashes, e.g. `--beats-per-cut 4`,
+`--grade analog`, `--font anton`, `--title-font /path/to/font.ttf`, `--fade-out 0`,
+`--no-show-title`. Booleans take `--key` / `--no-key`. `vp render --help` lists them all
+with their choices and ranges; they are generated from `config.STYLE_FIELDS`, so new
+style keys get a flag automatically.
+
+> **Changed:** `--font` now picks a bundled face (`anton`, `syne`, ...). The old
+> `--font PATH` (a `.ttf` file) is now `--title-font PATH`.
 
 `render` and `batch` also accept:
 
@@ -346,7 +349,7 @@ branch/commit/PR flow and checklist. Issue and PR templates live in `.github/`.
 
 - **Tempo detected half/double** — pass `--bpm` or set `overrides.bpm`; alternatively
   `overrides.tempo_multiplier: 0.5|2`.
-- **No font found** — set `style.title_font` or pass `--font /path/to/font.ttf`.
+- **No font found** — set `style.title_font` or pass `--title-font /path/to/font.ttf`.
 - **Hook not applied** — the track may be shorter than the target, or `hook.mode` is
   `full`. Check `vp inspect`.
 - **Renders too slow** — the renderer runs at roughly realtime (a 161 s 16:9 render takes

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .analyze import beatmap_cache_path, load_beatmap
 from .aspects import ASPECTS
+from .config import PRESETS_DIR, STYLE_FIELDS
 from .plan import plan_timeline
 from .render import plan_variants, render
 from .status import is_current, render_fingerprint
@@ -27,29 +28,51 @@ def _aspects(value: str) -> list[str]:
     return [value]
 
 
+def _style_flag(key: str) -> str:
+    return "--" + key.replace("_", "-")
+
+
 def _add_style_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--preset")
-    p.add_argument("--beats-per-cut", type=int, dest="beats_per_cut")
-    p.add_argument("--crossfade", type=float)
-    p.add_argument("--zoom", type=float)
-    p.add_argument("--fps", type=int)
-    p.add_argument("--supersample", type=int)
-    p.add_argument("--font", dest="title_font")
-    p.add_argument("--waveform", action=argparse.BooleanOptionalAction, default=None)
-    p.add_argument("--contrast", type=float)
-    p.add_argument("--saturation", type=float)
-    p.add_argument("--grade")
-    p.add_argument("--beat-punch", type=float, dest="beat_punch")
-    p.add_argument("--color-punch", type=float, dest="color_punch")
-    p.add_argument("--vignette", type=float)
-    p.add_argument("--grain", type=float)
-    p.add_argument("--texture")
-    p.add_argument("--texture-blend", dest="texture_blend")
+    """One flag per `config.STYLE_FIELDS` key, generated so the CLI can't drift
+    from the schema (issue #48). Values are validated by `resolve_style`;
+    `choices` also gives early errors and shows options in --help."""
+    group = p.add_argument_group("style", "override any style key for this run")
+    for key, spec in STYLE_FIELDS.items():
+        kind = spec["type"]
+        help_text = spec.get("help", "").replace("%", "%%")
+        kwargs: dict = {"dest": key, "default": None}
+        if kind == "bool":
+            kwargs["action"] = argparse.BooleanOptionalAction
+        elif kind == "int":
+            kwargs["type"] = int
+            kwargs["metavar"] = "N"
+            help_text += f" [{spec['min']}, {spec['max']}]"
+        elif kind == "float":
+            kwargs["type"] = float
+            kwargs["metavar"] = "X"
+            help_text += f" [{spec['min']}, {spec['max']}]"
+        elif kind == "choice":
+            choices = spec["choices"]
+            if all(isinstance(c, int) for c in choices):
+                kwargs["type"] = int
+            kwargs["choices"] = choices
+        elif kind == "preset":
+            kwargs["choices"] = _preset_choices()
+        elif kind == "path":
+            kwargs["metavar"] = "PATH"
+        elif kind == "texture":
+            kwargs["metavar"] = "NAME|PATH"
+        else:  # text
+            kwargs["metavar"] = "TEXT"
+        group.add_argument(_style_flag(key), help=help_text, **kwargs)
+
+
+def _preset_choices() -> list[str]:
+    return sorted(p.stem for p in PRESETS_DIR.glob("*.json")) + ["auto"]
 
 
 def _add_hook_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--hook", default=None, help="auto | full | START-END (seconds)")
-    p.add_argument("--handle")
     p.add_argument("--bpm", type=float)
     p.add_argument("--tempo-multiplier", type=float, dest="tempo_multiplier")
 
@@ -57,30 +80,13 @@ def _add_hook_args(p: argparse.ArgumentParser) -> None:
 def _add_common_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--aspect", default="all", help="vertical | horizontal | square | all")
     p.add_argument("--out", help="output root directory")
-    _add_style_args(p)
+    p.add_argument("--handle", help="social handle shown after the artist")
     _add_hook_args(p)
+    _add_style_args(p)
 
 
 def _style_overrides(args: argparse.Namespace) -> dict:
-    return {
-        "preset": getattr(args, "preset", None),
-        "beats_per_cut": getattr(args, "beats_per_cut", None),
-        "crossfade": getattr(args, "crossfade", None),
-        "zoom": getattr(args, "zoom", None),
-        "fps": getattr(args, "fps", None),
-        "supersample": getattr(args, "supersample", None),
-        "title_font": getattr(args, "title_font", None),
-        "waveform": getattr(args, "waveform", None),
-        "contrast": getattr(args, "contrast", None),
-        "saturation": getattr(args, "saturation", None),
-        "grade": getattr(args, "grade", None),
-        "beat_punch": getattr(args, "beat_punch", None),
-        "color_punch": getattr(args, "color_punch", None),
-        "vignette": getattr(args, "vignette", None),
-        "grain": getattr(args, "grain", None),
-        "texture": getattr(args, "texture", None),
-        "texture_blend": getattr(args, "texture_blend", None),
-    }
+    return {key: getattr(args, key, None) for key in STYLE_FIELDS}
 
 
 def _hook_flags(value: str | None) -> dict:
