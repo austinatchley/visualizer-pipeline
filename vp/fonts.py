@@ -105,6 +105,15 @@ def resolve_face(name: str | None = None, override: str | None = None) -> FontFa
     return FontFace("clean", "Clean (system)", _system_path())
 
 
+def style_faces(style: dict) -> tuple[FontFace, FontFace]:
+    """The (title, meta) faces a resolved style selects; `meta_font: auto`
+    reuses the title face."""
+    title = resolve_face(style["font"], style["title_font"])
+    meta_name = style["meta_font"]
+    meta = title if meta_name == "auto" else resolve_face(meta_name, style["title_font"])
+    return title, meta
+
+
 def find_font(override: str | None = None) -> str:
     """Backward-compatible helper: return a usable font path."""
     face = resolve_face(None, override)

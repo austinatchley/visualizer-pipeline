@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from .aspects import Aspect
+from .config import DEFAULT_STYLE
 from .fonts import FontFace, find_font, load_font, resolve_face
 
 
@@ -96,14 +97,15 @@ def meta_line(artist: str | None, handle: str | None) -> str | None:
 class VgmConfig:
     """VGM-layer look: a giant translucent watermark over the footage."""
 
-    watermark: bool = False
-    watermark_text: str | None = None
-    watermark_font: str = "anton"
-    watermark_opacity: float = 0.15
-    watermark_width: float = 0.95
-    watermark_stroke: float = 0.06
-    watermark_x: float = 0.0
-    watermark_y: float = 0.0
+    # Defaults come from DEFAULT_STYLE so there is one source of truth (#50).
+    watermark: bool = DEFAULT_STYLE["watermark"]
+    watermark_text: str | None = DEFAULT_STYLE["watermark_text"]
+    watermark_font: str = DEFAULT_STYLE["watermark_font"]
+    watermark_opacity: float = DEFAULT_STYLE["watermark_opacity"]
+    watermark_width: float = DEFAULT_STYLE["watermark_width"]
+    watermark_stroke: float = DEFAULT_STYLE["watermark_stroke"]
+    watermark_x: float = DEFAULT_STYLE["watermark_x"]
+    watermark_y: float = DEFAULT_STYLE["watermark_y"]
 
     @property
     def active(self) -> bool:
@@ -111,15 +113,16 @@ class VgmConfig:
 
     @classmethod
     def from_style(cls, style: dict) -> "VgmConfig":
+        """Build from a resolved style (every key present; see `resolve_style`)."""
         return cls(
-            watermark=bool(style.get("watermark", False)),
-            watermark_text=style.get("watermark_text"),
-            watermark_font=style.get("watermark_font") or "anton",
-            watermark_opacity=float(style.get("watermark_opacity", 0.15)),
-            watermark_width=float(style.get("watermark_width", 0.95)),
-            watermark_stroke=float(style.get("watermark_stroke", 0.06)),
-            watermark_x=float(style.get("watermark_x", 0.0)),
-            watermark_y=float(style.get("watermark_y", 0.0)),
+            watermark=bool(style["watermark"]),
+            watermark_text=style["watermark_text"],
+            watermark_font=style["watermark_font"],
+            watermark_opacity=float(style["watermark_opacity"]),
+            watermark_width=float(style["watermark_width"]),
+            watermark_stroke=float(style["watermark_stroke"]),
+            watermark_x=float(style["watermark_x"]),
+            watermark_y=float(style["watermark_y"]),
         )
 
 
@@ -162,11 +165,8 @@ def _draw_watermark(
     )
 
 
-def build_vgm_overlay(
-    size: tuple[int, int], cfg: VgmConfig | None = None, style: dict | None = None
-) -> Image.Image:
+def build_vgm_overlay(size: tuple[int, int], cfg: VgmConfig) -> Image.Image:
     """Procedural VGM watermark overlay at target size."""
-    cfg = cfg or VgmConfig.from_style(style or {})
     width, height = size
     canvas = Image.new("RGBA", size, (0, 0, 0, 0))
     _draw_watermark(canvas, cfg, width, height)

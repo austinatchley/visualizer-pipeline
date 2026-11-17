@@ -155,10 +155,10 @@ def test_vgm_overlay_off_with_text_is_transparent():
 
 
 def test_vgm_overlay_from_style():
-    img = build_vgm_overlay(
-        (SQUARE.width, SQUARE.height),
-        style={"watermark": True, "watermark_text": "VGM", "watermark_opacity": 0.15},
-    )
+    from vp.config import resolve_style
+
+    style = resolve_style({"watermark": True, "watermark_text": "VGM"})
+    img = build_vgm_overlay((SQUARE.width, SQUARE.height), VgmConfig.from_style(style))
     assert img.getbbox() is not None
 
 
