@@ -20,7 +20,6 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
 from ..analyze import load_beatmap
 from ..aspects import ASPECTS
@@ -40,6 +39,29 @@ from ..render import RenderCancelled, plan_variants, render, window_for
 from ..status import is_current, render_fingerprint, sidecar_path
 from ..textures import resolve_texture, texture_library
 from ..track import load_track, slugify
+from .models import (
+    BootData,
+    CreatedTrack,
+    DeletedTrack,
+    ImageNamesPayload,
+    ImageOrder,
+    ImagesAdded,
+    ImagesRemoved,
+    JobCancelled,
+    JobCreated,
+    JobSummary,
+    MetadataPayload,
+    MetadataResult,
+    OrderPayload,
+    PreviewResult,
+    RenderPayload,
+    Style,
+    StylePayload,
+    StyleSaveResult,
+    TrackDetail,
+    TrackError,
+    TrackSummary,
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
 # Two render lanes (issue #44): full exports run one at a time, and so do
@@ -103,31 +125,6 @@ def _persist_order(folder: Path, names: list[str]) -> None:
     manifest = read_manifest(folder)
     manifest["images"] = rel
     write_manifest(folder, manifest)
-
-
-class StylePayload(BaseModel):
-    style: dict[str, object]
-
-
-class MetadataPayload(BaseModel):
-    title: str | None = None
-    artist: str | None = None
-    handle: str | None = None
-
-
-class ImageNamesPayload(BaseModel):
-    names: list[str]
-
-
-class OrderPayload(BaseModel):
-    order: list[str]
-
-
-class RenderPayload(BaseModel):
-    aspect: str = "vertical"
-    aspects: list[str] | None = None
-    style: dict[str, object]
-    preview: bool = False
 
 
 @dataclass
@@ -300,7 +297,7 @@ def create_app(
         except FileNotFoundError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from None
 
-    @app.get("/api/boot")
+    @app.get("/api/boot", response_model=BootData)
     def boot():
         return {
             "fields": STYLE_FIELDS,
@@ -310,14 +307,14 @@ def create_app(
             "aspects": {k: {"label": a.label, "kind": a.kind} for k, a in ASPECTS.items()},
         }
 
-    @app.get("/api/style")
+    @app.get("/api/style", response_model=Style)
     def style_for_preset(preset: str):
         try:
             return resolve_style(preset=preset)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from None
 
-    @app.get("/api/tracks")
+    @app.get("/api/tracks", response_model=list[TrackSummary | TrackError])
     def list_tracks():
         tracks = []
         for folder in discover_tracks(root):
@@ -345,7 +342,7 @@ def create_app(
                 )
         return tracks
 
-    @app.post("/api/tracks")
+    @app.post("/api/tracks", response_model=CreatedTrack)
     async def create_track(
         title: str = Form(""),
         audio: UploadFile | None = File(None),
@@ -394,7 +391,7 @@ def create_app(
             "image_count": len(track.images),
         }
 
-    @app.get("/api/tracks/{track_id}")
+    @app.get("/api/tracks/{track_id}", response_model=TrackDetail)
     def track_detail(track_id: str):
         track = _find_track(root, track_id)
         return {
@@ -410,7 +407,7 @@ def create_app(
             "hook": track.hook,
         }
 
-    @app.delete("/api/tracks/{track_id}")
+    @app.delete("/api/tracks/{track_id}", response_model=DeletedTrack)
     def delete_track(track_id: str):
         folder = _find_track_folder(root, track_id)
         with app.state.jobs_lock:
@@ -420,7 +417,11 @@ def create_app(
         shutil.rmtree(folder)
         return {"deleted": track_id}
 
-    @app.get("/api/tracks/{track_id}/images/{name}")
+    @app.get(
+        "/api/tracks/{track_id}/images/{name}",
+        response_class=FileResponse,
+        responses={200: {"content": {"image/*": {}}, "description": "The image file"}},
+    )
     def track_image(track_id: str, name: str):
         track = _find_track(root, track_id)
         safe = Path(name).name
@@ -432,7 +433,7 @@ def create_app(
                 return FileResponse(str(p))
         raise HTTPException(status_code=404, detail=f"image {name!r} not found")
 
-    @app.post("/api/tracks/{track_id}/images")
+    @app.post("/api/tracks/{track_id}/images", response_model=ImagesAdded)
     async def add_images(track_id: str, images: list[UploadFile] = File(...)):
         track = _find_track(root, track_id)
         _check_image_names(images)
@@ -455,7 +456,7 @@ def create_app(
         _persist_order(track.root, existing + [n for n in added if n not in existing])
         return {"added": added, "images": _image_names(track.root)}
 
-    @app.delete("/api/tracks/{track_id}/images")
+    @app.delete("/api/tracks/{track_id}/images", response_model=ImagesRemoved)
     def remove_images(track_id: str, payload: ImageNamesPayload):
         track = _find_track(root, track_id)
         img_dir = track.root / IMAGES_DIRNAME
@@ -474,7 +475,7 @@ def create_app(
             write_manifest(track.root, manifest)
         return {"removed": payload.names, "images": remaining}
 
-    @app.put("/api/tracks/{track_id}/images")
+    @app.put("/api/tracks/{track_id}/images", response_model=ImageOrder)
     def reorder_images(track_id: str, payload: OrderPayload):
         track = _find_track(root, track_id)
         order = [str(n) for n in payload.order]
@@ -487,7 +488,7 @@ def create_app(
         _persist_order(track.root, order)
         return {"images": order}
 
-    @app.put("/api/tracks/{track_id}/metadata")
+    @app.put("/api/tracks/{track_id}/metadata", response_model=MetadataResult)
     def update_metadata(track_id: str, payload: MetadataPayload):
         track = _find_track(root, track_id)
         manifest = read_manifest(track.root)
@@ -509,7 +510,7 @@ def create_app(
             "handle": updated.handle,
         }
 
-    @app.post("/api/tracks/{track_id}/style")
+    @app.post("/api/tracks/{track_id}/style", response_model=StyleSaveResult)
     def save_style(track_id: str, payload: StylePayload):
         track = _find_track(root, track_id)
         try:
@@ -532,7 +533,7 @@ def create_app(
         write_manifest(track.root, manifest)
         return {"saved": saved, "resolved": resolved}
 
-    @app.post("/api/tracks/{track_id}/preview")
+    @app.post("/api/tracks/{track_id}/preview", response_model=PreviewResult)
     def render_preview(track_id: str, payload: RenderPayload):
         requested = list(dict.fromkeys(payload.aspects or [payload.aspect]))
         unknown = [key for key in requested if key not in ASPECTS]
@@ -564,7 +565,7 @@ def create_app(
                 urls[key] = f"/api/files/preview/{dest.name}"
         return {"urls": urls, "url": urls[requested[0]]}
 
-    @app.post("/api/tracks/{track_id}/render")
+    @app.post("/api/tracks/{track_id}/render", response_model=JobCreated)
     def start_render(track_id: str, payload: RenderPayload):
         if payload.aspect not in ASPECTS:
             raise HTTPException(status_code=400, detail=f"unknown aspect: {payload.aspect}")
@@ -587,7 +588,7 @@ def create_app(
         ).start()
         return {"id": job.id}
 
-    @app.get("/api/jobs/{job_id}")
+    @app.get("/api/jobs/{job_id}", response_model=JobSummary)
     def job_detail(job_id: str):
         with app.state.jobs_lock:
             job = app.state.jobs.get(job_id)
@@ -595,7 +596,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="job not found")
         return _job_summary(job, out)
 
-    @app.get("/api/jobs")
+    @app.get("/api/jobs", response_model=list[JobSummary])
     def list_jobs():
         with app.state.jobs_lock:
             order = list(app.state.jobs_order)
@@ -606,7 +607,7 @@ def create_app(
             jobs.append(_job_summary(job, out))
         return jobs
 
-    @app.post("/api/jobs/{job_id}/cancel")
+    @app.post("/api/jobs/{job_id}/cancel", response_model=JobCancelled)
     def cancel_job(job_id: str):
         with app.state.jobs_lock:
             job = app.state.jobs.get(job_id)
@@ -621,7 +622,7 @@ def create_app(
 
     app.mount("/api/files", StaticFiles(directory=str(out)), name="files")
 
-    @app.get("/")
+    @app.get("/", response_class=FileResponse, include_in_schema=False)
     def index():
         return FileResponse(str(STATIC_DIR / "index.html"))
 

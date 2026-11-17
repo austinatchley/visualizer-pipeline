@@ -708,3 +708,40 @@ def test_export_job_waits_for_export_lane(client):
     finally:
         _export_lock.release()
     assert _wait_job(client, job_id)["status"] == "done"
+
+
+def test_openapi_every_api_route_has_a_response_schema(client):
+    """Issue #61: every `/api/*` JSON route declares a response model."""
+    spec = client.get("/openapi.json").json()
+    untyped = []
+    for path, methods in spec["paths"].items():
+        if not path.startswith("/api/"):
+            continue
+        for method, op in methods.items():
+            content = op["responses"]["200"].get("content", {})
+            if "application/json" not in content:
+                continue  # file responses (images)
+            if content["application/json"]["schema"] in ({}, {"type": "object"}):
+                untyped.append(f"{method.upper()} {path}")
+    assert untyped == []
+    assert "Style" in spec["components"]["schemas"]
+    assert set(spec["components"]["schemas"]["Style"]["properties"]) == set(STYLE_FIELDS)
+
+
+def test_response_models_do_not_add_keys(client, tmp_path):
+    """Models mirror the old dict payloads: no null-filled extra keys."""
+    (tmp_path / "tracks" / "broken").mkdir()
+    (tmp_path / "tracks" / "broken" / "audio.wav").write_bytes(b"")  # no images
+    by_id = {t["id"]: t for t in client.get("/api/tracks").json()}
+    assert set(by_id["broken"]) == {"id", "title", "path", "error"}
+    assert set(by_id["demo_track"]) == {
+        "id",
+        "title",
+        "artist",
+        "path",
+        "audio",
+        "image_count",
+        "preset",
+    }
+    fields = client.get("/api/boot").json()["fields"]
+    assert fields == json.loads(json.dumps(STYLE_FIELDS))

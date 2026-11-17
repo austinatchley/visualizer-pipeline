@@ -61,6 +61,7 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 | `vp/status.py` | Render fingerprints + `.vp.json` sidecars for idempotency (CLI + UI) |
 | `vp/cli.py` | `analyze`, `inspect`, `render`, `batch`, `init`, `ui` |
 | `vp/ui/` | FastAPI server + static studio (track picker, editor, jobs, A/B) |
+| `vp/ui/models.py` | Pydantic request/response models; `Style` is generated from `STYLE_FIELDS` (the `/openapi.json` contract) |
 | `presets/*.json` | `clean`, `punchy`, `balanced` style overrides |
 | `textures/*.png` | Starter texture library (dropdown choices in the studio) |
 | `tests/` | Unit, CLI, ffprobe, waveform, and UI tests |
