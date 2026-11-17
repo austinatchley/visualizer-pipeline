@@ -520,7 +520,9 @@ def render(
 
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
     try:
-        assets = prepare_assets(track, size, aspect, beatmap, window, tmp, textures_dir)
+        # plan.window, not window: a preview plan is a short slice of the window, and
+        # the waveform strip must cover exactly what the clip shows (issue #68).
+        assets = prepare_assets(track, size, aspect, beatmap, plan.window, tmp, textures_dir)
         graph = build_graph(track, plan, beatmap, size, assets, preview)
         cmd = build_command(graph, int(track.style["fps"]), plan.duration, out_path, preview)
         out_path.parent.mkdir(parents=True, exist_ok=True)
