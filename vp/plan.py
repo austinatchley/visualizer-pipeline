@@ -194,7 +194,7 @@ def plan_timeline(
     if image_count < 1:
         raise ValueError("image_count must be >= 1")
 
-    base = int(style.get("beats_per_cut", 8))
+    base = int(style["beats_per_cut"])
     overrides = overrides or {}
     explicit = overrides.get("cuts")
 
@@ -228,7 +228,7 @@ def plan_timeline(
         boundaries = _finalize(candidates, duration)
 
     segments, xfade = _build_segments(
-        boundaries, float(style.get("crossfade", 0.35)), image_count, duration
+        boundaries, float(style["crossfade"]), image_count, duration
     )
     return Plan(
         window=(float(start), float(end)),

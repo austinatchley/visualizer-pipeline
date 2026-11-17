@@ -227,3 +227,33 @@ def test_vgm_numeric_bounds_validation():
         resolve_style({"watermark_opacity": 0.9})
     with pytest.raises(ValueError, match="watermark_x"):
         resolve_style({"watermark_x": 1.5})
+
+def test_no_call_site_style_defaults():
+    """Style defaults live only in DEFAULT_STYLE (issue #50): consumers index the
+    resolved style instead of re-stating fallbacks like `style.get("zoom", 0.1)`."""
+    import re
+    from pathlib import Path
+
+    import vp
+
+    pattern = re.compile(r"style\.get\(\s*[\"'][a-z_]+[\"']\s*,|style\.get\([^)]*\)\s+or\s")
+    offenders = [
+        f"{path.name}:{n}: {line.strip()}"
+        for path in Path(vp.__file__).parent.rglob("*.py")
+        for n, line in enumerate(path.read_text().splitlines(), 1)
+        if pattern.search(line) and "DEFAULT_STYLE" not in line
+    ]
+    assert offenders == []
+
+
+def test_vgm_config_defaults_match_default_style():
+    from dataclasses import fields
+
+    from vp.config import DEFAULT_STYLE
+    from vp.hud import VgmConfig
+
+    cfg = VgmConfig()
+    assert {f.name: getattr(cfg, f.name) for f in fields(cfg)} == {
+        f.name: DEFAULT_STYLE[f.name] for f in fields(cfg)
+    }
+    assert VgmConfig.from_style(resolve_style()) == cfg

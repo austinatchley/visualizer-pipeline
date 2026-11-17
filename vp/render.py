@@ -13,7 +13,7 @@ from pathlib import Path
 from PIL import Image
 
 from .aspects import ASPECTS, Aspect
-from .fonts import resolve_face
+from .fonts import style_faces
 from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import Plan, full_window, plan_timeline, preview_slice, select_hook
 from .status import invalidate, record, render_fingerprint
@@ -214,11 +214,7 @@ def prepare_assets(
     """Write the HUD (with VGM overlay), texture, and waveform PNGs into `tmp`."""
     style = track.style
     width, height = size
-    font_face = resolve_face(style["font"] or "clean", style["title_font"])
-    meta_name = style["meta_font"] or "auto"
-    meta_face = (
-        font_face if meta_name == "auto" else resolve_face(meta_name, style["title_font"])
-    )
+    font_face, meta_face = style_faces(style)
     hud_aspect = Aspect(aspect.key, width, height, aspect.label, aspect.kind)
     vgm_cfg = VgmConfig.from_style(style)
     vgm_img = build_vgm_overlay((width, height), vgm_cfg) if vgm_cfg.active else None

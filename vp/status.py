@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 
 from . import __version__
-from .fonts import resolve_face
+from .fonts import resolve_face, style_faces
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .vibe import finalize_auto_style
 
@@ -46,13 +46,10 @@ def _file_identity(path: Path | None) -> list | None:
 
 
 def _font_files(style: dict) -> list[Path | None]:
-    title_font = style.get("title_font")
-    title = resolve_face(style.get("font") or "clean", title_font)
-    meta_name = style.get("meta_font") or "auto"
-    meta = title if meta_name == "auto" else resolve_face(meta_name, title_font)
+    title, meta = style_faces(style)
     faces = [title.path, meta.path]
-    if style.get("watermark"):
-        faces.append(resolve_face(style.get("watermark_font") or "anton").path)
+    if style["watermark"]:
+        faces.append(resolve_face(style["watermark_font"]).path)
     return faces
 
 
@@ -81,7 +78,7 @@ def render_fingerprint(
             "audio": _file_identity(track.audio),
             "images": [_file_identity(p) for p in track.images],
             "texture": _file_identity(
-                resolve_texture(style.get("texture"), textures_dir)
+                resolve_texture(style["texture"], textures_dir)
             ),
             "fonts": [_file_identity(p) for p in _font_files(style)],
         },
