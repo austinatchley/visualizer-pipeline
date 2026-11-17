@@ -70,6 +70,7 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 | `textures/*.png` | Starter texture library (dropdown choices in the studio) |
 | `tests/` | Unit, CLI, ffprobe, waveform, and UI tests |
 | `scripts/make_fixtures.py` | Deterministic synthetic tracks for tests |
+| `scripts/make_regression_tracks.py` | Arranged genre-shaped beats with known BPMs + sections; `tests/test_regression_audio.py` synthesizes them on the fly |
 | `scripts/make_textures.py` | Deterministic starter texture generator |
 
 ## Invariants and quirks
@@ -137,7 +138,10 @@ Every change starts with an issue. See `CONTRIBUTING.md`.
 ## Known gotchas
 
 - The synthetic fixtures mis-detect tempo (e.g. 140 → 92.3); use `--bpm` or
-  `overrides.tempo_multiplier` to test tempo paths.
+  `overrides.tempo_multiplier` to test tempo paths. For realistic analysis/planner
+  checks use the regression tracks (`tests/test_regression_audio.py`): they assert
+  BPM (±3%, octaves allowed), hook-on-drop, and a cut at every drop entry. Planner
+  changes that fail there are real regressions, not fixture noise.
 - UI tests `importorskip` FastAPI/httpx; install `.[dev,ui]` to run them.
 - Starlette currently warns that `httpx` is deprecated for `TestClient`; tests still pass.
 - `fixtures/` must exist before render/integration tests; otherwise they skip.
