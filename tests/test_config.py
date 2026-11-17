@@ -23,9 +23,7 @@ def test_track_style_overrides_preset():
 
 
 def test_flags_win_over_track_style():
-    style = resolve_style(
-        {"beats_per_cut": 4}, flags={"beats_per_cut": 2, "preset": "clean"}
-    )
+    style = resolve_style({"beats_per_cut": 4}, flags={"beats_per_cut": 2, "preset": "clean"})
     assert style["beats_per_cut"] == 2
 
 
@@ -227,6 +225,7 @@ def test_vgm_numeric_bounds_validation():
         resolve_style({"watermark_opacity": 0.9})
     with pytest.raises(ValueError, match="watermark_x"):
         resolve_style({"watermark_x": 1.5})
+
 
 def test_no_call_site_style_defaults():
     """Style defaults live only in DEFAULT_STYLE (issue #50): consumers index the

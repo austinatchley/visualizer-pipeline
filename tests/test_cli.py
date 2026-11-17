@@ -73,8 +73,14 @@ def test_render_variant_jobs_renders_all(tmp_path):
     _require(SHORT)
     code = main(
         [
-            "render", str(SHORT), "--aspect", "both", "--out", str(tmp_path),
-            "--variant-jobs", "2",
+            "render",
+            str(SHORT),
+            "--aspect",
+            "both",
+            "--out",
+            str(tmp_path),
+            "--variant-jobs",
+            "2",
         ]
     )
     assert code == 0
@@ -99,14 +105,13 @@ def test_batch_isolates_failures(tmp_path, capsys):
     _link_track(root, "good", SHORT, with_images=True)
     _link_track(root, "broken", SHORT, with_images=False)
 
-    code = main(
-        ["batch", str(root), "--aspect", "vertical", "--out", str(tmp_path / "out")]
-    )
+    code = main(["batch", str(root), "--aspect", "vertical", "--out", str(tmp_path / "out")])
 
     captured = capsys.readouterr()
     assert code == 1
     assert "FAILED broken" in captured.err
     assert "1/2" in captured.out
+
 
 def test_duplicate_titles_render_to_distinct_dirs(tmp_path, capsys):
     """Issue #42: outputs are keyed by folder, so equal titles don't collide."""
@@ -148,10 +153,22 @@ def test_font_is_the_choice_and_title_font_the_path():
 
 
 def test_style_flags_parse_types():
-    flags = _flags(_parse(
-        "--fps", "60", "--zoom", "0.2", "--no-show-title", "--watermark",
-        "--watermark-text", "VGM", "--text-case", "upper", "--fade-in", "0",
-    ))
+    flags = _flags(
+        _parse(
+            "--fps",
+            "60",
+            "--zoom",
+            "0.2",
+            "--no-show-title",
+            "--watermark",
+            "--watermark-text",
+            "VGM",
+            "--text-case",
+            "upper",
+            "--fade-in",
+            "0",
+        )
+    )
     assert flags["fps"] == 60
     assert flags["zoom"] == 0.2
     assert flags["show_title"] is False

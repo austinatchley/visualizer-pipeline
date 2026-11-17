@@ -65,7 +65,7 @@ def _find_audio(root: Path, manifest: dict) -> Path:
         raise FileNotFoundError(f"no audio file found in {root}")
     if len(found) > 1:
         raise ValueError(
-            f"multiple audio files in {root}; set \"audio\" in track.json: "
+            f'multiple audio files in {root}; set "audio" in track.json: '
             + ", ".join(p.name for p in found)
         )
     return found[0]
@@ -106,9 +106,7 @@ def load_track(root: Path, overrides: dict | None = None) -> Track:
         raise ValueError(f"could not determine a title for {root}")
 
     flags = overrides or {}
-    style = resolve_style(
-        manifest.get("style"), preset=flags.get("preset"), flags=flags
-    )
+    style = resolve_style(manifest.get("style"), preset=flags.get("preset"), flags=flags)
     hook = resolve_hook(manifest.get("hook"), manifest.get("overrides"), flags=flags)
     resolved_overrides = resolve_overrides(manifest.get("overrides"), flags)
 

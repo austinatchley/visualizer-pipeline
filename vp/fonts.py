@@ -36,9 +36,7 @@ class FontFace:
 # Order is the UI dropdown order. `clean` uses the system fallback.
 FONT_FACES: dict[str, FontFace] = {
     "clean": FontFace("clean", "Clean (system)", None),
-    "redaction": FontFace(
-        "redaction", "Redaction 50 Bold", FONT_DIR / "Redaction50-Bold.ttf"
-    ),
+    "redaction": FontFace("redaction", "Redaction 50 Bold", FONT_DIR / "Redaction50-Bold.ttf"),
     "redaction-regular": FontFace(
         "redaction-regular", "Redaction 50", FONT_DIR / "Redaction50-Regular.ttf"
     ),
@@ -61,12 +59,8 @@ FONT_FACES: dict[str, FontFace] = {
     "pixelify": FontFace(
         "pixelify", "Pixelify Sans Bold", FONT_DIR / "PixelifySans-Variable.ttf", (700,)
     ),
-    "silkscreen": FontFace(
-        "silkscreen", "Silkscreen", FONT_DIR / "Silkscreen-Regular.ttf"
-    ),
-    "syne": FontFace(
-        "syne", "Syne ExtraBold", FONT_DIR / "Syne-Variable.ttf", (800,)
-    ),
+    "silkscreen": FontFace("silkscreen", "Silkscreen", FONT_DIR / "Silkscreen-Regular.ttf"),
+    "syne": FontFace("syne", "Syne ExtraBold", FONT_DIR / "Syne-Variable.ttf", (800,)),
     "instrument": FontFace(
         "instrument", "Instrument Serif", FONT_DIR / "InstrumentSerif-Regular.ttf"
     ),
@@ -95,9 +89,7 @@ def resolve_face(name: str | None = None, override: str | None = None) -> FontFa
     if name and name != "clean":
         face = FONT_FACES.get(name)
         if face is None:
-            raise ValueError(
-                f"unknown font {name!r}; available: {', '.join(FONT_CHOICES)}"
-            )
+            raise ValueError(f"unknown font {name!r}; available: {', '.join(FONT_CHOICES)}")
         if face.path is None or not face.path.is_file():
             raise FileNotFoundError(f"bundled font missing: {face.path}")
         return face
@@ -121,9 +113,7 @@ def find_font(override: str | None = None) -> str:
     return str(face.path)
 
 
-def load_font(
-    face: FontFace | str | Path | None, size: int
-) -> ImageFont.FreeTypeFont:
+def load_font(face: FontFace | str | Path | None, size: int) -> ImageFont.FreeTypeFont:
     if face is None:
         face = resolve_face()
     if isinstance(face, (str, Path)):

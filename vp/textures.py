@@ -31,9 +31,7 @@ def texture_library(root: str | Path = DEFAULT_TEXTURES_DIR) -> list[dict[str, s
     return textures
 
 
-def resolve_texture(
-    value: object, root: str | Path = DEFAULT_TEXTURES_DIR
-) -> Path | None:
+def resolve_texture(value: object, root: str | Path = DEFAULT_TEXTURES_DIR) -> Path | None:
     if value is None:
         return None
     raw = str(value).strip()
@@ -54,6 +52,4 @@ def resolve_texture(
         return candidate
 
     available = ", ".join(item["path"] for item in texture_library(base)) or "(none)"
-    raise FileNotFoundError(
-        f"unknown texture {raw!r}; available: {available}"
-    )
+    raise FileNotFoundError(f"unknown texture {raw!r}; available: {available}")

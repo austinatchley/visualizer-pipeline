@@ -42,15 +42,11 @@ def test_full_plan_invariants():
 def test_image_indices_cycle():
     plan = plan_timeline(make_beatmap(), full_window(60.0), 3, STYLE)
     assert len(plan.segments) > 3
-    assert [s.image_index for s in plan.segments] == [
-        i % 3 for i in range(len(plan.segments))
-    ]
+    assert [s.image_index for s in plan.segments] == [i % 3 for i in range(len(plan.segments))]
 
 
 def test_explicit_cuts_are_used():
-    plan = plan_timeline(
-        make_beatmap(), full_window(60.0), 3, STYLE, {"cuts": [15, 5, 10]}
-    )
+    plan = plan_timeline(make_beatmap(), full_window(60.0), 3, STYLE, {"cuts": [15, 5, 10]})
     assert plan.cut_times == pytest.approx([0.0, 5.0, 10.0, 15.0, 60.0])
     assert [b.reason for b in plan.boundaries] == [
         "start",
@@ -96,7 +92,7 @@ def test_zero_crossfade_gives_hard_cuts():
     style = {"beats_per_cut": 2, "crossfade": 0.0}
     plan = plan_timeline(make_beatmap(energy=[1.0] * 120), full_window(60.0), 3, style)
     assert plan.xfade == 0.0
-    for current, following in zip(plan.segments, plan.segments[1:]):
+    for current, following in zip(plan.segments, plan.segments[1:], strict=False):
         assert current.offset + current.duration == pytest.approx(following.offset)
 
 
@@ -120,9 +116,10 @@ def test_select_hook_short_track_returns_full():
 
 
 def test_select_hook_manual():
-    assert select_hook(
-        make_beatmap(duration=90), hook(mode="manual", start=20, end=65)
-    ) == (20.0, 65.0)
+    assert select_hook(make_beatmap(duration=90), hook(mode="manual", start=20, end=65)) == (
+        20.0,
+        65.0,
+    )
 
 
 def test_select_hook_manual_past_end_raises():
@@ -202,9 +199,7 @@ def test_preview_slice_starts_at_zero_when_cut_is_early():
 
 
 def test_preview_slice_moves_before_late_cut():
-    plan = plan_timeline(
-        make_beatmap(duration=60.0, bpm=60.0), full_window(60.0), 3, STYLE
-    )
+    plan = plan_timeline(make_beatmap(duration=60.0, bpm=60.0), full_window(60.0), 3, STYLE)
     sliced = preview_slice(plan, 3, seconds=4.0, lead=1.5)
     assert sliced.window[0] == pytest.approx(6.5)
     assert sliced.window[1] == pytest.approx(10.5)

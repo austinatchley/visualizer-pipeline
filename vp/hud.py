@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .aspects import Aspect
 from .config import DEFAULT_STYLE
-from .fonts import FontFace, find_font, load_font, resolve_face
+from .fonts import FontFace, load_font, resolve_face
 
 
 @dataclass(frozen=True)
@@ -30,9 +30,7 @@ def apply_case(text: str, mode: str) -> str:
     return text
 
 
-def _measure_line(
-    text: str, font: ImageFont.FreeTypeFont, tracking_px: float = 0.0
-) -> float:
+def _measure_line(text: str, font: ImageFont.FreeTypeFont, tracking_px: float = 0.0) -> float:
     if tracking_px == 0 or not text:
         return font.getlength(text)
     return sum(font.getlength(char) for char in text) + tracking_px * (len(text) - 1)
@@ -112,7 +110,7 @@ class VgmConfig:
         return self.watermark
 
     @classmethod
-    def from_style(cls, style: dict) -> "VgmConfig":
+    def from_style(cls, style: dict) -> VgmConfig:
         """Build from a resolved style (every key present; see `resolve_style`)."""
         return cls(
             watermark=bool(style["watermark"]),
@@ -140,9 +138,7 @@ def _fit_font(face: FontFace, text: str, target_width: int) -> ImageFont.FreeTyp
     return font
 
 
-def _draw_watermark(
-    canvas: Image.Image, cfg: VgmConfig, width: int, height: int
-) -> None:
+def _draw_watermark(canvas: Image.Image, cfg: VgmConfig, width: int, height: int) -> None:
     if not cfg.watermark or not cfg.watermark_text:
         return
     text = str(cfg.watermark_text)
@@ -246,9 +242,7 @@ def _draw_text_block(
     for line in lines:
         width = _measure_line(line, font, tracking_px)
         tx = x if align == "left" else x - width / 2
-        _draw_line(
-            draw, line, font, tx + shadow_offset, y + shadow_offset, shadow, tracking_px
-        )
+        _draw_line(draw, line, font, tx + shadow_offset, y + shadow_offset, shadow, tracking_px)
         _draw_line(draw, line, font, tx, y, fill, tracking_px)
         y += line_h
 

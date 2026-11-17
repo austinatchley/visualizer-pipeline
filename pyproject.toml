@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "visualizer-pipeline"
 version = "0.1.0"
 description = "os.10.vs — batch audio-reactive visualizer renderer for beats"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "numpy>=1.26",
     "soundfile>=0.12",
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "httpx>=0.27"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff==0.17.5"]
 ui = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
@@ -31,3 +31,14 @@ include = ["vp*"]
 [tool.setuptools.package-data]
 "vp.ui" = ["static/*"]
 "vp" = ["assets/fonts/*", "assets/fonts/licenses/*"]
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["fixtures", "out"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's dependency-injection idiom: `File(...)`/`Form(...)` defaults.
+"vp/ui/server.py" = ["B008"]

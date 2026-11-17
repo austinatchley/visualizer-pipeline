@@ -90,7 +90,7 @@ def make_audio(path: Path, bpm: float, duration: float, seed: int) -> None:
         tt = np.arange(length) / SR
         env = np.exp(-tt * 28)
         freq = 120 * np.exp(-tt * 30) + 45
-        out[start:start + length] += 0.9 * env * np.sin(2 * np.pi * freq * tt)
+        out[start : start + length] += 0.9 * env * np.sin(2 * np.pi * freq * tt)
 
     for b in np.arange(beat, duration, beat * 2):
         start = int(b * SR)
@@ -99,16 +99,16 @@ def make_audio(path: Path, bpm: float, duration: float, seed: int) -> None:
             continue
         tt = np.arange(length) / SR
         noise = rng.normal(0, 1, length)
-        out[start:start + length] += 0.35 * np.exp(-tt * 32) * noise
+        out[start : start + length] += 0.35 * np.exp(-tt * 32) * noise
 
-    for i, b in enumerate(np.arange(0, duration, beat / 2)):
+    for b in np.arange(0, duration, beat / 2):
         start = int(b * SR)
         length = int(0.04 * SR)
         if start + length > n:
             continue
         tt = np.arange(length) / SR
         noise = rng.normal(0, 1, length)
-        out[start:start + length] += 0.12 * np.exp(-tt * 90) * noise
+        out[start : start + length] += 0.12 * np.exp(-tt * 90) * noise
 
     notes = [55.0, 65.41, 73.42, 82.41]
     for i, b in enumerate(np.arange(0, duration, beat * 2)):
@@ -119,7 +119,7 @@ def make_audio(path: Path, bpm: float, duration: float, seed: int) -> None:
         tt = np.arange(length) / SR
         f = notes[i % len(notes)]
         env = np.minimum(1, tt / 0.05) * np.exp(-tt * 1.5)
-        out[start:start + length] += 0.22 * env * np.sin(2 * np.pi * f * tt)
+        out[start : start + length] += 0.22 * env * np.sin(2 * np.pi * f * tt)
 
     peak = np.max(np.abs(out)) or 1.0
     out = (out / peak) * 0.89
@@ -134,7 +134,7 @@ def make_image(path: Path, width: int, height: int, seed: int) -> None:
 
     x = np.linspace(0, 1, width)[None, :, None]
     y = np.linspace(0, 1, height)[:, None, None]
-    diag = (x * 0.6 + y * 0.4)
+    diag = x * 0.6 + y * 0.4
     grad = (c0 * (1 - diag) + c1 * diag).astype(np.uint8)
     grad = np.repeat(grad, 3, axis=2) if grad.shape[2] == 1 else grad
 

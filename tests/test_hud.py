@@ -2,13 +2,12 @@ import pytest
 from PIL import Image, ImageFont
 
 from vp.aspects import HORIZONTAL, SQUARE, VERTICAL
-from vp.fonts import FONT_CHOICES, resolve_face
+from vp.fonts import FONT_CHOICES, find_font, resolve_face
 from vp.hud import (
     VgmConfig,
     apply_case,
     build_hud,
     build_vgm_overlay,
-    find_font,
     layout_for,
     meta_line,
     wrap_to_width,
@@ -35,9 +34,7 @@ def test_wrap_to_width():
     lines = wrap_to_width("midnight drive into the void", font, 400)
     assert len(lines) > 1
     assert all(font.getlength(line) <= 400 for line in lines)
-    assert " ".join(lines).replace(" ", "") == "midnight drive into the void".replace(
-        " ", ""
-    )
+    assert " ".join(lines).replace(" ", "") == "midnight drive into the void".replace(" ", "")
 
 
 def test_layout_per_aspect():

@@ -13,7 +13,7 @@ Built for macOS + Homebrew ffmpeg, but the pipeline itself is plain Python + FFm
 
 ## Requirements
 
-- Python 3.11+ (3.12 recommended)
+- Python 3.12+
 - `ffmpeg` and `ffprobe` on `PATH`
 - A system font (Arial Bold is used by default) or `style.title_font`
 

@@ -74,12 +74,23 @@ def _image_names(folder: Path) -> list[str]:
     """Ordered bare image filenames (UI-facing). Manifest stores root-relative paths."""
     manifest = read_manifest(folder)
     if manifest.get("images") is not None:
-        return [
-            Path(p).name
-            for p in manifest["images"]
-            if (folder / str(p)).is_file()
-        ]
+        return [Path(p).name for p in manifest["images"] if (folder / str(p)).is_file()]
     return [p.name for p in scan_images(folder)]
+
+
+def _check_image_names(uploads: list[UploadFile]) -> None:
+    """400 if any named upload is not a supported image type."""
+    bad = [
+        f.filename
+        for f in uploads
+        if f.filename and Path(f.filename).suffix.lower() not in IMAGE_EXTS
+    ]
+    if bad:
+        allowed = ", ".join(sorted(IMAGE_EXTS))
+        raise HTTPException(
+            status_code=400,
+            detail=f"images must be one of: {allowed} (got {', '.join(bad)})",
+        )
 
 
 def _persist_order(folder: Path, names: list[str]) -> None:
@@ -134,9 +145,7 @@ class Job:
     started: float | None = None
     ended: float | None = None
     cancel: threading.Event = field(default_factory=threading.Event)
-    status_lock: threading.Lock = field(
-        default_factory=threading.Lock, repr=False, compare=False
-    )
+    status_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
 
 PREVIEW_JOB_KEEP = 8
@@ -353,16 +362,7 @@ def create_app(
         images = [f for f in images if f.filename]
         if not images:
             raise HTTPException(status_code=400, detail="at least one image is required")
-        bad = [
-            f.filename
-            for f in images
-            if Path(f.filename).suffix.lower() not in IMAGE_EXTS
-        ]
-        if bad:
-            raise HTTPException(
-                status_code=400,
-                detail=f"images must be one of: {', '.join(sorted(IMAGE_EXTS))} (got {', '.join(bad)})",
-            )
+        _check_image_names(images)
 
         base = slugify(title)
         folder = root / base
@@ -435,16 +435,7 @@ def create_app(
     @app.post("/api/tracks/{track_id}/images")
     async def add_images(track_id: str, images: list[UploadFile] = File(...)):
         track = _find_track(root, track_id)
-        bad = [
-            f.filename
-            for f in images
-            if f.filename and Path(f.filename).suffix.lower() not in IMAGE_EXTS
-        ]
-        if bad:
-            raise HTTPException(
-                status_code=400,
-                detail=f"images must be one of: {', '.join(sorted(IMAGE_EXTS))} (got {', '.join(bad)})",
-            )
+        _check_image_names(images)
         img_dir = track.root / IMAGES_DIRNAME
         img_dir.mkdir(exist_ok=True)
         existing = _image_names(track.root)
@@ -531,9 +522,7 @@ def create_app(
         # Persist only values that differ from what the preset alone would give, so
         # track.json stays minimal and preset changes still propagate.
         saved = {
-            k: v
-            for k, v in resolved.items()
-            if k != "preset" and resolved[k] != baseline.get(k)
+            k: v for k, v in resolved.items() if k != "preset" and resolved[k] != baseline.get(k)
         }
         if resolved["preset"] != DEFAULT_STYLE["preset"]:
             saved["preset"] = resolved["preset"]

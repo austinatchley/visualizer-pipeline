@@ -104,16 +104,12 @@ def _cover_image(src: Path, width: int, height: int, out: Path) -> Path:
     return out
 
 
-def _zoom_expr(
-    i: int, fps: int, frames: int, max_zoom: float, punch: float
-) -> str:
+def _zoom_expr(i: int, fps: int, frames: int, max_zoom: float, punch: float) -> str:
     rate = (max_zoom - 1.0) / max(frames - 1, 1)
     if i % 2 == 1:
         return f"max({max_zoom:.5f}-{rate:.6f}*on,1)"
     if punch:
-        return (
-            f"min(1+{rate:.6f}*on+{punch:.4f}*exp(-on/{fps}*6.0),{max_zoom:.5f})"
-        )
+        return f"min(1+{rate:.6f}*on+{punch:.4f}*exp(-on/{fps}*6.0),{max_zoom:.5f})"
     return f"min(1+{rate:.6f}*on,{max_zoom:.5f})"
 
 
@@ -142,9 +138,7 @@ def _saturation_expr(base: float, punch: float, fps: int) -> str:
 
     Each segment is its own input stream, so `n` (the eq filter's frame counter)
     resets to 0 at the cut and the spike lands on the downbeat."""
-    return (
-        f"eq=saturation='{base:.4f}+{punch:.4f}*exp(-n/{fps}*6.0)':eval=frame"
-    )
+    return f"eq=saturation='{base:.4f}+{punch:.4f}*exp(-n/{fps}*6.0)':eval=frame"
 
 
 @dataclass(frozen=True)
@@ -257,12 +251,9 @@ def _segment_chain(
     supersample = int(style["supersample"])
     color_punch = float(style["color_punch"])
     frames = max(2, math.ceil(seg.duration * fps) + 2)
-    zexpr = _zoom_expr(
-        i, fps, frames, 1.0 + float(style["zoom"]), float(style["beat_punch"])
-    )
+    zexpr = _zoom_expr(i, fps, frames, 1.0 + float(style["zoom"]), float(style["beat_punch"]))
     chain = [
-        f"scale={width * supersample}:{height * supersample}:"
-        f"force_original_aspect_ratio=increase",
+        f"scale={width * supersample}:{height * supersample}:force_original_aspect_ratio=increase",
         f"crop={width * supersample}:{height * supersample}",
         "setsar=1",
         f"zoompan=z='{zexpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
@@ -281,7 +272,9 @@ def _segment_chain(
     return f"[{i}:v]" + ",".join(chain) + f"[v{i}]"
 
 
-def _finish_filters(style: dict, duration: float, fades: tuple[float, float], preview: bool) -> list[str]:
+def _finish_filters(
+    style: dict, duration: float, fades: tuple[float, float], preview: bool
+) -> list[str]:
     """Grade, saturation, vignette, grain, contrast, fades, then output range."""
     finish: list[str] = []
     grade = GRADES.get(style["grade"])
@@ -347,8 +340,7 @@ def build_graph(
         inputs += _still_input(assets.waveform, fps, duration)
 
     parts = [
-        _segment_chain(seg, i, style, size, beatmap, window_start)
-        for i, seg in enumerate(segments)
+        _segment_chain(seg, i, style, size, beatmap, window_start) for i, seg in enumerate(segments)
     ]
     prev = "v0"
     for i in range(1, len(segments)):
@@ -409,21 +401,35 @@ def build_command(
 ) -> list[str]:
     """Pure: the full ffmpeg argument list for a graph."""
     enc = [
-        "-c:v", "libx264",
-        "-preset", "veryfast" if preview else "medium",
-        "-crf", "23" if preview else "18",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast" if preview else "medium",
+        "-crf",
+        "23" if preview else "18",
     ]
     audio_enc = ["-c:a", "aac", "-b:a", "192k"] if graph.has_audio else []
     return [
-        "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-y",
         *graph.inputs,
-        "-filter_complex", graph.filter_complex,
+        "-filter_complex",
+        graph.filter_complex,
         *graph.maps,
         *enc,
-        "-pix_fmt", "yuv420p", "-r", str(fps),
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        str(fps),
         *audio_enc,
-        "-movflags", "+faststart",
-        "-t", f"{duration:.3f}",
+        "-movflags",
+        "+faststart",
+        "-t",
+        f"{duration:.3f}",
         str(out_path),
     ]
 
@@ -526,9 +532,7 @@ def render(
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def plan_variants(
-    track: Track, beatmap: dict, out_dir: Path, aspects: list[str]
-) -> list[Variant]:
+def plan_variants(track: Track, beatmap: dict, out_dir: Path, aspects: list[str]) -> list[Variant]:
     duration = float(beatmap["duration"])
     variants: list[Variant] = []
     for key in aspects:
@@ -547,13 +551,9 @@ def plan_variants(
     return variants
 
 
-def render_aspects(
-    track: Track, beatmap: dict, out_dir: Path, aspects: list[str]
-) -> list[Path]:
+def render_aspects(track: Track, beatmap: dict, out_dir: Path, aspects: list[str]) -> list[Path]:
     outputs = []
     for variant in plan_variants(track, beatmap, out_dir, aspects):
-        render(
-            track, variant.aspect, beatmap, variant.path, window=variant.window
-        )
+        render(track, variant.aspect, beatmap, variant.path, window=variant.window)
         outputs.append(variant.path)
     return outputs
