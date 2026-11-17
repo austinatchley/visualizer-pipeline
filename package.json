@@ -1,11 +1,13 @@
 {
   "name": "visualizer-pipeline-studio",
   "private": true,
-  "description": "Dev-only tooling: type-checks the studio's plain-JS frontend (no build step).",
+  "description": "Dev-only tooling: type-checks the studio's plain-JS frontend and generates its API types (no build step).",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "gen:api": "openapi-typescript vp/ui/types/openapi.json -o vp/ui/types/api.d.ts"
   },
   "devDependencies": {
-    "typescript": "7.0.2"
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
   }
 }

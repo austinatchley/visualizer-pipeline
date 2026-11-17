@@ -23,6 +23,7 @@ pip install -e ".[dev,ui]"          # .[dev] alone runs non-UI tests; UI tests s
 python scripts/make_fixtures.py     # 4 synthetic tracks in fixtures/ (gitignored)
 ruff check . && ruff format --check .   # CI lint job; ruff is pinned in [dev]
 npm ci && npm run typecheck             # CI typecheck job: tsc over the studio JS
+python scripts/gen_api_types.py         # after changing vp/ui/models.py: openapi.json + api.d.ts
 pytest -q
 ```
 
@@ -62,7 +63,8 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 | `vp/status.py` | Render fingerprints + `.vp.json` sidecars for idempotency (CLI + UI) |
 | `vp/cli.py` | `analyze`, `inspect`, `render`, `batch`, `init`, `ui` |
 | `vp/ui/` | FastAPI server + static studio (track picker, editor, jobs, A/B) |
-| `vp/ui/types/studio.d.ts` | JSDoc/`tsc` types for the studio frontend (API shapes + client state); dev-only |
+| `vp/ui/types/` | Dev-only `tsc` types: generated `openapi.json` + `api.d.ts`, hand-written `studio.d.ts` (aliases + client state) |
+| `scripts/gen_api_types.py` | Regenerates `vp/ui/types/openapi.json` and `api.d.ts` from the Pydantic models |
 | `vp/ui/models.py` | Pydantic request/response models; `Style` is generated from `STYLE_FIELDS` (the `/openapi.json` contract) |
 | `presets/*.json` | `clean`, `punchy`, `balanced` style overrides |
 | `textures/*.png` | Starter texture library (dropdown choices in the studio) |
@@ -110,7 +112,9 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 - **Studio frontend.** Plain JS served as-is (no build step), type-checked with
   `// @ts-check` + `tsconfig.json` (`strict`). Annotate API results with the response
   type (`/** @type {TrackDetail} */ const t = await api(...)`); `$`/`pick` infer the
-  element type from the annotated variable.
+  element type from the annotated variable. API types are **generated** from
+  `vp/ui/models.py`: change a model → `python scripts/gen_api_types.py` → commit both
+  files. A test (stale `openapi.json`) and the CI typecheck job (stale `api.d.ts`) enforce it.
 - **Determinism.** No random effects without a fixed seed (grain uses one).
 
 ## Workflow (issue-first)

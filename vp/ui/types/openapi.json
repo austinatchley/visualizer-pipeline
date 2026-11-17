@@ -1,0 +1,1846 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "os.10.vs",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/boot": {
+      "get": {
+        "summary": "Boot",
+        "operationId": "boot_api_boot_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootData"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/style": {
+      "get": {
+        "summary": "Style For Preset",
+        "operationId": "style_for_preset_api_style_get",
+        "parameters": [
+          {
+            "name": "preset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Preset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Style"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks": {
+      "get": {
+        "summary": "List Tracks",
+        "operationId": "list_tracks_api_tracks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/TrackSummary"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TrackError"
+                      }
+                    ]
+                  },
+                  "type": "array",
+                  "title": "Response List Tracks Api Tracks Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Track",
+        "operationId": "create_track_api_tracks_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_track_api_tracks_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTrack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{track_id}": {
+      "get": {
+        "summary": "Track Detail",
+        "operationId": "track_detail_api_tracks__track_id__get",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Track",
+        "operationId": "delete_track_api_tracks__track_id__delete",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedTrack"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{track_id}/images/{name}": {
+      "get": {
+        "summary": "Track Image",
+        "operationId": "track_image_api_tracks__track_id__images__name__get",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image file",
+            "content": {
+              "image/*": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{track_id}/images": {
+      "post": {
+        "summary": "Add Images",
+        "operationId": "add_images_api_tracks__track_id__images_post",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_images_api_tracks__track_id__images_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagesAdded"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Images",
+        "operationId": "remove_images_api_tracks__track_id__images_delete",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageNamesPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagesRemoved"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Reorder Images",
+        "operationId": "reorder_images_api_tracks__track_id__images_put",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageOrder"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{track_id}/metadata": {
+      "put": {
+        "summary": "Update Metadata",
+        "operationId": "update_metadata_api_tracks__track_id__metadata_put",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MetadataPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{track_id}/style": {
+      "post": {
+        "summary": "Save Style",
+        "operationId": "save_style_api_tracks__track_id__style_post",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StylePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleSaveResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{track_id}/preview": {
+      "post": {
+        "summary": "Render Preview",
+        "operationId": "render_preview_api_tracks__track_id__preview_post",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tracks/{track_id}/render": {
+      "post": {
+        "summary": "Start Render",
+        "operationId": "start_render_api_tracks__track_id__render_post",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{job_id}": {
+      "get": {
+        "summary": "Job Detail",
+        "operationId": "job_detail_api_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "get": {
+        "summary": "List Jobs",
+        "operationId": "list_jobs_api_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Jobs Api Jobs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{job_id}/cancel": {
+      "post": {
+        "summary": "Cancel Job",
+        "operationId": "cancel_job_api_jobs__job_id__cancel_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCancelled"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AspectInfo": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "kind"
+        ],
+        "title": "AspectInfo"
+      },
+      "Body_add_images_api_tracks__track_id__images_post": {
+        "properties": {
+          "images": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "images"
+        ],
+        "title": "Body_add_images_api_tracks__track_id__images_post"
+      },
+      "Body_create_track_api_tracks_post": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "audio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "contentMediaType": "application/octet-stream"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio"
+          },
+          "images": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "images"
+        ],
+        "title": "Body_create_track_api_tracks_post"
+      },
+      "BootData": {
+        "properties": {
+          "fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StyleFieldSpec"
+            },
+            "type": "object",
+            "title": "Fields"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/Style"
+          },
+          "presets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Presets"
+          },
+          "textures": {
+            "items": {
+              "$ref": "#/components/schemas/TextureEntry"
+            },
+            "type": "array",
+            "title": "Textures"
+          },
+          "aspects": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AspectInfo"
+            },
+            "type": "object",
+            "title": "Aspects"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fields",
+          "defaults",
+          "presets",
+          "textures",
+          "aspects"
+        ],
+        "title": "BootData"
+      },
+      "CreatedTrack": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "audio": {
+            "type": "string",
+            "title": "Audio"
+          },
+          "image_count": {
+            "type": "integer",
+            "title": "Image Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "path",
+          "audio",
+          "image_count"
+        ],
+        "title": "CreatedTrack"
+      },
+      "DeletedTrack": {
+        "properties": {
+          "deleted": {
+            "type": "string",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "DeletedTrack"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Hook": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "full",
+              "manual"
+            ],
+            "title": "Mode"
+          },
+          "target": {
+            "type": "number",
+            "title": "Target"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "target",
+          "start",
+          "end"
+        ],
+        "title": "Hook"
+      },
+      "ImageNamesPayload": {
+        "properties": {
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "names"
+        ],
+        "title": "ImageNamesPayload"
+      },
+      "ImageOrder": {
+        "properties": {
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "images"
+        ],
+        "title": "ImageOrder"
+      },
+      "ImagesAdded": {
+        "properties": {
+          "added": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Added"
+          },
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "added",
+          "images"
+        ],
+        "title": "ImagesAdded"
+      },
+      "ImagesRemoved": {
+        "properties": {
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Removed"
+          },
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "removed",
+          "images"
+        ],
+        "title": "ImagesRemoved"
+      },
+      "JobCancelled": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "cancelled": {
+            "type": "boolean",
+            "const": true,
+            "title": "Cancelled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "cancelled"
+        ],
+        "title": "JobCancelled"
+      },
+      "JobCreated": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "JobCreated"
+      },
+      "JobSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "track": {
+            "type": "string",
+            "title": "Track"
+          },
+          "aspect": {
+            "type": "string",
+            "title": "Aspect"
+          },
+          "preview": {
+            "type": "boolean",
+            "title": "Preview"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "skipped",
+              "cancelled",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "created": {
+            "type": "number",
+            "title": "Created"
+          },
+          "started": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started"
+          },
+          "ended": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "track",
+          "aspect",
+          "preview",
+          "status",
+          "progress",
+          "error",
+          "url",
+          "created",
+          "started",
+          "ended"
+        ],
+        "title": "JobSummary"
+      },
+      "MetadataPayload": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          }
+        },
+        "type": "object",
+        "title": "MetadataPayload"
+      },
+      "MetadataResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "handle"
+        ],
+        "title": "MetadataResult"
+      },
+      "OrderPayload": {
+        "properties": {
+          "order": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order"
+        ],
+        "title": "OrderPayload"
+      },
+      "PreviewResult": {
+        "properties": {
+          "urls": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Urls"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "urls",
+          "url"
+        ],
+        "title": "PreviewResult"
+      },
+      "RenderPayload": {
+        "properties": {
+          "aspect": {
+            "type": "string",
+            "title": "Aspect",
+            "default": "vertical"
+          },
+          "aspects": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aspects"
+          },
+          "style": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Style"
+          },
+          "preview": {
+            "type": "boolean",
+            "title": "Preview",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "style"
+        ],
+        "title": "RenderPayload"
+      },
+      "Style": {
+        "properties": {
+          "preset": {
+            "type": "string",
+            "title": "Preset",
+            "default": "clean"
+          },
+          "beats_per_cut": {
+            "type": "integer",
+            "title": "Beats Per Cut",
+            "default": 8
+          },
+          "crossfade": {
+            "type": "number",
+            "title": "Crossfade",
+            "default": 0.35
+          },
+          "fade_in": {
+            "type": "number",
+            "title": "Fade In",
+            "default": 0.4
+          },
+          "fade_out": {
+            "type": "number",
+            "title": "Fade Out",
+            "default": 0.8
+          },
+          "zoom": {
+            "type": "number",
+            "title": "Zoom",
+            "default": 0.1
+          },
+          "fps": {
+            "type": "integer",
+            "enum": [
+              24,
+              30,
+              60
+            ],
+            "title": "Fps",
+            "default": 30
+          },
+          "waveform": {
+            "type": "boolean",
+            "title": "Waveform",
+            "default": false
+          },
+          "title_font": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Font"
+          },
+          "font": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "redaction",
+              "redaction-regular",
+              "redaction-italic",
+              "tiny5",
+              "tiny5-round",
+              "tiny5-jitter",
+              "pixelify",
+              "silkscreen",
+              "syne",
+              "instrument",
+              "anton"
+            ],
+            "title": "Font",
+            "default": "clean"
+          },
+          "meta_font": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "clean",
+              "redaction",
+              "redaction-regular",
+              "redaction-italic",
+              "tiny5",
+              "tiny5-round",
+              "tiny5-jitter",
+              "pixelify",
+              "silkscreen",
+              "syne",
+              "instrument",
+              "anton"
+            ],
+            "title": "Meta Font",
+            "default": "auto"
+          },
+          "text_case": {
+            "type": "string",
+            "enum": [
+              "preserve",
+              "upper",
+              "lower"
+            ],
+            "title": "Text Case",
+            "default": "preserve"
+          },
+          "tracking": {
+            "type": "number",
+            "title": "Tracking",
+            "default": 0.0
+          },
+          "line_spacing": {
+            "type": "number",
+            "title": "Line Spacing",
+            "default": 1.12
+          },
+          "supersample": {
+            "type": "integer",
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "title": "Supersample",
+            "default": 2
+          },
+          "contrast": {
+            "type": "number",
+            "title": "Contrast",
+            "default": 1.0
+          },
+          "saturation": {
+            "type": "number",
+            "title": "Saturation",
+            "default": 1.0
+          },
+          "beat_punch": {
+            "type": "number",
+            "title": "Beat Punch",
+            "default": 0.0
+          },
+          "color_punch": {
+            "type": "number",
+            "title": "Color Punch",
+            "default": 0.0
+          },
+          "vignette": {
+            "type": "number",
+            "title": "Vignette",
+            "default": 0.0
+          },
+          "grain": {
+            "type": "number",
+            "title": "Grain",
+            "default": 0.0
+          },
+          "texture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Texture"
+          },
+          "texture_blend": {
+            "type": "string",
+            "enum": [
+              "multiply",
+              "overlay",
+              "screen",
+              "softlight"
+            ],
+            "title": "Texture Blend",
+            "default": "multiply"
+          },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "none",
+              "sunset",
+              "night",
+              "fog",
+              "analog"
+            ],
+            "title": "Grade",
+            "default": "none"
+          },
+          "show_title": {
+            "type": "boolean",
+            "title": "Show Title",
+            "default": true
+          },
+          "watermark": {
+            "type": "boolean",
+            "title": "Watermark",
+            "default": false
+          },
+          "watermark_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Watermark Text"
+          },
+          "watermark_font": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "redaction",
+              "redaction-regular",
+              "redaction-italic",
+              "tiny5",
+              "tiny5-round",
+              "tiny5-jitter",
+              "pixelify",
+              "silkscreen",
+              "syne",
+              "instrument",
+              "anton"
+            ],
+            "title": "Watermark Font",
+            "default": "anton"
+          },
+          "watermark_opacity": {
+            "type": "number",
+            "title": "Watermark Opacity",
+            "default": 0.15
+          },
+          "watermark_width": {
+            "type": "number",
+            "title": "Watermark Width",
+            "default": 0.95
+          },
+          "watermark_stroke": {
+            "type": "number",
+            "title": "Watermark Stroke",
+            "default": 0.06
+          },
+          "watermark_x": {
+            "type": "number",
+            "title": "Watermark X",
+            "default": 0.0
+          },
+          "watermark_y": {
+            "type": "number",
+            "title": "Watermark Y",
+            "default": 0.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Style",
+        "description": "A fully resolved style: every key of DEFAULT_STYLE."
+      },
+      "StyleFieldSpec": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "preset",
+              "int",
+              "float",
+              "bool",
+              "choice",
+              "path",
+              "texture",
+              "text"
+            ],
+            "title": "Type"
+          },
+          "help": {
+            "type": "string",
+            "title": "Help"
+          },
+          "min": {
+            "type": "number",
+            "title": "Min"
+          },
+          "max": {
+            "type": "number",
+            "title": "Max"
+          },
+          "step": {
+            "type": "number",
+            "title": "Step"
+          },
+          "exclusive_min": {
+            "type": "boolean",
+            "title": "Exclusive Min"
+          },
+          "choices": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Choices"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "help"
+        ],
+        "title": "StyleFieldSpec",
+        "description": "One `STYLE_FIELDS` entry: drives validation, CLI flags, and UI controls."
+      },
+      "StylePayload": {
+        "properties": {
+          "style": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Style"
+          }
+        },
+        "type": "object",
+        "required": [
+          "style"
+        ],
+        "title": "StylePayload"
+      },
+      "StyleSaveResult": {
+        "properties": {
+          "saved": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Saved",
+            "description": "Only the values that differ from the preset (what track.json stores)."
+          },
+          "resolved": {
+            "$ref": "#/components/schemas/Style"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saved",
+          "resolved"
+        ],
+        "title": "StyleSaveResult"
+      },
+      "TextureEntry": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "label"
+        ],
+        "title": "TextureEntry"
+      },
+      "TrackDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handle"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "audio": {
+            "type": "string",
+            "title": "Audio"
+          },
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images"
+          },
+          "image_count": {
+            "type": "integer",
+            "title": "Image Count"
+          },
+          "style": {
+            "$ref": "#/components/schemas/Style"
+          },
+          "hook": {
+            "$ref": "#/components/schemas/Hook"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "handle",
+          "path",
+          "audio",
+          "images",
+          "image_count",
+          "style",
+          "hook"
+        ],
+        "title": "TrackDetail"
+      },
+      "TrackError": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "path",
+          "error"
+        ],
+        "title": "TrackError",
+        "description": "A catalog entry for a folder that failed to load; keeps the studio usable."
+      },
+      "TrackSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "audio": {
+            "type": "string",
+            "title": "Audio"
+          },
+          "image_count": {
+            "type": "integer",
+            "title": "Image Count"
+          },
+          "preset": {
+            "type": "string",
+            "title": "Preset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "artist",
+          "path",
+          "audio",
+          "image_count",
+          "preset"
+        ],
+        "title": "TrackSummary"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

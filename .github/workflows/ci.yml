@@ -48,6 +48,14 @@ jobs:
       - name: Install TypeScript
         run: npm ci
 
+      - name: Generated API types are current
+        run: |
+          npm run gen:api
+          git diff --exit-code vp/ui/types/api.d.ts || {
+            echo "::error::vp/ui/types/api.d.ts is stale; run python scripts/gen_api_types.py and commit"
+            exit 1
+          }
+
       - name: Type-check studio frontend
         run: npm run typecheck
 

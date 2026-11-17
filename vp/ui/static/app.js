@@ -12,8 +12,8 @@ const state = {
 
 /**
  * querySelector for elements that always exist in index.html. The element type
- * is asserted, not checked, and inferred from the target: annotate the variable
- * (`/** @type {HTMLInputElement} *\/ const x = $("#id")`) to get a subtype.
+ * is asserted, not checked, and inferred from the target: give the receiving
+ * variable a JSDoc type (e.g. HTMLInputElement) to get a subtype.
  * @template {Element} [T=HTMLElement]
  * @param {string} sel
  * @returns {T}
@@ -40,7 +40,7 @@ function currentTrack() {
 
 /**
  * Fetch a studio API route and parse its JSON. Callers annotate the result with
- * the matching response type (see vp/ui/types/studio.d.ts).
+ * the matching generated response type (vp/ui/types/studio.d.ts aliases them).
  * @param {string} path
  * @param {Omit<RequestInit, "body"> & { body?: string | FormData }} [opts]
  * @returns {Promise<any>}
@@ -304,7 +304,7 @@ async function reorderImages(names) {
   setBusy(true, "saving order…");
   try {
     const track = currentTrack();
-    /** @type {ImagesResult} */
+    /** @type {ImageOrder} */
     const res = await api(`/api/tracks/${encodeURIComponent(track.id)}/images`, {
       method: "PUT",
       body: JSON.stringify({ order: names }),
@@ -326,7 +326,7 @@ function removeImage(name) {
   (async () => {
     try {
       const track = currentTrack();
-      /** @type {ImagesResult} */
+      /** @type {ImagesRemoved} */
       const res = await api(`/api/tracks/${encodeURIComponent(track.id)}/images`, {
         method: "DELETE",
         body: JSON.stringify({ names: [name] }),
@@ -350,7 +350,7 @@ async function addImages(files) {
   setBusy(true, "adding images…");
   try {
     const track = currentTrack();
-    /** @type {ImagesResult} */
+    /** @type {ImagesAdded} */
     const res = await api(`/api/tracks/${encodeURIComponent(track.id)}/images`, {
       method: "POST",
       body: fd,

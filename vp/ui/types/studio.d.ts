@@ -1,125 +1,41 @@
 // Ambient types for the studio frontend (vp/ui/static/app.js), checked by `tsc`.
 // Dev-only: nothing here is served or emitted.
 //
-// The API shapes mirror vp/ui/models.py by hand for now; #63 replaces them with
-// types generated from /openapi.json so drift fails CI.
+// API shapes come from api.d.ts, which is GENERATED from the Pydantic models in
+// vp/ui/models.py (`python scripts/gen_api_types.py`). Don't hand-edit API types
+// here: change the model, regenerate, and let `tsc` flag every stale use.
 
-// --- API -------------------------------------------------------------------
+// --- API (aliases of generated schemas) ----------------------------------------
+
+type Schemas = import("./api").components["schemas"];
+
+type BootData = Schemas["BootData"];
+type StyleFieldSpec = Schemas["StyleFieldSpec"];
+type TrackSummary = Schemas["TrackSummary"];
+type TrackError = Schemas["TrackError"];
+type CreatedTrack = Schemas["CreatedTrack"];
+type TrackDetail = Schemas["TrackDetail"];
+type ImagesAdded = Schemas["ImagesAdded"];
+type ImagesRemoved = Schemas["ImagesRemoved"];
+type ImageOrder = Schemas["ImageOrder"];
+type MetadataResult = Schemas["MetadataResult"];
+type StyleSaveResult = Schemas["StyleSaveResult"];
+type PreviewResult = Schemas["PreviewResult"];
+type JobCreated = Schemas["JobCreated"];
+type JobSummary = Schemas["JobSummary"];
+type JobStatus = JobSummary["status"];
+
+/** A /api/tracks entry; `error` is only set on entries that failed to load. */
+type TrackListEntry = (TrackSummary & { error?: undefined }) | TrackError;
+
+// --- Client-side style model ----------------------------------------------------
 
 type StyleValue = string | number | boolean | null;
-/** A resolved style: every key of DEFAULT_STYLE (see /api/boot `fields`). */
+/**
+ * The editor's working style. Looser than the generated `Style` because controls
+ * are built from /api/boot `fields` and index it by key; the server validates it.
+ */
 type Style = Record<string, StyleValue>;
-
-interface StyleFieldSpec {
-  type: "preset" | "int" | "float" | "bool" | "choice" | "path" | "texture" | "text";
-  help: string;
-  min?: number;
-  max?: number;
-  step?: number;
-  exclusive_min?: boolean;
-  choices?: (string | number)[];
-}
-
-interface BootData {
-  fields: Record<string, StyleFieldSpec>;
-  defaults: Style;
-  presets: string[];
-  textures: { path: string; label: string }[];
-  aspects: Record<string, { label: string; kind: string }>;
-}
-
-interface TrackSummary {
-  id: string;
-  title: string;
-  artist: string | null;
-  path: string;
-  audio: string;
-  image_count: number;
-  preset: string;
-  error?: undefined;
-}
-
-/** Catalog entry for a folder that failed to load. */
-interface TrackError {
-  id: string;
-  title: string;
-  path: string;
-  error: string;
-}
-
-type TrackListEntry = TrackSummary | TrackError;
-
-interface CreatedTrack {
-  id: string;
-  title: string;
-  path: string;
-  audio: string;
-  image_count: number;
-}
-
-interface Hook {
-  mode: "auto" | "full" | "manual";
-  target: number;
-  start: number | null;
-  end: number | null;
-}
-
-interface TrackDetail {
-  id: string;
-  title: string;
-  artist: string | null;
-  handle: string | null;
-  path: string;
-  audio: string;
-  images: string[];
-  image_count: number;
-  style: Style;
-  hook: Hook;
-}
-
-/** Image add/remove/reorder responses all carry the new order. */
-interface ImagesResult {
-  images: string[];
-  added?: string[];
-  removed?: string[];
-}
-
-interface MetadataResult {
-  id: string;
-  title: string;
-  artist: string | null;
-  handle: string | null;
-}
-
-interface StyleSaveResult {
-  saved: Record<string, StyleValue>;
-  resolved: Style;
-}
-
-interface PreviewResult {
-  urls: Record<string, string>;
-  url: string;
-}
-
-interface JobCreated {
-  id: string;
-}
-
-type JobStatus = "pending" | "running" | "done" | "skipped" | "cancelled" | "failed";
-
-interface JobSummary {
-  id: string;
-  track: string;
-  aspect: string;
-  preview: boolean;
-  status: JobStatus;
-  progress: number;
-  error: string | null;
-  url: string | null;
-  created: number;
-  started: number | null;
-  ended: number | null;
-}
 
 // --- Client state ------------------------------------------------------------
 
