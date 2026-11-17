@@ -153,9 +153,7 @@ def _render_track(track, beatmap, args, aspects, verbose: bool = True):
         # them concurrently cuts wall-clock for `--aspect all` (issue #12).
         # Finalize `auto` once up front so concurrent renders don't race.
         finalize_auto_style(track, beatmap)
-        with ThreadPoolExecutor(
-            max_workers=min(variant_jobs, len(variants))
-        ) as pool:
+        with ThreadPoolExecutor(max_workers=min(variant_jobs, len(variants))) as pool:
             results = list(pool.map(work, variants))
     else:
         results = [work(variant) for variant in variants]
@@ -195,10 +193,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
     preset_note = f"{track.style['preset']}"
     if requested == "auto":
         preset_note += " (auto from audio)"
-    print(
-        f"  preset: {preset_note}  fps: {track.style['fps']}  "
-        f"images: {len(track.images)}"
-    )
+    print(f"  preset: {preset_note}  fps: {track.style['fps']}  images: {len(track.images)}")
     print(f"  hook: {track.hook['mode']}  target: {track.hook['target']:.0f}s")
 
     for variant in variants:
@@ -290,9 +285,7 @@ def _cmd_ui(args: argparse.Namespace) -> int:
     try:
         import uvicorn
     except ModuleNotFoundError as exc:  # pragma: no cover - env-dependent
-        raise ValueError(
-            "the web UI needs optional deps: pip install -e '.[ui]'"
-        ) from exc
+        raise ValueError("the web UI needs optional deps: pip install -e '.[ui]'") from exc
     from .ui.server import create_app
 
     app = create_app(args.tracks, args.out, args.textures)
@@ -331,7 +324,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_render.add_argument("--force", action="store_true")
     p_render.add_argument("--reanalyze", action="store_true")
     p_render.add_argument(
-        "--variant-jobs", type=int, default=1, dest="variant_jobs",
+        "--variant-jobs",
+        type=int,
+        default=1,
+        dest="variant_jobs",
         help="render aspects concurrently (default 1; try 2-3 for --aspect all)",
     )
     p_render.set_defaults(func=_cmd_render)
@@ -353,9 +349,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ui.add_argument("--port", type=int, default=8321)
     p_ui.add_argument("--tracks", default="tracks", help="root directory of track folders")
     p_ui.add_argument("--out", default="out", help="output root directory")
-    p_ui.add_argument(
-        "--textures", default="textures", help="texture library directory"
-    )
+    p_ui.add_argument("--textures", default="textures", help="texture library directory")
     p_ui.add_argument("--no-browser", action="store_true")
     p_ui.set_defaults(func=_cmd_ui)
 

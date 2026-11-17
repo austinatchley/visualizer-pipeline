@@ -52,8 +52,6 @@ def test_horizontal_is_always_full():
 
 def test_manual_hook_applies_to_vertical_not_horizontal():
     beatmap = make_beatmap()
-    track = make_track(
-        {"mode": "manual", "target": 45.0, "start": 10.0, "end": 55.0}
-    )
+    track = make_track({"mode": "manual", "target": 45.0, "start": 10.0, "end": 55.0})
     assert window_for(track, beatmap, VERTICAL) == (10.0, 55.0)
     assert window_for(track, beatmap, HORIZONTAL) == (0.0, 90.0)

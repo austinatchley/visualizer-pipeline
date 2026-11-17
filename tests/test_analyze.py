@@ -39,6 +39,7 @@ def test_multiplier_recomputes_aggregates():
     out = apply_tempo_multiplier(base_beatmap(), 0.5)
     assert len(out["bar_energy"]) == 5
 
+
 # ---- beatmap cache (issue #43) ----
 
 import json  # noqa: E402

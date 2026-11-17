@@ -15,7 +15,6 @@ DURATION = 24.0
 
 def make_audio(path: Path) -> None:
     n = int(SR * DURATION)
-    t = np.arange(n) / SR
     out = np.zeros(n)
 
     beat = 60.0 / BPM
@@ -28,7 +27,7 @@ def make_audio(path: Path) -> None:
         tt = np.arange(length) / SR
         env = np.exp(-tt * 28)
         freq = 120 * np.exp(-tt * 30) + 45
-        out[start:start + length] += 0.9 * env * np.sin(2 * np.pi * freq * tt)
+        out[start : start + length] += 0.9 * env * np.sin(2 * np.pi * freq * tt)
 
     snare_positions = np.arange(beat, DURATION, beat * 2)
     for b in snare_positions:
@@ -39,7 +38,7 @@ def make_audio(path: Path) -> None:
         tt = np.arange(length) / SR
         noise = np.random.default_rng(int(b * 1000)).normal(0, 1, length)
         env = np.exp(-tt * 32)
-        out[start:start + length] += 0.35 * env * noise
+        out[start : start + length] += 0.35 * env * noise
 
     hat_positions = np.arange(0, DURATION, beat / 2)
     for i, b in enumerate(hat_positions):
@@ -50,7 +49,7 @@ def make_audio(path: Path) -> None:
         tt = np.arange(length) / SR
         noise = np.random.default_rng(i).normal(0, 1, length)
         env = np.exp(-tt * 90)
-        out[start:start + length] += 0.12 * env * noise
+        out[start : start + length] += 0.12 * env * noise
 
     notes = [55.0, 65.41, 73.42, 82.41]
     for i, b in enumerate(np.arange(0, DURATION, beat * 2)):
@@ -61,7 +60,7 @@ def make_audio(path: Path) -> None:
         tt = np.arange(length) / SR
         f = notes[i % len(notes)]
         env = np.minimum(1, tt / 0.05) * np.exp(-tt * 1.5)
-        out[start:start + length] += 0.22 * env * np.sin(2 * np.pi * f * tt)
+        out[start : start + length] += 0.22 * env * np.sin(2 * np.pi * f * tt)
 
     peak = np.max(np.abs(out)) or 1.0
     out = (out / peak) * 0.89

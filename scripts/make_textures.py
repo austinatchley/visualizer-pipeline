@@ -69,13 +69,9 @@ def _halftone(size: int) -> Image.Image:
     return img
 
 
-def _resized_noise(
-    rng: np.random.Generator, shape: tuple[int, int], size: int
-) -> np.ndarray:
+def _resized_noise(rng: np.random.Generator, shape: tuple[int, int], size: int) -> np.ndarray:
     small = rng.normal(0.0, 1.0, shape)
-    img = Image.fromarray(
-        ((small - small.min()) / (np.ptp(small) or 1) * 255).astype(np.uint8)
-    )
+    img = Image.fromarray(((small - small.min()) / (np.ptp(small) or 1) * 255).astype(np.uint8))
     return np.asarray(img.resize((size, size), Image.Resampling.BICUBIC), dtype=np.float32)
 
 
@@ -84,9 +80,7 @@ def _paper(size: int) -> Image.Image:
     coarse = _resized_noise(rng, (48, 48), size)
     fine = _resized_noise(rng, (256, 256), size)
     arr = np.clip(228 + (coarse - 128) * 0.20 + (fine - 128) * 0.06, 0, 255)
-    img = Image.fromarray(arr.astype(np.uint8), mode="L").filter(
-        ImageFilter.GaussianBlur(0.6)
-    )
+    img = Image.fromarray(arr.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(0.6))
     draw = ImageDraw.Draw(img)
     for _ in range(180):
         x, y = rng.integers(0, size, 2)
@@ -101,9 +95,7 @@ def _concrete(size: int) -> Image.Image:
     coarse = _resized_noise(rng, (32, 32), size)
     mid = _resized_noise(rng, (128, 128), size)
     arr = np.clip(196 + (coarse - 128) * 0.24 + (mid - 128) * 0.10, 0, 255)
-    img = Image.fromarray(arr.astype(np.uint8), mode="L").filter(
-        ImageFilter.GaussianBlur(0.8)
-    )
+    img = Image.fromarray(arr.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(0.8))
     draw = ImageDraw.Draw(img)
     for _ in range(420):
         x, y = rng.integers(0, size, 2)

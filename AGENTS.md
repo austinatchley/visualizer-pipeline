@@ -21,6 +21,7 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,ui]"          # .[dev] alone runs non-UI tests; UI tests skip
 python scripts/make_fixtures.py     # 4 synthetic tracks in fixtures/ (gitignored)
+ruff check . && ruff format --check .   # CI lint job; ruff is pinned in [dev]
 pytest -q
 ```
 

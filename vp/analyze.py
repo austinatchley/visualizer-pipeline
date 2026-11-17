@@ -39,9 +39,7 @@ def analyze_audio(audio: Path, sr: int = 22050, bpm: float | None = None) -> dic
     duration = float(librosa.get_duration(y=y, sr=sr))
 
     if bpm:
-        tempo, beat_times = librosa.beat.beat_track(
-            y=y, sr=sr, bpm=float(bpm), units="time"
-        )
+        tempo, beat_times = librosa.beat.beat_track(y=y, sr=sr, bpm=float(bpm), units="time")
     else:
         tempo, beat_times = librosa.beat.beat_track(y=y, sr=sr, units="time")
     tempo = float(np.atleast_1d(tempo)[0])
@@ -108,9 +106,7 @@ def apply_tempo_multiplier(beatmap: dict, multiplier: float) -> dict:
                 if mid < duration:
                     new_beats.append(round(mid, 4))
                     new_energy.append((sample(energy, i) + sample(energy, i + 1)) / 2)
-                    new_novelty.append(
-                        (sample(novelty, i) + sample(novelty, i + 1)) / 2
-                    )
+                    new_novelty.append((sample(novelty, i) + sample(novelty, i + 1)) / 2)
         beats, energy, novelty = new_beats, new_energy, new_novelty
     elif multiplier == 0.5 and beats:
         beats = beats[::2]

@@ -67,10 +67,7 @@ def _section_cuts(
     if n < 8:
         return []
 
-    bars = [
-        sum(rel_energy[i : i + 4]) / len(rel_energy[i : i + 4])
-        for i in range(0, n - 3, 4)
-    ]
+    bars = [sum(rel_energy[i : i + 4]) / len(rel_energy[i : i + 4]) for i in range(0, n - 3, 4)]
     cuts: list[tuple[float, str]] = []
     for bar in range(1, len(bars)):
         delta = bars[bar] - bars[bar - 1]
@@ -201,9 +198,7 @@ def plan_timeline(
     if explicit:
         times = sorted(float(t) - start for t in explicit if start < float(t) < end)
         candidates = [(t, 0, "override") for t in times]
-        boundaries = _finalize(
-            candidates, duration, min_first=0.0, min_last=0.0, min_gap=0.1
-        )
+        boundaries = _finalize(candidates, duration, min_first=0.0, min_last=0.0, min_gap=0.1)
     else:
         rel_beats, rel_energy = _slice_window(beatmap, window)
         if len(rel_beats) >= 2:
@@ -211,8 +206,7 @@ def plan_timeline(
             intervals = np.diff(rel_beats)
             tolerance = 0.25 * float(np.median(intervals))
             candidates = [
-                (time, 0, reason)
-                for time, reason in _section_cuts(rel_beats, rel_energy)
+                (time, 0, reason) for time, reason in _section_cuts(rel_beats, rel_energy)
             ]
             candidates += [
                 (_snap(time, downbeats, tolerance), 1, reason)
@@ -222,14 +216,11 @@ def plan_timeline(
             tempo = float(beatmap.get("tempo") or 0.0)
             interval = base * 60.0 / tempo if tempo > 0 else 4.0
             candidates = [
-                (float(t), 1, "interval")
-                for t in np.arange(interval, duration, interval)
+                (float(t), 1, "interval") for t in np.arange(interval, duration, interval)
             ]
         boundaries = _finalize(candidates, duration)
 
-    segments, xfade = _build_segments(
-        boundaries, float(style["crossfade"]), image_count, duration
-    )
+    segments, xfade = _build_segments(boundaries, float(style["crossfade"]), image_count, duration)
     return Plan(
         window=(float(start), float(end)),
         duration=duration,
@@ -240,7 +231,7 @@ def plan_timeline(
 
 
 def _mean_in(values: list, times: list, start: float, end: float) -> float:
-    samples = [float(v) for t, v in zip(times, values) if start <= t < end]
+    samples = [float(v) for t, v in zip(times, values, strict=False) if start <= t < end]
     return sum(samples) / len(samples) if samples else 0.0
 
 
@@ -265,9 +256,7 @@ def select_hook(beatmap: dict, hook: dict) -> tuple[float, float]:
         if start < 0 or end <= start:
             raise ValueError("hook must satisfy 0 <= start < end")
         if end > duration + 1e-6:
-            raise ValueError(
-                f"hook end {end:.2f}s is past the track ({duration:.2f}s)"
-            )
+            raise ValueError(f"hook end {end:.2f}s is past the track ({duration:.2f}s)")
         return (start, end)
 
     target = min(float(hook.get("target", 45.0)), duration)
@@ -321,10 +310,7 @@ def select_hook(beatmap: dict, hook: dict) -> tuple[float, float]:
     intervals = np.diff(beats)
     tolerance = 2.0 * float(np.median(intervals)) if len(intervals) else 1.0
     near = min(downbeats, key=lambda d: abs(d - ideal_end))
-    if (
-        abs(near - ideal_end) <= tolerance
-        and 30.0 - 1e-6 <= near - start <= 60.0 + 1e-6
-    ):
+    if abs(near - ideal_end) <= tolerance and 30.0 - 1e-6 <= near - start <= 60.0 + 1e-6:
         end = min(duration, near)
 
     return (start, float(end))
@@ -340,9 +326,7 @@ def _segment_index_at(plan: Plan, rel_time: float) -> int:
     return max(0, len(plan.boundaries) - 2)
 
 
-def slice_plan(
-    plan: Plan, start: float, end: float, image_count: int
-) -> Plan:
+def slice_plan(plan: Plan, start: float, end: float, image_count: int) -> Plan:
     """Cut a sub-window out of an existing plan without re-planning cuts."""
     start = max(plan.window[0], float(start))
     end = min(plan.window[1], float(end))
@@ -356,19 +340,13 @@ def slice_plan(
     duration = end - start
 
     image_offset = _segment_index_at(plan, rel_start)
-    inside = [
-        boundary
-        for boundary in plan.boundaries
-        if rel_start < boundary.time < rel_end
-    ]
+    inside = [boundary for boundary in plan.boundaries if rel_start < boundary.time < rel_end]
     boundaries = (
         [Boundary(0.0, "start")]
         + [Boundary(b.time - rel_start, b.reason) for b in inside]
         + [Boundary(duration, "end")]
     )
-    segments, xfade = _build_segments(
-        boundaries, plan.xfade, image_count, duration, image_offset
-    )
+    segments, xfade = _build_segments(boundaries, plan.xfade, image_count, duration, image_offset)
     return Plan(
         window=(start, end),
         duration=duration,

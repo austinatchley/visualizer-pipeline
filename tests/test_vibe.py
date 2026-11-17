@@ -95,9 +95,7 @@ def test_explicit_default_valued_setting_survives_auto(tmp_path):
 def test_explicit_flag_survives_auto(tmp_path):
     from vp.track import load_track
 
-    track = load_track(
-        _track_dir(tmp_path, {"preset": "auto"}), overrides={"contrast": 1.0}
-    )
+    track = load_track(_track_dir(tmp_path, {"preset": "auto"}), overrides={"contrast": 1.0})
     finalize_auto_style(track, LOUD)
     assert track.style["contrast"] == 1.0
 

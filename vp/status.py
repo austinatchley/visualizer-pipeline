@@ -77,9 +77,7 @@ def render_fingerprint(
         "inputs": {
             "audio": _file_identity(track.audio),
             "images": [_file_identity(p) for p in track.images],
-            "texture": _file_identity(
-                resolve_texture(style["texture"], textures_dir)
-            ),
+            "texture": _file_identity(resolve_texture(style["texture"], textures_dir)),
             "fonts": [_file_identity(p) for p in _font_files(style)],
         },
     }
@@ -111,9 +109,6 @@ def record(output: Path, fingerprint: str) -> None:
     sidecar = sidecar_path(Path(output))
     tmp = sidecar.with_name(sidecar.name + ".tmp")
     tmp.write_text(
-        json.dumps(
-            {"fingerprint": fingerprint, "render_version": RENDER_VERSION}, indent=2
-        )
-        + "\n"
+        json.dumps({"fingerprint": fingerprint, "render_version": RENDER_VERSION}, indent=2) + "\n"
     )
     os.replace(tmp, sidecar)

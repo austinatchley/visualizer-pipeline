@@ -58,23 +58,39 @@ FPS_CHOICES = {24, 30, 60}
 STYLE_FIELDS: dict[str, dict] = {
     "preset": {"type": "preset", "help": "Named look; presets live in presets/*.json"},
     "beats_per_cut": {
-        "type": "int", "min": 1, "max": 32, "step": 1,
+        "type": "int",
+        "min": 1,
+        "max": 32,
+        "step": 1,
         "help": "Base cut interval in beats",
     },
     "crossfade": {
-        "type": "float", "min": 0.0, "max": 2.0, "exclusive_min": True,
-        "step": 0.05, "help": "Crossfade length in seconds",
+        "type": "float",
+        "min": 0.0,
+        "max": 2.0,
+        "exclusive_min": True,
+        "step": 0.05,
+        "help": "Crossfade length in seconds",
     },
     "fade_in": {
-        "type": "float", "min": 0.0, "max": 3.0, "step": 0.05,
+        "type": "float",
+        "min": 0.0,
+        "max": 3.0,
+        "step": 0.05,
         "help": "Fade from black (and audio fade-in) at the start, in seconds; 0 = off",
     },
     "fade_out": {
-        "type": "float", "min": 0.0, "max": 3.0, "step": 0.05,
+        "type": "float",
+        "min": 0.0,
+        "max": 3.0,
+        "step": 0.05,
         "help": "Fade to black (and audio fade-out) at the end, in seconds; 0 = off",
     },
     "zoom": {
-        "type": "float", "min": 0.0, "max": 0.5, "step": 0.01,
+        "type": "float",
+        "min": 0.0,
+        "max": 0.5,
+        "step": 0.01,
         "help": "Ken Burns amount (zooms 1.0 to 1+zoom)",
     },
     "fps": {"type": "choice", "choices": sorted(FPS_CHOICES), "help": "Output framerate"},
@@ -110,29 +126,50 @@ STYLE_FIELDS: dict[str, dict] = {
         "help": "Title line-height multiplier",
     },
     "supersample": {
-        "type": "choice", "choices": [1, 2, 3, 4], "help": "Pre-zoom upscale factor",
+        "type": "choice",
+        "choices": [1, 2, 3, 4],
+        "help": "Pre-zoom upscale factor",
     },
     "contrast": {
-        "type": "float", "min": 0.5, "max": 2.0, "step": 0.05, "help": "Luma contrast",
+        "type": "float",
+        "min": 0.5,
+        "max": 2.0,
+        "step": 0.05,
+        "help": "Luma contrast",
     },
     "saturation": {
-        "type": "float", "min": 0.0, "max": 2.0, "step": 0.05,
+        "type": "float",
+        "min": 0.0,
+        "max": 2.0,
+        "step": 0.05,
         "help": "Color saturation multiplier (0.0 = monochrome); 1.0 = natural",
     },
     "beat_punch": {
-        "type": "float", "min": 0.0, "max": 0.3, "step": 0.01,
+        "type": "float",
+        "min": 0.0,
+        "max": 0.3,
+        "step": 0.01,
         "help": "Downbeat zoom punch; 0 = off",
     },
     "color_punch": {
-        "type": "float", "min": 0.0, "max": 1.0, "step": 0.01,
+        "type": "float",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01,
         "help": "Saturation boost at each cut that decays (~0.3s); 0 = off",
     },
     "vignette": {
-        "type": "float", "min": 0.0, "max": 1.0, "step": 0.05,
+        "type": "float",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.05,
         "help": "Edge darkening strength; 0 = off",
     },
     "grain": {
-        "type": "float", "min": 0.0, "max": 1.0, "step": 0.05,
+        "type": "float",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.05,
         "help": "Film grain amount; 0 = off",
     },
     "texture": {
@@ -140,7 +177,9 @@ STYLE_FIELDS: dict[str, dict] = {
         "help": "Texture from the textures/ library (null = off)",
     },
     "texture_blend": {
-        "type": "choice", "choices": sorted(TEXTURE_BLENDS), "help": "Texture blend mode",
+        "type": "choice",
+        "choices": sorted(TEXTURE_BLENDS),
+        "help": "Texture blend mode",
     },
     "grade": {
         "type": "choice",
@@ -162,23 +201,38 @@ STYLE_FIELDS: dict[str, dict] = {
         "help": "Watermark typeface (default: anton)",
     },
     "watermark_opacity": {
-        "type": "float", "min": 0.0, "max": 0.5, "step": 0.01,
+        "type": "float",
+        "min": 0.0,
+        "max": 0.5,
+        "step": 0.01,
         "help": "Watermark opacity; 0 = invisible",
     },
     "watermark_width": {
-        "type": "float", "min": 0.2, "max": 1.0, "step": 0.01,
+        "type": "float",
+        "min": 0.2,
+        "max": 1.0,
+        "step": 0.01,
         "help": "Watermark width as a fraction of frame width",
     },
     "watermark_stroke": {
-        "type": "float", "min": 0.0, "max": 0.25, "step": 0.005,
+        "type": "float",
+        "min": 0.0,
+        "max": 0.25,
+        "step": 0.005,
         "help": "Watermark outline thickness as a fraction of font size",
     },
     "watermark_x": {
-        "type": "float", "min": -1.0, "max": 1.0, "step": 0.01,
+        "type": "float",
+        "min": -1.0,
+        "max": 1.0,
+        "step": 0.01,
         "help": "Watermark horizontal offset (-1..1; 0 = center, magnitude bleeds)",
     },
     "watermark_y": {
-        "type": "float", "min": -1.0, "max": 1.0, "step": 0.01,
+        "type": "float",
+        "min": -1.0,
+        "max": 1.0,
+        "step": 0.01,
         "help": "Watermark vertical offset (-1..1; 0 = center)",
     },
 }
@@ -209,9 +263,7 @@ def load_preset(name: str) -> dict:
     path = PRESETS_DIR / f"{name}.json"
     if not path.is_file():
         available = sorted(p.stem for p in PRESETS_DIR.glob("*.json"))
-        raise ValueError(
-            f"unknown preset {name!r}; available: {', '.join(available) or '(none)'}"
-        )
+        raise ValueError(f"unknown preset {name!r}; available: {', '.join(available) or '(none)'}")
     data = json.loads(path.read_text())
     if not isinstance(data, dict):
         raise ValueError(f"preset {name!r} must be a JSON object")
@@ -299,9 +351,7 @@ def resolve_style(
     # until then it resolves over the neutral defaults so `load_track` works.
     preset_data = {} if name == "auto" else load_preset(name)
     style_flags = {
-        k: v
-        for k, v in flags.items()
-        if k in _STYLE_KEYS and k != "preset" and v is not None
+        k: v for k, v in flags.items() if k in _STYLE_KEYS and k != "preset" and v is not None
     }
 
     style = dict(DEFAULT_STYLE)
@@ -312,9 +362,7 @@ def resolve_style(
     return _validate_style(style)
 
 
-def explicit_style(
-    track_style: dict | None = None, flags: dict | None = None
-) -> dict:
+def explicit_style(track_style: dict | None = None, flags: dict | None = None) -> dict:
     """The style values a user set explicitly (track.json `style` + CLI flags),
     excluding `preset`. Lets `auto` re-resolve over the chosen preset without
     losing explicit values that happen to equal a default (issue #46)."""

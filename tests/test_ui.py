@@ -20,6 +20,7 @@ from vp.render import RenderCancelled, render
 from vp.track import load_track
 from vp.ui.server import Job, _export_lock, _job_summary, _preview_lock, create_app
 
+
 def _has_asyncio_backend() -> bool:
     try:
         import anyio._backends._asyncio  # noqa: F401, PLC0415
@@ -30,9 +31,7 @@ def _has_asyncio_backend() -> bool:
 
 
 pytestmark = [
-    pytest.mark.skipif(
-        shutil.which("ffmpeg") is None, reason="ffmpeg not installed"
-    ),
+    pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed"),
     pytest.mark.skipif(
         not _has_asyncio_backend(),
         reason="asyncio backend unavailable (TestClient needs ssl/networking)",
@@ -81,11 +80,10 @@ def _make_track(root: Path, name: str):
     _write_wav(track / "audio.wav")
     for i in range(2):
         Image.fromarray(np.zeros((64, 64, 3), dtype=np.uint8)).save(
-            track / "images" / f"{i+1:02d}.jpg"
+            track / "images" / f"{i + 1:02d}.jpg"
         )
     (track / "track.json").write_text(
-        json.dumps({"title": name.replace("_", " ").title(), "hook": {"mode": "full"}})
-        + "\n"
+        json.dumps({"title": name.replace("_", " ").title(), "hook": {"mode": "full"}}) + "\n"
     )
     (track / ".vp").mkdir(exist_ok=True)
     (track / ".vp" / "beatmap.json").write_text(
@@ -157,9 +155,7 @@ def test_save_style_writes_minimal_diff(client):
     assert saved.get("zoom") == 0.2
     assert "fps" not in saved  # equals preset default -> not persisted
 
-    manifest = json.loads(
-        (Path(client.app.state.root) / "demo_track" / "track.json").read_text()
-    )
+    manifest = json.loads((Path(client.app.state.root) / "demo_track" / "track.json").read_text())
     assert manifest["style"] == saved
 
 
@@ -237,8 +233,14 @@ def test_preview_renders_short_no_audio(client):
 
     probe = subprocess.run(
         [
-            "ffprobe", "-v", "error", "-show_entries",
-            "stream=codec_type,width,height", "-of", "csv=p=0", str(dest),
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_type,width,height",
+            "-of",
+            "csv=p=0",
+            str(dest),
         ],
         capture_output=True,
         text=True,
@@ -277,8 +279,12 @@ def test_render_progress_is_monotonic_and_done(demo_track, tmp_path):
     beatmap = load_beatmap(demo_track)
     seen = []
     render(
-        demo_track, VERTICAL, beatmap, tmp_path / "p.mp4",
-        preview=True, progress=lambda p, s: seen.append(p),
+        demo_track,
+        VERTICAL,
+        beatmap,
+        tmp_path / "p.mp4",
+        preview=True,
+        progress=lambda p, s: seen.append(p),
     )
     assert seen, "progress callback never called"
     assert seen[0] == 0.0
@@ -495,9 +501,7 @@ def test_add_images(client):
     assert res.status_code == 200, res.text
     data = res.json()
     assert "03.png" in data["images"]
-    manifest = json.loads(
-        (Path(client.app.state.root) / "demo_track" / "track.json").read_text()
-    )
+    manifest = json.loads((Path(client.app.state.root) / "demo_track" / "track.json").read_text())
     assert "images/03.png" in manifest["images"]
 
 
@@ -511,9 +515,7 @@ def test_add_images_rejects_bad_extension(client):
 
 
 def test_remove_images(client):
-    res = client.request(
-        "DELETE", "/api/tracks/demo_track/images", json={"names": ["01.jpg"]}
-    )
+    res = client.request("DELETE", "/api/tracks/demo_track/images", json={"names": ["01.jpg"]})
     assert res.status_code == 200
     assert "01.jpg" not in res.json()["images"]
     folder = Path(client.app.state.root) / "demo_track"
@@ -521,21 +523,15 @@ def test_remove_images(client):
 
 
 def test_reorder_images(client):
-    res = client.put(
-        "/api/tracks/demo_track/images", json={"order": ["02.jpg", "01.jpg"]}
-    )
+    res = client.put("/api/tracks/demo_track/images", json={"order": ["02.jpg", "01.jpg"]})
     assert res.status_code == 200
     assert res.json()["images"] == ["02.jpg", "01.jpg"]
-    manifest = json.loads(
-        (Path(client.app.state.root) / "demo_track" / "track.json").read_text()
-    )
+    manifest = json.loads((Path(client.app.state.root) / "demo_track" / "track.json").read_text())
     assert manifest["images"] == ["images/02.jpg", "images/01.jpg"]
 
 
 def test_reorder_images_rejects_non_permutation(client):
-    res = client.put(
-        "/api/tracks/demo_track/images", json={"order": ["02.jpg"]}
-    )
+    res = client.put("/api/tracks/demo_track/images", json={"order": ["02.jpg"]})
     assert res.status_code == 400
     assert "permutation" in res.json()["detail"]
 
@@ -574,12 +570,11 @@ def test_update_metadata_clears_optional_fields(client):
         "/api/tracks/demo_track/metadata",
         json={"artist": "AUSTIN", "handle": "@austin"},
     )
-    res = client.put(
-        "/api/tracks/demo_track/metadata", json={"artist": "", "handle": ""}
-    )
+    res = client.put("/api/tracks/demo_track/metadata", json={"artist": "", "handle": ""})
     assert res.status_code == 200
     assert res.json()["artist"] is None
     assert res.json()["handle"] is None
+
 
 def test_ab_preview_jobs_render_distinct_files(client):
     """Issue #41: A and B with different looks must not share an output file,
@@ -590,7 +585,9 @@ def test_ab_preview_jobs_render_distinct_files(client):
 
     def run(style):
         body = {"aspect": "vertical", "style": style, "preview": True}
-        job = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
+        job = _wait_job(
+            client, client.post("/api/tracks/demo_track/render", json=body).json()["id"]
+        )
         assert job["status"] in ("done", "skipped"), job.get("error")
         return job["url"]
 

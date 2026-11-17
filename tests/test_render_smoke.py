@@ -51,9 +51,7 @@ def short_renders(tmp_path_factory):
     out_dir = tmp_path_factory.mktemp("short")
     track = load_track(SHORT)
     beatmap = load_beatmap(track)
-    variants = plan_variants(
-        track, beatmap, out_dir, ["vertical", "square", "horizontal"]
-    )
+    variants = plan_variants(track, beatmap, out_dir, ["vertical", "square", "horizontal"])
     for variant in variants:
         render(track, variant.aspect, beatmap, variant.path, window=variant.window)
     return {variant.aspect.key: variant for variant in variants}
@@ -99,9 +97,7 @@ def styled_renders(tmp_path_factory):
 
     analog = load_track(SHORT, overrides={"preset": "clean", "grade": "analog"})
     analog_path = out_dir / "analog_9x16.mp4"
-    render(
-        analog, VERTICAL, beatmap, analog_path, window=(0.0, beatmap["duration"])
-    )
+    render(analog, VERTICAL, beatmap, analog_path, window=(0.0, beatmap["duration"]))
 
     return punchy_path, overlays_path, vgm_path, analog_path
 
@@ -194,8 +190,12 @@ def test_saturation_zero_is_monochrome(tmp_path):
     beatmap = load_beatmap(track)
     out = tmp_path / "mono.mp4"
     render(
-        track, VERTICAL, beatmap, out,
-        window=(0.0, beatmap["duration"]), preview=True,
+        track,
+        VERTICAL,
+        beatmap,
+        out,
+        window=(0.0, beatmap["duration"]),
+        preview=True,
     )
     frame = tmp_path / "f.ppm"
     _extract_frame(out, frame)
@@ -217,8 +217,12 @@ def test_color_punch_renders(tmp_path):
     beatmap = load_beatmap(track)
     out = tmp_path / "punch.mp4"
     render(
-        track, VERTICAL, beatmap, out,
-        window=(0.0, beatmap["duration"]), preview=True,
+        track,
+        VERTICAL,
+        beatmap,
+        out,
+        window=(0.0, beatmap["duration"]),
+        preview=True,
     )
     video = _video(_probe(out))
     assert video["pix_fmt"] == "yuv420p"

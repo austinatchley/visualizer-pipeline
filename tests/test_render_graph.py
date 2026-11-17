@@ -52,9 +52,27 @@ def _cases():
             yield f"{preset}-{aspect}", {"preset": preset}, aspect, False, {}
     yield "preview-vertical", {}, "vertical", True, {}
     yield "waveform", {"waveform": True}, "horizontal", False, {"waveform": True}
-    yield "texture", {"texture": "grain.png", "texture_blend": "overlay"}, "vertical", False, {"texture": True}
-    yield "color-punch", {"preset": "punchy", "color_punch": 0.4, "saturation": 0.8}, "vertical", False, {}
-    yield "mono-graded", {"saturation": 0.0, "grade": "analog", "vignette": 0.5, "grain": 0.3}, "square", False, {}
+    yield (
+        "texture",
+        {"texture": "grain.png", "texture_blend": "overlay"},
+        "vertical",
+        False,
+        {"texture": True},
+    )
+    yield (
+        "color-punch",
+        {"preset": "punchy", "color_punch": 0.4, "saturation": 0.8},
+        "vertical",
+        False,
+        {},
+    )
+    yield (
+        "mono-graded",
+        {"saturation": 0.0, "grade": "analog", "vignette": 0.5, "grain": 0.3},
+        "square",
+        False,
+        {},
+    )
     yield "no-fades", {"fade_in": 0, "fade_out": 0}, "vertical", False, {}
 
 
@@ -94,7 +112,10 @@ def test_graph_matches_snapshot(name, snapshots):
     cmd = _command(*CASES[name])
     # One filter per line keeps snapshot diffs readable.
     graph = cmd[cmd.index("-filter_complex") + 1].split(";")
-    actual = {"args": [a for a in cmd if a != cmd[cmd.index("-filter_complex") + 1]], "graph": graph}
+    actual = {
+        "args": [a for a in cmd if a != cmd[cmd.index("-filter_complex") + 1]],
+        "graph": graph,
+    }
     if os.environ.get("UPDATE_SNAPSHOTS"):
         snapshots[name] = actual
         return

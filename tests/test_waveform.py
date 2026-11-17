@@ -15,9 +15,7 @@ from vp.waveform import (
     peak_envelopes,
 )
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("ffmpeg") is None, reason="ffmpeg not installed"
-)
+pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
 
 def _write_wav(path: Path, duration: float = 1.0, sr: int = 8000) -> Path:
