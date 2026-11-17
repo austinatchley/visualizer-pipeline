@@ -33,6 +33,7 @@ Requirements: Python 3.12, `ffmpeg`/`ffprobe`, and a system font (or `style.titl
 
 - [ ] `ruff check .` and `ruff format --check .` pass.
 - [ ] `npm run typecheck` passes (studio frontend changes).
+- [ ] Changed `vp/ui/models.py`? Ran `python scripts/gen_api_types.py` and committed `openapi.json` + `api.d.ts`.
 - [ ] `pytest -q` passes (55+ tests; integration tests render short fixtures).
 - [ ] `vp inspect fixtures/d_short` and `vp render fixtures/d_short --aspect all`
       behave as expected.

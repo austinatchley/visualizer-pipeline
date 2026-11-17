@@ -745,3 +745,19 @@ def test_response_models_do_not_add_keys(client, tmp_path):
     }
     fields = client.get("/api/boot").json()["fields"]
     assert fields == json.loads(json.dumps(STYLE_FIELDS))
+
+
+def test_committed_openapi_schema_is_current():
+    """Issue #63: the frontend's generated API types come from this file, so a
+    response-model change must be followed by `python scripts/gen_api_types.py`."""
+    import importlib.util
+
+    script = Path(__file__).resolve().parent.parent / "scripts" / "gen_api_types.py"
+    spec = importlib.util.spec_from_file_location("gen_api_types", script)
+    gen = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gen)
+    committed = gen.OPENAPI_JSON.read_text()
+    assert committed == gen.openapi_text(), (
+        "vp/ui/types/openapi.json is stale; run `python scripts/gen_api_types.py` "
+        "and commit openapi.json + api.d.ts"
+    )
