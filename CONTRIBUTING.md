@@ -32,6 +32,7 @@ Requirements: Python 3.12, `ffmpeg`/`ffprobe`, and a system font (or `style.titl
 ## Before opening a PR
 
 - [ ] `ruff check .` and `ruff format --check .` pass.
+- [ ] `npm run typecheck` passes (studio frontend changes).
 - [ ] `pytest -q` passes (55+ tests; integration tests render short fixtures).
 - [ ] `vp inspect fixtures/d_short` and `vp render fixtures/d_short --aspect all`
       behave as expected.

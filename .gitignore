@@ -15,3 +15,5 @@ examples/sample/
 fixtures/
 
 .DS_Store
+# studio type-check tooling
+node_modules/

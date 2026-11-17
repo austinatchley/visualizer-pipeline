@@ -1,0 +1,17 @@
+{
+  // Type-check the studio frontend (vp/ui/static/*.js) via JSDoc; nothing is emitted.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    // Handlers catch Errors thrown by api(); typing each `err` adds noise, not safety.
+    "useUnknownInCatchVariables": false,
+    "target": "es2022",
+    "module": "preserve",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "types": [],
+    "skipLibCheck": true
+  },
+  "include": ["vp/ui/static/**/*.js", "vp/ui/types/**/*.d.ts"]
+}

@@ -9,6 +9,7 @@ Closes #
 ## How tested
 
 - [ ] `ruff check .` and `ruff format --check .`
+- [ ] `npm run typecheck` (if `vp/ui/static/` changed)
 - [ ] `pytest -q`
 - [ ] `vp render fixtures/d_short --aspect all` (or explain why not)
 - [ ] Docs updated if behavior/config changed

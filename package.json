@@ -1,0 +1,11 @@
+{
+  "name": "visualizer-pipeline-studio",
+  "private": true,
+  "description": "Dev-only tooling: type-checks the studio's plain-JS frontend (no build step).",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

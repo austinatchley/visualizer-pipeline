@@ -22,6 +22,7 @@ source .venv/bin/activate
 pip install -e ".[dev,ui]"          # .[dev] alone runs non-UI tests; UI tests skip
 python scripts/make_fixtures.py     # 4 synthetic tracks in fixtures/ (gitignored)
 ruff check . && ruff format --check .   # CI lint job; ruff is pinned in [dev]
+npm ci && npm run typecheck             # CI typecheck job: tsc over the studio JS
 pytest -q
 ```
 
@@ -61,6 +62,7 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 | `vp/status.py` | Render fingerprints + `.vp.json` sidecars for idempotency (CLI + UI) |
 | `vp/cli.py` | `analyze`, `inspect`, `render`, `batch`, `init`, `ui` |
 | `vp/ui/` | FastAPI server + static studio (track picker, editor, jobs, A/B) |
+| `vp/ui/types/studio.d.ts` | JSDoc/`tsc` types for the studio frontend (API shapes + client state); dev-only |
 | `vp/ui/models.py` | Pydantic request/response models; `Style` is generated from `STYLE_FIELDS` (the `/openapi.json` contract) |
 | `presets/*.json` | `clean`, `punchy`, `balanced` style overrides |
 | `textures/*.png` | Starter texture library (dropdown choices in the studio) |
@@ -105,6 +107,10 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
   one transition is visible. `progress=`/`cancel=` support the UI job runner.
   The studio has two render lanes (`_export_lock`, `_preview_lock`): exports run one at a
   time, previews run one at a time, and a preview never waits behind an export.
+- **Studio frontend.** Plain JS served as-is (no build step), type-checked with
+  `// @ts-check` + `tsconfig.json` (`strict`). Annotate API results with the response
+  type (`/** @type {TrackDetail} */ const t = await api(...)`); `$`/`pick` infer the
+  element type from the annotated variable.
 - **Determinism.** No random effects without a fixed seed (grain uses one).
 
 ## Workflow (issue-first)
