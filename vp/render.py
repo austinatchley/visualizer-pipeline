@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from PIL import Image
@@ -16,6 +16,7 @@ from .aspects import ASPECTS, Aspect
 from .fonts import style_faces
 from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import Plan, full_window, plan_timeline, preview_slice, select_hook
+from .reactive import ReactiveCancelled, ReactiveClip, render_reactive, wants_reactive
 from .status import invalidate, record, render_fingerprint
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
@@ -164,6 +165,7 @@ class RenderAssets:
     texture: Path | None = None  # already cover-cropped to the output size
     waveform: Path | None = None
     waveform_height: int = 0
+    reactive: ReactiveClip | None = None  # per-frame layers (issue #81)
 
 
 @dataclass(frozen=True)
@@ -334,6 +336,10 @@ def build_graph(
     if assets.texture:
         tex_idx, index = index, index + 1
         inputs += _still_input(assets.texture, fps, duration)
+    re_idx = None
+    if assets.reactive:
+        re_idx, index = index, index + 1
+        inputs += ["-i", str(assets.reactive.path)]
     wf_idx = None
     if assets.waveform:
         wf_idx, index = index, index + 1
@@ -355,6 +361,16 @@ def build_graph(
         parts.append(f"[{prev}]format=rgb24[base]")
         parts.append(f"[tex][base]blend=all_mode={style['texture_blend']}[comp]")
         prev = "comp"
+
+    if re_idx is not None:
+        clip = assets.reactive
+        parts.append(
+            f"[{re_idx}:v]format=rgba,"
+            f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
+            f"settb=AVTB,setpts=PTS-STARTPTS[re]"
+        )
+        parts.append(f"[{prev}][re]overlay={clip.x}:{clip.y}:format=auto[vr]")
+        prev = "vr"
 
     parts.append(
         f"[{hud_idx}:v]format=rgba,"
@@ -523,11 +539,34 @@ def render(
         # plan.window, not window: a preview plan is a short slice of the window, and
         # the waveform strip must cover exactly what the clip shows (issue #68).
         assets = prepare_assets(track, size, aspect, beatmap, plan.window, tmp, textures_dir)
+        encode_progress = progress
+        if wants_reactive(track.style):
+            # Two passes: draw the reactive layers (first 40% of progress), then
+            # the main encode (the rest).
+            def overlay_progress(pct: float) -> None:
+                if progress is not None:
+                    progress(0.4 * pct, "drawing")
+
+            try:
+                clip = render_reactive(
+                    track.audio,
+                    plan.window,
+                    size,
+                    track.style,
+                    tmp / "reactive.mkv",
+                    overlay_progress,
+                    cancel,
+                )
+            except ReactiveCancelled:
+                raise RenderCancelled("render cancelled") from None
+            assets = replace(assets, reactive=clip)
+            if progress is not None:
+                encode_progress = lambda pct, stage: progress(40.0 + 0.6 * pct, stage)  # noqa: E731
         graph = build_graph(track, plan, beatmap, size, assets, preview)
         cmd = build_command(graph, int(track.style["fps"]), plan.duration, out_path, preview)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         invalidate(out_path)
-        run_ffmpeg(cmd, plan.duration, progress, cancel)
+        run_ffmpeg(cmd, plan.duration, encode_progress, cancel)
         record(out_path, fingerprint)
         return out_path
     finally:

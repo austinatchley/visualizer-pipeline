@@ -46,6 +46,10 @@ DEFAULT_STYLE = {
     "watermark_stroke": 0.06,
     "watermark_x": 0.0,
     "watermark_y": 0.0,
+    "spectrum": False,
+    "spectrum_height": 0.22,
+    "spectrum_y": 0.5,
+    "accent_color": "#d9708f",
 }
 
 TEXTURE_BLENDS = {"multiply", "overlay", "screen", "softlight"}
@@ -235,6 +239,25 @@ STYLE_FIELDS: dict[str, dict] = {
         "step": 0.01,
         "help": "Watermark vertical offset (-1..1; 0 = center)",
     },
+    "spectrum": {"type": "bool", "help": "Music-reactive spectrum analyzer layer (on/off)"},
+    "spectrum_height": {
+        "type": "float",
+        "min": 0.05,
+        "max": 0.6,
+        "step": 0.01,
+        "help": "Spectrum plot height as a fraction of frame height",
+    },
+    "spectrum_y": {
+        "type": "float",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01,
+        "help": "Spectrum vertical center as a fraction of frame height",
+    },
+    "accent_color": {
+        "type": "color",
+        "help": "Accent color for reactive layers (#rrggbb)",
+    },
 }
 
 DEFAULT_HOOK = {
@@ -289,6 +312,15 @@ def _coerce_choice(value, choices) -> object:
     return value
 
 
+def _normalize_color(value) -> str:
+    text = str(value).strip().lower()
+    if not text.startswith("#"):
+        text = "#" + text
+    if len(text) != 7 or any(c not in "0123456789abcdef" for c in text[1:]):
+        raise ValueError(f"color must be #rrggbb, got {value!r}")
+    return text
+
+
 def _validate_style(style: dict) -> dict:
     try:
         for key, spec in STYLE_FIELDS.items():
@@ -325,6 +357,9 @@ def _validate_style(style: dict) -> dict:
                 style[key] = _coerce_choice(value, spec["choices"])
                 if style[key] not in spec["choices"]:
                     raise ValueError(f"{key} must be one of {spec['choices']}")
+                continue
+            if kind == "color":
+                style[key] = _normalize_color(value)
                 continue
             if kind in ("path", "texture", "text"):
                 style[key] = None if value is None else str(value)

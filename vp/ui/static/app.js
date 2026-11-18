@@ -217,6 +217,13 @@ function makeControl(key, spec, value) {
     input.value = String(value || "");
     pick(el, "label").innerHTML = `${key}${hint}`;
     input.addEventListener("input", () => onChange(input.value || null));
+  } else if (spec.type === "color") {
+    el.insertAdjacentHTML("beforeend", `<div class="row"><input type="color"></div>`);
+    /** @type {HTMLInputElement} */
+    const input = pick(el, "input");
+    input.value = String(value || "#ffffff");
+    pick(el, "label").innerHTML = `${key}${hint}`;
+    input.addEventListener("input", () => onChange(input.value));
   }
   return el;
 }

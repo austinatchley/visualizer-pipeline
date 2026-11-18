@@ -62,6 +62,8 @@ def _add_style_args(p: argparse.ArgumentParser) -> None:
             kwargs["metavar"] = "PATH"
         elif kind == "texture":
             kwargs["metavar"] = "NAME|PATH"
+        elif kind == "color":
+            kwargs["metavar"] = "#RRGGBB"
         else:  # text
             kwargs["metavar"] = "TEXT"
         group.add_argument(_style_flag(key), help=help_text, **kwargs)

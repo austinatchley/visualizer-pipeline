@@ -227,3 +227,45 @@ def test_color_punch_renders(tmp_path):
     video = _video(_probe(out))
     assert video["pix_fmt"] == "yuv420p"
     assert (video["width"], video["height"]) == (270, 480)
+
+
+def test_spectrum_layer_renders_with_two_pass_progress(tmp_path):
+    """Issue #81: the reactive pass feeds the main encode; progress spans both."""
+    _require(SHORT)
+    track = load_track(SHORT, overrides={"spectrum": True})
+    beatmap = load_beatmap(track)
+    out = tmp_path / "spectrum.mp4"
+    seen: list[tuple[float, str]] = []
+    render(
+        track,
+        VERTICAL,
+        beatmap,
+        out,
+        window=(0.0, beatmap["duration"]),
+        preview=True,
+        progress=lambda pct, stage: seen.append((pct, stage)),
+    )
+    video = _video(_probe(out))
+    assert (video["width"], video["height"]) == (270, 480)
+    stages = [stage for _, stage in seen]
+    assert stages[0] == "drawing" and stages[-1] == "done"
+    pcts = [pct for pct, _ in seen]
+    assert pcts == sorted(pcts) and pcts[-1] == 100.0
+
+
+def test_spectrum_render_can_be_cancelled_in_the_overlay_pass(tmp_path):
+    from vp.render import RenderCancelled
+
+    _require(SHORT)
+    track = load_track(SHORT, overrides={"spectrum": True})
+    beatmap = load_beatmap(track)
+    with pytest.raises(RenderCancelled):
+        render(
+            track,
+            VERTICAL,
+            beatmap,
+            tmp_path / "x.mp4",
+            window=(0.0, beatmap["duration"]),
+            preview=True,
+            cancel=lambda: True,
+        )
