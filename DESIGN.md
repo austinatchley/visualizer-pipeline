@@ -206,10 +206,17 @@ Layers, bottom to top:
 3. **Waveform strip** — optional scrolling Pillow strip (`vp/waveform.py`), tied to
    beat energy; ~4 px RMS/peak bars normalized to the 95th percentile with a soft curve
    and noise floor. Never uses ffmpeg's `showwaves`.
-4. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
+4. **Reactive layers** — optional per-frame overlays that move with the music
+   (`vp/reactive.py`, epic #80). The spectrum analyzer (`spectrum`, #81) draws an STFT
+   per video frame on a log-frequency axis (`vp/spectrum.py`: triangular log filterbank,
+   +1.5 dB/oct display tilt, 60 dB range under the window's 99.5th-percentile ceiling,
+   attack/release ballistics, a short lag trail and a slow peak-hold trail). Frames are
+   drawn with Pillow at 2× in the layer's box only, in parallel worker processes, piped
+   to a lossless FFV1+alpha clip, and overlaid at the box position before the HUD.
+5. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
    Pre-rendered as a transparent PNG with Pillow (Homebrew ffmpeg has no `drawtext`),
    faded in with alpha.
-5. **Global fade** — 0.4 s in, 0.8 s out (video + audio).
+6. **Global fade** — 0.4 s in, 0.8 s out (video + audio).
 
 Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfade cuts +
 `beat_punch` + title fade. This is what makes it look intentional instead of random.
@@ -251,7 +258,8 @@ Build one `ffmpeg -filter_complex` graph per variant:
 [image per segment] → scale (supersample×) cover crop → zoompan (Ken Burns + beat_punch)
 → per-segment eq (color_punch saturation spike) → settb/setpts → xfade chain (beat offsets)
 → grade (contrast/saturation/vignette/grain/texture)
-→ [optional Pillow waveform strip] → HUD PNG overlay (alpha fade-in)
+→ [optional reactive layer clip, FFV1+alpha, drawn per frame in a first pass]
+→ HUD PNG overlay (alpha fade-in) → [optional Pillow waveform strip]
 → global fades → scale=out_range=tv,format=yuv420p
 audio: atrim(window) → loudnorm -14 LUFS → aresample 48k → afade
 encode: libx264 crf 18, preset medium, AAC 192k, +faststart, yuv420p, 30 fps

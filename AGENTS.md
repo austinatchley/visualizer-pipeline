@@ -59,6 +59,8 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 | `vp/fonts.py` | Bundled OFL font registry, font resolution, variable-axis loading |
 | `vp/textures.py` | Texture library discovery + library/custom path resolution |
 | `vp/waveform.py` | Pillow scrolling waveform strip |
+| `vp/spectrum.py` | Pure numpy per-frame log-frequency spectrum (filterbank, normalization, ballistics, trails) |
+| `vp/reactive.py` | Per-frame reactive layers: parallel Pillow drawing → FFV1+alpha clip overlaid by `build_graph` |
 | `vp/render.py` | `prepare_assets` (PNGs) → pure `build_graph`/`build_command` → `run_ffmpeg`; variants, preview |
 | `vp/status.py` | Render fingerprints + `.vp.json` sidecars for idempotency (CLI + UI) |
 | `vp/cli.py` | `analyze`, `inspect`, `render`, `batch`, `init`, `ui` |
@@ -116,6 +118,11 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
   element type from the annotated variable. API types are **generated** from
   `vp/ui/models.py`: change a model → `python scripts/gen_api_types.py` → commit both
   files. A test (stale `openapi.json`) and the CI typecheck job (stale `api.d.ts`) enforce it.
+- **Reactive layers.** Anything that moves with the music per frame is drawn in
+  `vp/reactive.py` (not ffmpeg filters) into one clip covering the layers' box. Drawing
+  must be a pure function of the frame index: the process pool's output is tested to be
+  byte-identical to the serial path. The pool uses forkserver/spawn, never fork (the
+  studio renders from threads).
 - **Determinism.** No random effects without a fixed seed (grain uses one).
 
 ## Workflow (issue-first)

@@ -152,6 +152,10 @@ Everything is optional. Only include what differs from the defaults.
 | `watermark_width` | `0.95` | Watermark width as a fraction of frame width |
 | `watermark_stroke` | `0.06` | Watermark outline thickness as a fraction of font size |
 | `watermark_x` / `watermark_y` | `0.0` | Watermark offset (`-1..1`; `0` = center, magnitude bleeds off-frame) |
+| `spectrum` | `false` | Music-reactive spectrum analyzer layer (log-frequency curve with trailing lines), drawn per frame. Adds a drawing pass: roughly +35% render time |
+| `spectrum_height` | `0.22` | Plot height as a fraction of frame height (`0.05–0.6`) |
+| `spectrum_y` | `0.5` | Plot vertical center as a fraction of frame height (`0–1`) |
+| `accent_color` | `#d9708f` | Accent for reactive layers (`#rrggbb`); the studio shows a color picker |
 
 Presets only set style keys and can be overridden per-track or per-command:
 

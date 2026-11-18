@@ -1531,6 +1531,26 @@
             "type": "number",
             "title": "Watermark Y",
             "default": 0.0
+          },
+          "spectrum": {
+            "type": "boolean",
+            "title": "Spectrum",
+            "default": false
+          },
+          "spectrum_height": {
+            "type": "number",
+            "title": "Spectrum Height",
+            "default": 0.22
+          },
+          "spectrum_y": {
+            "type": "number",
+            "title": "Spectrum Y",
+            "default": 0.5
+          },
+          "accent_color": {
+            "type": "string",
+            "title": "Accent Color",
+            "default": "#d9708f"
           }
         },
         "additionalProperties": false,
@@ -1550,7 +1570,8 @@
               "choice",
               "path",
               "texture",
-              "text"
+              "text",
+              "color"
             ],
             "title": "Type"
           },

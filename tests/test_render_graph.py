@@ -17,6 +17,7 @@ import pytest
 
 from vp.aspects import ASPECTS
 from vp.config import resolve_style
+from vp.reactive import ReactiveClip
 from vp.render import RenderAssets, build_command, build_graph, output_size, plan_for
 from vp.track import Track
 
@@ -75,6 +76,13 @@ def _cases():
         {},
     )
     yield "no-fades", {"fade_in": 0, "fade_out": 0}, "vertical", False, {}
+    yield (
+        "spectrum",
+        {"spectrum": True, "waveform": True},
+        "vertical",
+        False,
+        {"reactive": True, "waveform": True},
+    )
 
 
 CASES = {name: rest for name, *rest in _cases()}
@@ -91,6 +99,9 @@ def _command(style, aspect_key, preview, extra) -> list[str]:
         texture=Path("/tmp/vp/texture.png") if extra.get("texture") else None,
         waveform=Path("/tmp/vp/waveform.png") if extra.get("waveform") else None,
         waveform_height=75 if extra.get("waveform") else 0,
+        reactive=ReactiveClip(Path("/tmp/vp/reactive.mkv"), 65, 749)
+        if extra.get("reactive")
+        else None,
     )
     graph = build_graph(track, plan, BEATMAP, size, assets, preview)
     return build_command(graph, int(track.style["fps"]), plan.duration, Path("/out/x.mp4"), preview)

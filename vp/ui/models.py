@@ -17,7 +17,7 @@ from ..config import DEFAULT_STYLE, STYLE_FIELDS
 
 # --- Style ---------------------------------------------------------------------
 
-_SCALARS: dict[str, Any] = {"int": int, "float": float, "bool": bool, "preset": str}
+_SCALARS: dict[str, Any] = {"int": int, "float": float, "bool": bool, "preset": str, "color": str}
 
 
 def _style_annotation(spec: dict) -> Any:
@@ -52,7 +52,7 @@ Style = _build_style_model()
 class StyleFieldSpec(TypedDict):
     """One `STYLE_FIELDS` entry: drives validation, CLI flags, and UI controls."""
 
-    type: Literal["preset", "int", "float", "bool", "choice", "path", "texture", "text"]
+    type: Literal["preset", "int", "float", "bool", "choice", "path", "texture", "text", "color"]
     help: str
     min: NotRequired[float]
     max: NotRequired[float]

@@ -599,6 +599,26 @@ export interface components {
              * @default 0
              */
             watermark_y: number;
+            /**
+             * Spectrum
+             * @default false
+             */
+            spectrum: boolean;
+            /**
+             * Spectrum Height
+             * @default 0.22
+             */
+            spectrum_height: number;
+            /**
+             * Spectrum Y
+             * @default 0.5
+             */
+            spectrum_y: number;
+            /**
+             * Accent Color
+             * @default #d9708f
+             */
+            accent_color: string;
         };
         /**
          * StyleFieldSpec
@@ -609,7 +629,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "preset" | "int" | "float" | "bool" | "choice" | "path" | "texture" | "text";
+            type: "preset" | "int" | "float" | "bool" | "choice" | "path" | "texture" | "text" | "color";
             /** Help */
             help: string;
             /** Min */
