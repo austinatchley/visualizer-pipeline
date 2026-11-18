@@ -482,4 +482,21 @@ visualizer-pipeline/
 - **Post-v1 — VGM preset (#37):** `vgm` preset ships with a `grade` filter (sunset/night/
   fog), a Pillow `VGM` watermark (bundled Anton, `watermark` + `watermark_*` keys), and
   `show_title` to compose or suppress the standard HUD; all overlay options are UI
-  toggles/dropdowns. Soft-blend watermark variant and standalone grade keys are deferred.
+  toggles/dropdowns. Soft-blend watermark variant and standalone grade keys are deferred.- **M5 — Data-HUD (epic #80, in progress):** the main look moves from a photo slideshow
+  to a data-HUD. Images and clips set the mood underneath, and most of the motion comes
+  from music-reactive overlay layers drawn per frame. We borrow the instrument-readout
+  genre, not any artist's template. Done: the reactive overlay engine and the spectrum
+  analyzer (#81). Next, one PR each, in order:
+  1. **Overlays above the grade.** The finish chain (grade, contrast, vignette, grain)
+     runs after every overlay today, so it also dims the HUD, the waveform and the
+     reactive layers. Grade the base footage, then composite the overlays crisp on top.
+     This changes existing output: bump `RENDER_VERSION`.
+  2. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
+     beatmap; bump `ANALYSIS_VERSION`), peak-note callouts on the spectrum, band meters,
+     and beat/downbeat indicators. Bundle an OFL monospace font for them.
+  3. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
+     on beats and energy.
+  4. **Video clips as segments (#14).**
+  5. **`datahud` preset:** a dimmed, graded base plus every layer, tuned on real beats.
+  After the epic: multiple hook windows (#52), the posting kit (#53), and section
+  detection (#11; the regression tracks show the intro → verse change gets no cut).
