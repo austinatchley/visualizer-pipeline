@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -358,7 +359,12 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _format_warning(message, category, filename, lineno, line=None) -> str:
+    return f"warning: {message}\n"
+
+
 def main(argv: list[str] | None = None) -> int:
+    warnings.formatwarning = _format_warning
     parser = build_parser()
     args = parser.parse_args(argv)
     try:

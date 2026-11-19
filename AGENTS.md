@@ -43,7 +43,7 @@ vp ui --tracks tracks                 # local web studio (optional [ui] extra)
 
 Useful flags: `--preset clean|punchy|balanced|vgm|auto`, `--hook auto|full|START-END`,
 `--bpm`, `--tempo-multiplier 0.5|1|2`, `--force`, `--reanalyze`, `--out DIR`, plus one
-flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; see
+flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
 `vp render --help`).
 
 ## Architecture map
@@ -58,7 +58,7 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 | `vp/hud.py` | Pillow HUD (gradient, title, artist, handle) + VGM watermark overlay per aspect |
 | `vp/fonts.py` | Bundled OFL font registry, font resolution, variable-axis loading |
 | `vp/textures.py` | Texture library discovery + library/custom path resolution |
-| `vp/waveform.py` | Pillow scrolling waveform strip |
+| `vp/audio.py` | ffmpeg mono decode shared by the reactive layers |
 | `vp/spectrum.py` | Pure numpy per-frame log-frequency spectrum (filterbank, normalization, ballistics, trails) |
 | `vp/reactive.py` | Per-frame reactive layers: parallel Pillow drawing → FFV1+alpha clip overlaid by `build_graph` |
 | `vp/render.py` | `prepare_assets` (PNGs) → pure `build_graph`/`build_command` → `run_ffmpeg`; variants, preview |
@@ -70,7 +70,7 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 | `vp/ui/models.py` | Pydantic request/response models; `Style` is generated from `STYLE_FIELDS` (the `/openapi.json` contract) |
 | `presets/*.json` | `clean`, `punchy`, `balanced` style overrides |
 | `textures/*.png` | Starter texture library (dropdown choices in the studio) |
-| `tests/` | Unit, CLI, ffprobe, waveform, and UI tests |
+| `tests/` | Unit, CLI, ffprobe, reactive-layer, and UI tests |
 | `scripts/make_fixtures.py` | Deterministic synthetic tracks for tests |
 | `scripts/make_regression_tracks.py` | Arranged genre-shaped beats with known BPMs + sections; `tests/test_regression_audio.py` synthesizes them on the fly |
 | `scripts/make_textures.py` | Deterministic starter texture generator |
@@ -95,8 +95,9 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 - **Textures.** `vp/textures.py` discovers the `textures/` library and resolves relative
   `style.texture` names; the studio validates dropdown choices. CLI `--texture PATH`
   still accepts custom image files.
-- **Waveform.** Pillow strip only, with ~4 px RMS/peak bars (95th-percentile
-  normalization, soft curve, noise floor). The old `showwaves` filter path crashed ffmpeg.
+- **Retired style keys.** `config.RETIRED_STYLE_KEYS` lists removed keys (`waveform`).
+  A `track.json` that still sets one loads with a warning and the key is dropped; never
+  reintroduce `showwaves` (it crashed ffmpeg) or the scrolling strip.
 - **Track identity.** `Track.id` is the folder name: output dir, output filenames, studio
   routes, and jobs all key on it. Titles are display-only; never derive paths from them.
 - **Idempotency.** `vp/status.py` fingerprints every render input (style, HUD text,
@@ -130,8 +131,8 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
 The data-HUD epic is **#80**; its plan is in `DESIGN.md` §12 (M5). Direction: the
 reactive data-HUD is the *default* look (no options set → ready to post for most
 beats), and features that don't serve it are removed. Done: the engine and spectrum
-layer (#81) and overlays above the grade (#86). Next: remove the scrolling waveform
-(#87), make the data-HUD the default and retire `clean`/`punchy`/`balanced`/`auto`
+layer (#81), overlays above the grade (#86), and the waveform removal (#87). Next: make
+the data-HUD the default and retire `clean`/`punchy`/`balanced`/`auto`
 (#88), then readouts (#82), the schematic background (#83), and clips (#14). Features
 stop for the user's review before merging. Test on the user's real beats as well as the
 synthetic regression tracks: copy them into the track folder layout under the

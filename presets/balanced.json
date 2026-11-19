@@ -5,6 +5,5 @@
   "contrast": 1.08,
   "beat_punch": 0.03,
   "fps": 30,
-  "waveform": false,
   "supersample": 2
 }

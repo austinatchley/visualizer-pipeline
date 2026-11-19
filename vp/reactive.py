@@ -24,9 +24,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
+from .audio import decode_mono
 from .fonts import load_font, style_faces
 from .spectrum import SAMPLE_RATE, SpectrumFrames, spectrum_frames
-from .waveform import decode_mono
 
 SUPERSAMPLE = 2  # layer-local supersampling for anti-aliased lines
 AXIS_TICKS = (50, 100, 200, 500, 1000, 2000, 5000, 10000)

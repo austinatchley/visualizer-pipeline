@@ -2,6 +2,7 @@ import pytest
 
 from vp.config import (
     STYLE_FIELDS,
+    explicit_style,
     resolve_hook,
     resolve_overrides,
     resolve_style,
@@ -256,3 +257,17 @@ def test_vgm_config_defaults_match_default_style():
         f.name: DEFAULT_STYLE[f.name] for f in fields(cfg)
     }
     assert VgmConfig.from_style(resolve_style()) == cfg
+
+
+def test_retired_waveform_key_is_dropped_with_a_warning():
+    """#87: older track.json files that still set `waveform` keep loading."""
+    with pytest.warns(UserWarning, match="style.waveform"):
+        style = resolve_style({"waveform": True, "grain": 0.2})
+    assert "waveform" not in style
+    assert style["grain"] == 0.2
+
+
+def test_retired_key_is_not_explicit():
+    with pytest.warns(UserWarning):
+        assert resolve_style({"waveform": False})
+    assert explicit_style({"waveform": True, "grain": 0.2}) == {"grain": 0.2}

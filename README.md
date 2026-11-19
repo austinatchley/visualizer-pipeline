@@ -93,7 +93,6 @@ Everything is optional. Only include what differs from the defaults.
     "zoom": 0.10,
     "fps": 30,
     "supersample": 2,
-    "waveform": false,
     "title_font": null,
     "font": "redaction",
     "meta_font": "clean",
@@ -136,7 +135,6 @@ Everything is optional. Only include what differs from the defaults.
 | `grain` | `0.0` | Film-grain amount (`0–1`); `0` = off, fixed seed |
 | `texture` | `null` | Texture name from `textures/` (or a custom image path) |
 | `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
-| `waveform` | `false` | Scrolling Pillow waveform strip (RMS+peak bars, ~4 px pitch) |
 | `title_font` | system Arial Bold | Path to a `.ttf`; overrides `font` |
 | `font` | `clean` | Bundled face: `redaction`, `redaction-regular`, `redaction-italic`, `tiny5`, `tiny5-round`, `tiny5-jitter`, `pixelify`, `silkscreen`, `syne`, `instrument`, `anton`, or `clean` |
 | `meta_font` | `auto` | Face for artist/handle; `auto` matches the title |

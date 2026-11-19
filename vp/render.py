@@ -21,7 +21,6 @@ from .status import invalidate, record, render_fingerprint
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
 from .vibe import finalize_auto_style
-from .waveform import build_strip
 
 HUD_FADE_IN = 0.3
 HUD_FADE_DUR = 0.8
@@ -163,8 +162,6 @@ class RenderAssets:
 
     hud: Path
     texture: Path | None = None  # already cover-cropped to the output size
-    waveform: Path | None = None
-    waveform_height: int = 0
     reactive: ReactiveClip | None = None  # per-frame layers (issue #81)
 
 
@@ -202,12 +199,10 @@ def prepare_assets(
     track: Track,
     size: tuple[int, int],
     aspect: Aspect,
-    beatmap: dict,
-    window: tuple[float, float],
     tmp: Path,
     textures_dir: str | Path = DEFAULT_TEXTURES_DIR,
 ) -> RenderAssets:
-    """Write the HUD (with VGM overlay), texture, and waveform PNGs into `tmp`."""
+    """Write the HUD (with VGM overlay) and texture PNGs into `tmp`."""
     style = track.style
     width, height = size
     font_face, meta_face = style_faces(style)
@@ -234,15 +229,7 @@ def prepare_assets(
     texture_path = resolve_texture(style["texture"], textures_dir)
     if texture_path:
         texture = _cover_image(texture_path, width, height, tmp / "texture.png")
-
-    waveform, waveform_height = None, 0
-    if style["waveform"]:
-        strip_h = max(64, int(height * 0.07))
-        strip = build_strip(track.audio, window, width * 2, strip_h, beatmap)
-        waveform = tmp / "waveform.png"
-        strip.save(waveform)
-        waveform_height = strip.height
-    return RenderAssets(hud, texture, waveform, waveform_height)
+    return RenderAssets(hud, texture)
 
 
 def _segment_chain(
@@ -313,12 +300,11 @@ def build_graph(
     the graph can be snapshot-tested without ffmpeg (issue #47)."""
     style = track.style
     fps = int(style["fps"])
-    width, height = size
     window_start, window_end = plan.window
     duration = plan.duration
     segments = plan.segments
 
-    # Inputs: one image per segment, then audio, HUD, texture, waveform. Every
+    # Inputs: one image per segment, then audio, HUD, texture, reactive clip. Every
     # input adds exactly one "-i", so indices follow an explicit counter.
     inputs: list[str] = []
     for seg in segments:
@@ -338,10 +324,6 @@ def build_graph(
     if assets.reactive:
         re_idx, index = index, index + 1
         inputs += ["-i", str(assets.reactive.path)]
-    wf_idx = None
-    if assets.waveform:
-        wf_idx, index = index, index + 1
-        inputs += _still_input(assets.waveform, fps, duration)
 
     parts = [
         _segment_chain(seg, i, style, size, beatmap, window_start) for i, seg in enumerate(segments)
@@ -382,18 +364,6 @@ def build_graph(
     )
     parts.append(f"[{prev}][hud]overlay=0:0:format=auto[vg]")
     prev = "vg"
-
-    if wf_idx is not None:
-        margin = max(24, int(height * 0.02))
-        y = height - assets.waveform_height - margin
-        parts.append(
-            f"[{wf_idx}:v]format=rgba,"
-            f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
-            f"settb=AVTB,setpts=PTS-STARTPTS[wf]"
-        )
-        xexpr = f"-(t/{duration:.3f})*{width}"
-        parts.append(f"[{prev}][wf]overlay=x='{xexpr}':y={y}:format=auto[wv]")
-        prev = "wv"
 
     fades = fade_times(style["fade_in"], style["fade_out"], duration)
     # Fades cover the whole frame (overlays included); then the output range.
@@ -541,9 +511,7 @@ def render(
 
     tmp = Path(tempfile.mkdtemp(prefix="vp-"))
     try:
-        # plan.window, not window: a preview plan is a short slice of the window, and
-        # the waveform strip must cover exactly what the clip shows (issue #68).
-        assets = prepare_assets(track, size, aspect, beatmap, plan.window, tmp, textures_dir)
+        assets = prepare_assets(track, size, aspect, tmp, textures_dir)
         encode_progress = progress
         if wants_reactive(track.style):
             # Two passes: draw the reactive layers (first 40% of progress), then
