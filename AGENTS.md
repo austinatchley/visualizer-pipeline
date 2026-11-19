@@ -125,6 +125,15 @@ flag per style key (`--font anton`, `--title-font PATH`, `--no-waveform`, ...; s
   studio renders from threads).
 - **Determinism.** No random effects without a fixed seed (grain uses one).
 
+## Current work and next steps
+
+The data-HUD epic is **#80**. Its full plan is in `DESIGN.md` §12 (M5). The engine and
+spectrum layer are done (#81, PR #84). The next PR moves the overlays above the
+grade, then come readouts (#82), the schematic background (#83), clips (#14), and a
+`datahud` preset. Features stop for the user's review before merging. Test on the
+user's real beats as well as the synthetic regression tracks: copy them into the
+track folder layout and never modify the originals.
+
 ## Workflow (issue-first)
 
 Every change starts with an issue. See `CONTRIBUTING.md`.
