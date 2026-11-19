@@ -484,17 +484,16 @@ visualizer-pipeline/
   underneath; most of the motion comes from music-reactive overlay layers drawn per
   frame. We borrow the instrument-readout genre, not any artist's template. Features
   that don't serve this look are removed. Done: the reactive overlay engine and the
-  spectrum analyzer (#81); overlays composite above the grade (#86). Next, one PR each,
-  in order:
-  1. **Remove the scrolling waveform (#87):** the spectrum replaces it.
-  2. **Data-HUD by default (#88):** the default style becomes a dimmed, graded base with
+  spectrum analyzer (#81); overlays composite above the grade (#86); the scrolling
+  waveform is removed (#87). Next, one PR each, in order:
+  1. **Data-HUD by default (#88):** the default style becomes a dimmed, graded base with
      the spectrum and crisp overlays, tuned on the user's real beats. Retire the
      `clean`/`punchy`/`balanced` presets and `--preset auto`; `vgm` stays as the variant.
-  3. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
+  2. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
      beatmap; bump `ANALYSIS_VERSION`), peak-note callouts on the spectrum, band meters,
      and beat/downbeat indicators, on by default. Bundle an OFL monospace font for them.
-  4. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
+  3. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
      on beats and energy, on by default.
-  5. **Video clips as segments (#14).**
+  4. **Video clips as segments (#14).**
   After the epic: multiple hook windows (#52), the posting kit (#53), and section
   detection (#11; the regression tracks show the intro → verse change gets no cut).

@@ -131,8 +131,8 @@ flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
 The data-HUD epic is **#80**; its plan is in `DESIGN.md` §12 (M5). Direction: the
 reactive data-HUD is the *default* look (no options set → ready to post for most
 beats), and features that don't serve it are removed. Done: the engine and spectrum
-layer (#81) and overlays above the grade (#86). Next: remove the scrolling waveform
-(#87), make the data-HUD the default and retire `clean`/`punchy`/`balanced`/`auto`
+layer (#81), overlays above the grade (#86), and the waveform removal (#87). Next: make
+the data-HUD the default and retire `clean`/`punchy`/`balanced`/`auto`
 (#88), then readouts (#82), the schematic background (#83), and clips (#14). Features
 stop for the user's review before merging. Test on the user's real beats as well as the
 synthetic regression tracks: copy them into the track folder layout under the
