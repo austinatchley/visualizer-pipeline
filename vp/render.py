@@ -274,10 +274,11 @@ def _segment_chain(
     return f"[{i}:v]" + ",".join(chain) + f"[v{i}]"
 
 
-def _finish_filters(
-    style: dict, duration: float, fades: tuple[float, float], preview: bool
-) -> list[str]:
-    """Grade, saturation, vignette, grain, contrast, fades, then output range."""
+def _grade_filters(style: dict) -> list[str]:
+    """Grade, saturation, vignette, grain, contrast: the footage-only finish.
+
+    Runs on the base footage before any overlay, so the HUD, watermark and
+    reactive layers stay crisp on top of the grade (issue #86)."""
     finish: list[str] = []
     grade = GRADES.get(style["grade"])
     if grade:
@@ -297,9 +298,6 @@ def _finish_filters(
     contrast = float(style["contrast"])
     if contrast != 1.0:
         finish.append(f"eq=contrast={contrast:.3f}")
-    if not preview:
-        finish += _fade_filters("fade", *fades, duration)
-    finish.append("scale=out_range=tv,format=yuv420p")
     return finish
 
 
@@ -362,6 +360,11 @@ def build_graph(
         parts.append(f"[tex][base]blend=all_mode={style['texture_blend']}[comp]")
         prev = "comp"
 
+    grade = _grade_filters(style)
+    if grade:
+        parts.append(f"[{prev}]format=rgb24," + ",".join(grade) + "[graded]")
+        prev = "graded"
+
     if re_idx is not None:
         clip = assets.reactive
         parts.append(
@@ -393,7 +396,9 @@ def build_graph(
         prev = "wv"
 
     fades = fade_times(style["fade_in"], style["fade_out"], duration)
-    finish = _finish_filters(style, duration, fades, preview)
+    # Fades cover the whole frame (overlays included); then the output range.
+    finish = [] if preview else _fade_filters("fade", *fades, duration)
+    finish.append("scale=out_range=tv,format=yuv420p")
     parts.append(f"[{prev}]format=rgb24," + ",".join(finish) + "[vout]")
 
     maps = ["-map", "[vout]"]
