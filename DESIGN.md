@@ -257,7 +257,7 @@ Build one `ffmpeg -filter_complex` graph per variant:
 ```
 [image per segment] → scale (supersample×) cover crop → zoompan (Ken Burns + beat_punch)
 → per-segment eq (color_punch saturation spike) → settb/setpts → xfade chain (beat offsets)
-→ grade (contrast/saturation/vignette/grain/texture)
+→ texture blend → grade (grade/saturation/vignette/grain/contrast), footage only (#86)
 → [optional reactive layer clip, FFV1+alpha, drawn per frame in a first pass]
 → HUD PNG overlay (alpha fade-in) → [optional Pillow waveform strip]
 → global fades → scale=out_range=tv,format=yuv420p
@@ -482,21 +482,24 @@ visualizer-pipeline/
 - **Post-v1 — VGM preset (#37):** `vgm` preset ships with a `grade` filter (sunset/night/
   fog), a Pillow `VGM` watermark (bundled Anton, `watermark` + `watermark_*` keys), and
   `show_title` to compose or suppress the standard HUD; all overlay options are UI
-  toggles/dropdowns. Soft-blend watermark variant and standalone grade keys are deferred.- **M5 — Data-HUD (epic #80, in progress):** the main look moves from a photo slideshow
-  to a data-HUD. Images and clips set the mood underneath, and most of the motion comes
-  from music-reactive overlay layers drawn per frame. We borrow the instrument-readout
-  genre, not any artist's template. Done: the reactive overlay engine and the spectrum
-  analyzer (#81). Next, one PR each, in order:
-  1. **Overlays above the grade.** The finish chain (grade, contrast, vignette, grain)
-     runs after every overlay today, so it also dims the HUD, the waveform and the
-     reactive layers. Grade the base footage, then composite the overlays crisp on top.
-     This changes existing output: bump `RENDER_VERSION`.
-  2. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
+  toggles/dropdowns. Soft-blend watermark variant and standalone grade keys are deferred.
+- **M5 — Data-HUD (epic #80, in progress):** the reactive data-HUD becomes the
+  *default* experience: a track rendered with no options set should be ready to post for
+  most beats, and knobs remain only for tuning. Images and clips set the mood
+  underneath; most of the motion comes from music-reactive overlay layers drawn per
+  frame. We borrow the instrument-readout genre, not any artist's template. Features
+  that don't serve this look are removed. Done: the reactive overlay engine and the
+  spectrum analyzer (#81); overlays composite above the grade (#86). Next, one PR each,
+  in order:
+  1. **Remove the scrolling waveform (#87):** the spectrum replaces it.
+  2. **Data-HUD by default (#88):** the default style becomes a dimmed, graded base with
+     the spectrum and crisp overlays, tuned on the user's real beats. Retire the
+     `clean`/`punchy`/`balanced` presets and `--preset auto`; `vgm` stays as the variant.
+  3. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
      beatmap; bump `ANALYSIS_VERSION`), peak-note callouts on the spectrum, band meters,
-     and beat/downbeat indicators. Bundle an OFL monospace font for them.
-  3. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
-     on beats and energy.
-  4. **Video clips as segments (#14).**
-  5. **`datahud` preset:** a dimmed, graded base plus every layer, tuned on real beats.
+     and beat/downbeat indicators, on by default. Bundle an OFL monospace font for them.
+  4. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
+     on beats and energy, on by default.
+  5. **Video clips as segments (#14).**
   After the epic: multiple hook windows (#52), the posting kit (#53), and section
   detection (#11; the regression tracks show the intro → verse change gets no cut).

@@ -24,7 +24,7 @@ from .fonts import resolve_face, style_faces
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .vibe import finalize_auto_style
 
-RENDER_VERSION = 2
+RENDER_VERSION = 3
 SIDECAR_SUFFIX = ".vp.json"
 
 
