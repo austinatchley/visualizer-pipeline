@@ -52,8 +52,13 @@ def _cases():
         for aspect in ("vertical", "horizontal", "square"):
             yield f"{preset}-{aspect}", {"preset": preset}, aspect, False, {}
     yield "preview-vertical", {}, "vertical", True, {}
-    yield "preview-waveform", {"waveform": True}, "vertical", True, {"waveform": True}
-    yield "waveform", {"waveform": True}, "horizontal", False, {"waveform": True}
+    yield (
+        "preview-spectrum",
+        {"spectrum": True},
+        "vertical",
+        True,
+        {"reactive": True},
+    )
     yield (
         "texture",
         {"texture": "grain.png", "texture_blend": "overlay"},
@@ -78,10 +83,10 @@ def _cases():
     yield "no-fades", {"fade_in": 0, "fade_out": 0}, "vertical", False, {}
     yield (
         "spectrum",
-        {"spectrum": True, "waveform": True},
+        {"spectrum": True},
         "vertical",
         False,
-        {"reactive": True, "waveform": True},
+        {"reactive": True},
     )
 
 
@@ -97,8 +102,6 @@ def _command(style, aspect_key, preview, extra) -> list[str]:
     assets = RenderAssets(
         hud=Path("/tmp/vp/hud.png"),
         texture=Path("/tmp/vp/texture.png") if extra.get("texture") else None,
-        waveform=Path("/tmp/vp/waveform.png") if extra.get("waveform") else None,
-        waveform_height=75 if extra.get("waveform") else 0,
         reactive=ReactiveClip(Path("/tmp/vp/reactive.mkv"), 65, 749)
         if extra.get("reactive")
         else None,
@@ -154,29 +157,3 @@ def test_graph_is_well_formed(name):
     has_audio = "[aout]" in graph
     assert has_audio is (not preview)
     assert ("-c:a" in cmd) is has_audio
-
-
-def test_preview_waveform_covers_the_preview_slice(tmp_path, monkeypatch):
-    """Issue #68: the strip is decoded for the previewed slice, not the whole hook."""
-    from PIL import Image
-
-    import vp.render as render_mod
-
-    windows = []
-
-    def fake_strip(audio, window, width, height, beatmap, *args, **kwargs):
-        windows.append(tuple(window))
-        return Image.new("RGBA", (width, height))
-
-    monkeypatch.setattr(render_mod, "build_strip", fake_strip)
-    monkeypatch.setattr(render_mod, "run_ffmpeg", lambda *args, **kwargs: None)
-    track = _track({"waveform": True})
-    hook = (8.0, 53.0)
-    expected = plan_for(track, BEATMAP, hook, preview=True).window
-    assert expected != hook  # the preview really is a slice
-
-    render_mod.render(
-        track, ASPECTS["vertical"], BEATMAP, tmp_path / "p.mp4", window=hook, preview=True
-    )
-    render_mod.render(track, ASPECTS["vertical"], BEATMAP, tmp_path / "e.mp4", window=hook)
-    assert windows == [expected, hook]  # preview: the slice; export: the full window

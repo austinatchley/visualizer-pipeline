@@ -471,11 +471,6 @@ export interface components {
              * @enum {integer}
              */
             fps: 24 | 30 | 60;
-            /**
-             * Waveform
-             * @default false
-             */
-            waveform: boolean;
             /** Title Font */
             title_font?: string | null;
             /**

@@ -67,7 +67,6 @@ Rules:
     "crossfade": 0.35,
     "zoom": 0.10,
     "fps": 30,
-    "waveform": false,
     "title_font": null
   },
   "hook": {
@@ -203,20 +202,17 @@ Layers, bottom to top:
 2. **Grade / effects** — `contrast`, optional `vignette`, fixed-seed `grain`, and an
    optional `texture` image from the `textures/` library blended with `texture_blend`
    (`multiply|overlay|screen|softlight`).
-3. **Waveform strip** — optional scrolling Pillow strip (`vp/waveform.py`), tied to
-   beat energy; ~4 px RMS/peak bars normalized to the 95th percentile with a soft curve
-   and noise floor. Never uses ffmpeg's `showwaves`.
-4. **Reactive layers** — optional per-frame overlays that move with the music
+3. **Reactive layers** — optional per-frame overlays that move with the music
    (`vp/reactive.py`, epic #80). The spectrum analyzer (`spectrum`, #81) draws an STFT
    per video frame on a log-frequency axis (`vp/spectrum.py`: triangular log filterbank,
    +1.5 dB/oct display tilt, 60 dB range under the window's 99.5th-percentile ceiling,
    attack/release ballistics, a short lag trail and a slow peak-hold trail). Frames are
    drawn with Pillow at 2× in the layer's box only, in parallel worker processes, piped
    to a lossless FFV1+alpha clip, and overlaid at the box position before the HUD.
-5. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
+4. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
    Pre-rendered as a transparent PNG with Pillow (Homebrew ffmpeg has no `drawtext`),
    faded in with alpha.
-6. **Global fade** — 0.4 s in, 0.8 s out (video + audio).
+5. **Global fade** — 0.4 s in, 0.8 s out (video + audio).
 
 Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfade cuts +
 `beat_punch` + title fade. This is what makes it look intentional instead of random.
@@ -259,7 +255,7 @@ Build one `ffmpeg -filter_complex` graph per variant:
 → per-segment eq (color_punch saturation spike) → settb/setpts → xfade chain (beat offsets)
 → texture blend → grade (grade/saturation/vignette/grain/contrast), footage only (#86)
 → [optional reactive layer clip, FFV1+alpha, drawn per frame in a first pass]
-→ HUD PNG overlay (alpha fade-in) → [optional Pillow waveform strip]
+→ HUD PNG overlay (alpha fade-in)
 → global fades → scale=out_range=tv,format=yuv420p
 audio: atrim(window) → loudnorm -14 LUFS → aresample 48k → afade
 encode: libx264 crf 18, preset medium, AAC 192k, +faststart, yuv420p, 30 fps
@@ -277,8 +273,6 @@ Renderer notes:
   graph for fast UI iteration.
 - `progress=` / `cancel=` stream ffmpeg progress and abort mid-render; the UI runs full
   renders as background jobs.
-- The waveform is a Pillow strip (`vp/waveform.py`) with ~4 px RMS/peak bars composited
-  on top; the crashing `showwaves` path is gone.
 - Temp files go in a per-render temp dir, always cleaned up.
 
 ## 5. CLI
@@ -360,7 +354,7 @@ visualizer-pipeline/
   DESIGN.md
   AGENTS.md
   vp/
-    cli.py  track.py  analyze.py  plan.py  hud.py  waveform.py
+    cli.py  track.py  analyze.py  plan.py  hud.py  audio.py
     render.py  config.py  status.py  fonts.py  textures.py
     assets/fonts/             # bundled OFL faces + licenses
     ui/                       # local web studio
@@ -370,7 +364,7 @@ visualizer-pipeline/
   textures/                   # starter texture library + picker choices
   tests/
     test_config.py  test_plan.py  test_analyze.py  test_windows.py
-    test_hud.py  test_waveform.py  test_cli.py  test_render_smoke.py
+    test_hud.py  test_audio.py  test_cli.py  test_render_smoke.py
     test_ui.py  test_textures.py
   scripts/
     make_fixtures.py  make_textures.py
@@ -386,7 +380,7 @@ visualizer-pipeline/
 - **Integration:** render `fixtures/d_short` for all variants; assert with `ffprobe`:
   resolution (1080×1920, 1080×1080, 1920×1080), fps, duration ±0.1 s, 48 kHz audio,
   faststart, TV-range yuv420p; hook window alignment on a long fixture.
-- **Waveform + UI:** Pillow strip output and FastAPI endpoints/jobs (skipped cleanly when
+- **Reactive layers + UI:** spectrum drawing and FastAPI endpoints/jobs (UI tests skip cleanly when
   the `.[dev,ui]` extras are absent).
 - **CI:** `.github/workflows/ci.yml` installs `.[dev,ui]`, installs ffmpeg + DejaVu fonts,
   generates fixtures, and runs `pytest -q` (141 tests at the time of writing).
@@ -402,7 +396,8 @@ visualizer-pipeline/
 
 ## 10. Prototype issues (resolved)
 
-- `showwaves` SIGKILL → replaced with the Pillow waveform strip (#15).
+- `showwaves` SIGKILL → replaced with the Pillow waveform strip (#15), itself later
+  removed in favor of the spectrum layer (#87).
 - `loudnorm` → 96 kHz → forced `aresample=48000`.
 - No `drawtext` in Homebrew ffmpeg → Pillow HUD.
 - Synthetic fixtures mis-detect tempo → documented `overrides.bpm` / `tempo_multiplier`.

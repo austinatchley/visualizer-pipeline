@@ -83,12 +83,12 @@ def styled_renders(tmp_path_factory):
         SHORT,
         overrides={
             "preset": "clean",
-            "waveform": True,
+            "spectrum": True,
             "vignette": 0.5,
             "grain": 0.4,
         },
     )
-    overlays_path = out_dir / "waveform_16x9.mp4"
+    overlays_path = out_dir / "overlays_16x9.mp4"
     render(overlays, HORIZONTAL, beatmap, overlays_path, window=(0.0, beatmap["duration"]))
 
     vgm = load_track(SHORT, overrides={"preset": "vgm"})
@@ -152,11 +152,11 @@ def test_punchy_preset_renders(styled_renders):
     assert video["pix_fmt"] == "yuv420p"
 
 
-def test_waveform_overlay_renders(styled_renders):
-    _, waveform, *_ = styled_renders
-    video = _video(_probe(waveform))
+def test_spectrum_overlay_renders(styled_renders):
+    _, overlays, *_ = styled_renders
+    video = _video(_probe(overlays))
     assert (video["width"], video["height"]) == (1920, 1080)
-    assert float(_probe(waveform)["format"]["duration"]) <= 12.0 + 0.15
+    assert float(_probe(overlays)["format"]["duration"]) <= 12.0 + 0.15
 
 
 def test_vgm_preset_renders(styled_renders):

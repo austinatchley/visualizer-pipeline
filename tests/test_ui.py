@@ -195,8 +195,8 @@ def test_unknown_texture_is_rejected(client):
     assert "unknown texture" in res.json()["detail"]
 
 
-def test_preview_with_waveform_does_not_break(client):
-    style = {"preset": "punchy", "waveform": True, "contrast": 1.1}
+def test_preview_with_spectrum_does_not_break(client):
+    style = {"preset": "punchy", "spectrum": True, "contrast": 1.1}
     res = client.post(
         "/api/tracks/demo_track/preview",
         json={"aspect": "horizontal", "style": style},

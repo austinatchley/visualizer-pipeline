@@ -1317,11 +1317,6 @@
             "title": "Fps",
             "default": 30
           },
-          "waveform": {
-            "type": "boolean",
-            "title": "Waveform",
-            "default": false
-          },
           "title_font": {
             "anyOf": [
               {

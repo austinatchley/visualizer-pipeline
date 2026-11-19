@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 
 from .fonts import FONT_CHOICES
@@ -20,7 +21,6 @@ DEFAULT_STYLE = {
     "fade_out": 0.8,
     "zoom": 0.10,
     "fps": 30,
-    "waveform": False,
     "title_font": None,
     "font": "clean",
     "meta_font": "auto",
@@ -50,6 +50,12 @@ DEFAULT_STYLE = {
     "spectrum_height": 0.22,
     "spectrum_y": 0.5,
     "accent_color": "#d9708f",
+}
+
+# Style keys that were removed. Older track.json files may still set them: they
+# are dropped with a warning instead of failing the load.
+RETIRED_STYLE_KEYS = {
+    "waveform": "the scrolling waveform was removed; the spectrum layer replaces it (#87)",
 }
 
 TEXTURE_BLENDS = {"multiply", "overlay", "screen", "softlight"}
@@ -98,7 +104,6 @@ STYLE_FIELDS: dict[str, dict] = {
         "help": "Ken Burns amount (zooms 1.0 to 1+zoom)",
     },
     "fps": {"type": "choice", "choices": sorted(FPS_CHOICES), "help": "Output framerate"},
-    "waveform": {"type": "bool", "help": "Scrolling waveform strip at the bottom"},
     "title_font": {"type": "path", "help": "Path to a .ttf (null = use font choice)"},
     "font": {
         "type": "choice",
@@ -369,12 +374,22 @@ def _validate_style(style: dict) -> dict:
     return style
 
 
+def _drop_retired(track_style: dict | None, warn: bool = True) -> dict:
+    style = dict(track_style or {})
+    for key, reason in RETIRED_STYLE_KEYS.items():
+        if key in style:
+            del style[key]
+            if warn:
+                warnings.warn(f"ignoring style.{key}: {reason}", UserWarning, stacklevel=3)
+    return style
+
+
 def resolve_style(
     track_style: dict | None = None,
     preset: str | None = None,
     flags: dict | None = None,
 ) -> dict:
-    track_style = dict(track_style or {})
+    track_style = _drop_retired(track_style)
     flags = dict(flags or {})
 
     unknown = set(track_style) - _STYLE_KEYS
@@ -403,7 +418,7 @@ def explicit_style(track_style: dict | None = None, flags: dict | None = None) -
     losing explicit values that happen to equal a default (issue #46)."""
     explicit = {
         k: v
-        for k, v in (track_style or {}).items()
+        for k, v in _drop_retired(track_style, warn=False).items()
         if k in _STYLE_KEYS and k != "preset" and v is not None
     }
     explicit.update(
