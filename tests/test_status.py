@@ -62,7 +62,7 @@ def test_fingerprint_is_stable(track):
 @pytest.mark.parametrize(
     "mutate",
     [
-        lambda t: setattr(t, "style", resolve_style({"font": "anton"}, preset="punchy")),
+        lambda t: setattr(t, "style", resolve_style({"font": "anton"}, preset="vgm")),
         lambda t: setattr(t, "style", resolve_style({"font": "anton", "zoom": 0.2})),
         lambda t: setattr(t, "title", "Other"),
         lambda t: setattr(t, "handle", "@other"),
@@ -107,13 +107,6 @@ def test_fingerprint_tracks_texture_file(track, tmp_path):
     before = fp(track, textures_dir=tex_dir)
     tex.write_bytes(b"two-bytes")
     assert fp(track, textures_dir=tex_dir) != before
-
-
-def test_auto_preset_fingerprints_as_resolved(track):
-    track.style = resolve_style({"font": "anton"}, preset="auto")
-    first = fp(track)
-    assert track.style["preset"] != "auto"  # finalized in place
-    assert fp(track) == first
 
 
 def test_sidecar_roundtrip(tmp_path):

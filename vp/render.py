@@ -20,7 +20,6 @@ from .reactive import ReactiveCancelled, ReactiveClip, render_reactive, wants_re
 from .status import invalidate, record, render_fingerprint
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
-from .vibe import finalize_auto_style
 
 HUD_FADE_IN = 0.3
 HUD_FADE_DUR = 0.8
@@ -132,6 +131,14 @@ def _energy_saturation(mean_energy: float, base: float) -> float:
     return max(0.0, min(2.0, base * multiplier))
 
 
+def _color_punch(style: dict) -> float:
+    """Effective cut punch: scaled by saturation, so `saturation: 0` stays true mono.
+
+    Zero means the per-segment eq is skipped and the grade applies a static
+    saturation instead; both call sites must agree on it."""
+    return float(style["color_punch"]) * min(1.0, float(style["saturation"]))
+
+
 def _saturation_expr(base: float, punch: float, fps: int) -> str:
     """Per-segment saturation that starts at ``base + punch`` and decays to
     ``base`` over roughly 0.3 s, mirroring the `beat_punch` zoom profile.
@@ -238,7 +245,7 @@ def _segment_chain(
     width, height = size
     fps = int(style["fps"])
     supersample = int(style["supersample"])
-    color_punch = float(style["color_punch"])
+    color_punch = _color_punch(style)
     frames = max(2, math.ceil(seg.duration * fps) + 2)
     zexpr = _zoom_expr(i, fps, frames, 1.0 + float(style["zoom"]), float(style["beat_punch"]))
     chain = [
@@ -271,17 +278,27 @@ def _grade_filters(style: dict) -> list[str]:
     if grade:
         finish.append(grade)
     saturation = float(style["saturation"])
-    if float(style["color_punch"]) <= 0 and saturation != 1.0:
+    if _color_punch(style) <= 0 and saturation != 1.0:
         # When color_punch is active the per-segment eq already carries the base
         # saturation, so only apply a static one when it is off. 0.0 must give a
         # true monochrome phase: eq=saturation=0 yields R=G=B per frame.
         finish.append(f"eq=saturation={saturation:.3f}")
+    dim = float(style["dim"])
+    if dim > 0:
+        # Scale toward black (not a brightness offset): blacks stay black and
+        # bright skies drop the most, so overlays read on any image (#88).
+        gain = 1.0 - dim
+        finish.append(f"colorchannelmixer=rr={gain:.3f}:gg={gain:.3f}:bb={gain:.3f}")
     vignette = float(style["vignette"])
     if vignette > 0:
         finish.append(f"vignette=angle=(PI/5)*(1+{vignette:.3f}*1.6)")
     grain = float(style["grain"])
     if grain > 0:
-        finish.append(f"noise=alls={int(grain * 25)}:allf=t+u:all_seed={GRAIN_SEED}")
+        # Luma-only grain: noise on the Y plane, so it never adds chroma speckle
+        # (and `saturation: 0` stays true mono).
+        finish.append(
+            f"format=yuv444p,noise=c0s={int(grain * 25)}:c0f=t+u:c0_seed={GRAIN_SEED},format=rgb24"
+        )
     contrast = float(style["contrast"])
     if contrast != 1.0:
         finish.append(f"eq=contrast={contrast:.3f}")
@@ -500,7 +517,6 @@ def render(
     `progress`, when given, is called with ``(percent 0-100, stage)`` as encoding
     progresses; `cancel`, when given, is polled and raises `RenderCancelled` early.
     Both are optional and change nothing when omitted."""
-    finalize_auto_style(track, beatmap)
     if window is None:
         window = window_for(track, beatmap, aspect)
     fingerprint = render_fingerprint(
@@ -520,6 +536,7 @@ def render(
                 if progress is not None:
                     progress(0.4 * pct, "drawing")
 
+            overlay_progress(0.0)  # report the start before the first chunk lands
             try:
                 clip = render_reactive(
                     track.audio,

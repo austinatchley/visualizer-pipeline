@@ -15,8 +15,8 @@ def test_saturation_default_and_grade_choices():
     assert resolve_style({"grade": "analog"})["grade"] == "analog"
 
 
-def test_color_punch_default_off():
-    assert resolve_style()["color_punch"] == 0.0
+def test_color_punch_default_is_subtle():
+    assert 0.0 < resolve_style()["color_punch"] <= 0.3
 
 
 def test_color_punch_range_raises():

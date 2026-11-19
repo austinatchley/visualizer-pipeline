@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .config import explicit_style, resolve_hook, resolve_overrides, resolve_style
+from .config import resolve_hook, resolve_overrides, resolve_style
 from .manifest import AUDIO_EXTS, image_dir, read_manifest, scan_images
 
 
@@ -21,9 +21,6 @@ class Track:
     style: dict = field(default_factory=dict)
     hook: dict = field(default_factory=dict)
     overrides: dict = field(default_factory=dict)
-    # Explicitly set style values (track.json + flags). `None` means unknown, e.g.
-    # the studio replaced `style` with a full model; see vibe.finalize_auto_style.
-    style_explicit: dict | None = None
 
     @property
     def id(self) -> str:
@@ -120,5 +117,4 @@ def load_track(root: Path, overrides: dict | None = None) -> Track:
         style=style,
         hook=hook,
         overrides=resolved_overrides,
-        style_explicit=explicit_style(manifest.get("style"), flags),
     )

@@ -437,7 +437,7 @@ export interface components {
         Style: {
             /**
              * Preset
-             * @default clean
+             * @default datahud
              */
             preset: string;
             /**
@@ -519,22 +519,27 @@ export interface components {
             saturation: number;
             /**
              * Beat Punch
-             * @default 0
+             * @default 0.06
              */
             beat_punch: number;
             /**
              * Color Punch
-             * @default 0
+             * @default 0.2
              */
             color_punch: number;
             /**
+             * Dim
+             * @default 0.15
+             */
+            dim: number;
+            /**
              * Vignette
-             * @default 0
+             * @default 0.25
              */
             vignette: number;
             /**
              * Grain
-             * @default 0
+             * @default 0.15
              */
             grain: number;
             /** Texture */
@@ -596,7 +601,7 @@ export interface components {
             watermark_y: number;
             /**
              * Spectrum
-             * @default false
+             * @default true
              */
             spectrum: boolean;
             /**
@@ -609,6 +614,11 @@ export interface components {
              * @default 0.5
              */
             spectrum_y: number;
+            /**
+             * Backplate
+             * @default 0.6
+             */
+            backplate: number;
             /**
              * Accent Color
              * @default #d9708f

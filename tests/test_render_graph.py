@@ -48,9 +48,10 @@ def _track(style: dict) -> Track:
 
 
 def _cases():
-    for preset in ("clean", "punchy", "balanced", "vgm"):
+    # Both looks draw the spectrum by default (#88), so their graphs carry the clip.
+    for preset in ("datahud", "vgm"):
         for aspect in ("vertical", "horizontal", "square"):
-            yield f"{preset}-{aspect}", {"preset": preset}, aspect, False, {}
+            yield f"{preset}-{aspect}", {"preset": preset}, aspect, False, {"reactive": True}
     yield "preview-vertical", {}, "vertical", True, {}
     yield (
         "preview-spectrum",
@@ -68,7 +69,7 @@ def _cases():
     )
     yield (
         "color-punch",
-        {"preset": "punchy", "color_punch": 0.4, "saturation": 0.8},
+        {"color_punch": 0.4, "saturation": 0.8},
         "vertical",
         False,
         {},

@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..analyze import load_beatmap
 from ..aspects import ASPECTS
-from ..config import DEFAULT_STYLE, PRESETS_DIR, STYLE_FIELDS, resolve_style
+from ..config import DEFAULT_STYLE, STYLE_FIELDS, preset_names, resolve_style
 from ..manifest import (
     AUDIO_EXTS,
     IMAGE_EXTS,
@@ -170,7 +170,6 @@ def _run_job(job: Job, root: Path, out: Path, textures: Path) -> None:
     try:
         track = _find_track(root, job.track)
         track.style = resolve_style(job.style)
-        track.style_explicit = None  # full studio model, not layered values
         aspect = ASPECTS[job.aspect]
         beatmap = load_beatmap(track)
 
@@ -302,7 +301,7 @@ def create_app(
         return {
             "fields": STYLE_FIELDS,
             "defaults": DEFAULT_STYLE,
-            "presets": sorted(p.stem for p in PRESETS_DIR.glob("*.json")),
+            "presets": preset_names(),
             "textures": texture_library(app.state.textures),
             "aspects": {k: {"label": a.label, "kind": a.kind} for k, a in ASPECTS.items()},
         }
@@ -542,7 +541,6 @@ def create_app(
         track = _find_track(root, track_id)
         try:
             track.style = resolve_style(payload.style)
-            track.style_explicit = None  # full studio model, not layered values
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from None
         _check_texture(track.style)

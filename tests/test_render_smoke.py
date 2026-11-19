@@ -75,14 +75,13 @@ def styled_renders(tmp_path_factory):
     track = load_track(SHORT)
     beatmap = load_beatmap(track)
 
-    punchy = load_track(SHORT, overrides={"preset": "punchy"})
+    punchy = load_track(SHORT, overrides={"beat_punch": 0.1})
     punchy_path = out_dir / "punchy_9x16.mp4"
     render(punchy, VERTICAL, beatmap, punchy_path, window=(0.0, beatmap["duration"]))
 
     overlays = load_track(
         SHORT,
         overrides={
-            "preset": "clean",
             "spectrum": True,
             "vignette": 0.5,
             "grain": 0.4,
@@ -95,7 +94,7 @@ def styled_renders(tmp_path_factory):
     vgm_path = out_dir / "vgm_9x16.mp4"
     render(vgm, VERTICAL, beatmap, vgm_path, window=(0.0, beatmap["duration"]))
 
-    analog = load_track(SHORT, overrides={"preset": "clean", "grade": "analog"})
+    analog = load_track(SHORT, overrides={"grade": "analog"})
     analog_path = out_dir / "analog_9x16.mp4"
     render(analog, VERTICAL, beatmap, analog_path, window=(0.0, beatmap["duration"]))
 
@@ -186,7 +185,9 @@ def _extract_frame(path: Path, out: Path) -> None:
 def test_saturation_zero_is_monochrome(tmp_path):
     """`saturation: 0` must render true grayscale (R=G=B) across sampled frames."""
     _require(SHORT)
-    track = load_track(SHORT, overrides={"saturation": 0.0})
+    # The default color_punch must not add color back; the spectrum's accent is
+    # colored by design and drawn above the grade, so it is off here.
+    track = load_track(SHORT, overrides={"saturation": 0.0, "spectrum": False})
     beatmap = load_beatmap(track)
     out = tmp_path / "mono.mp4"
     render(
