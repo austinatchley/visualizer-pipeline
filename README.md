@@ -153,7 +153,7 @@ Everything is optional. Only include what differs from the defaults.
 | `watermark_x` / `watermark_y` | `0.0` | Watermark offset (`-1..1`; `0` = center, magnitude bleeds off-frame) |
 | `spectrum` | `true` | Music-reactive spectrum analyzer layer (log-frequency curve with trailing lines), drawn per frame. Adds a drawing pass: roughly +35% render time |
 | `spectrum_height` | `0.22` | Plot height as a fraction of frame height (`0.05–0.6`) |
-| `spectrum_y` | `0.5` | Plot vertical center as a fraction of frame height (`0–1`) |
+| `spectrum_y` | `1.0` | Plot vertical position: `0` top, `0.5` centered, `1` on the bottom edge |
 | `backplate` | `0.6` | Soft dark plate behind the reactive layers so they read on bright images (`0–1`); `0` = off |
 | `accent_color` | `#d9708f` | Accent for reactive layers (`#rrggbb`); the studio shows a color picker |
 | `show_clock` | `true` | Readout: track position / total (`01:35 / 02:36`) |

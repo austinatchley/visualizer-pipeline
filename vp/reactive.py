@@ -42,7 +42,6 @@ from .spectrum import (
 )
 
 SUPERSAMPLE = 2  # layer-local supersampling for anti-aliased lines
-AXIS_TICKS = (50, 100, 200, 500, 1000, 2000, 5000, 10000)
 CHUNK = 24  # frames drawn per worker task; also the cancel/progress cadence
 MAX_WORKERS = 8
 PARALLEL_MIN_FRAMES = 240  # below this a process pool costs more than it saves
@@ -68,29 +67,28 @@ def wants_reactive(style: dict) -> bool:
 
 @dataclass(frozen=True)
 class SpectrumBox:
-    """Layer geometry in output pixels: plot area plus a label row below it."""
+    """Layer geometry in output pixels. `text_size` sizes the note callouts."""
 
     x: int
     y: int
     width: int
     plot_height: int
-    label_height: int
+    text_size: int
 
     @property
     def height(self) -> int:
-        return self.plot_height + self.label_height
+        return self.plot_height
 
 
 def spectrum_box(size: tuple[int, int], style: dict) -> SpectrumBox:
-    """Centered horizontally, 88% wide; `spectrum_y` is the plot's vertical center."""
+    """Centered horizontally, 88% wide. `spectrum_y` positions the plot in the
+    frame: 0 = top edge, 0.5 = centered, 1 = bottom edge (the default)."""
     width, height = size
     box_w = int(width * 0.88)
-    plot_h = max(8, int(height * float(style["spectrum_height"])))
-    label_h = max(6, int(min(width, height) * 0.04))
-    center = float(style["spectrum_y"]) * height
-    y = int(round(center - plot_h / 2))
-    y = max(0, min(height - plot_h - label_h, y))
-    return SpectrumBox((width - box_w) // 2, y, box_w, plot_h, label_h)
+    plot_h = min(height, max(8, int(height * float(style["spectrum_height"]))))
+    y = int(round(float(style["spectrum_y"]) * (height - plot_h)))
+    text = max(6, round(min(width, height) * 0.04 * 0.72))
+    return SpectrumBox((width - box_w) // 2, y, box_w, plot_h, text)
 
 
 @dataclass(frozen=True)
@@ -143,14 +141,13 @@ class SpectrumPainter:
         self.line_w = max(2, round(self.h / 140))
         self.accent = accent
         self.log_lo, self.log_hi = math.log(freqs[0]), math.log(freqs[-1])
-        self.base = self._base(freqs, style)
+        self.base = self._base(style)
 
     # The callout font is loaded lazily and not pickled (see ReadoutPainter).
     def _note_font(self):
         font = getattr(self, "_font_cache", None)
         if font is None:
-            size = max(6, round(self.box.label_height * 0.72))
-            font = self._font_cache = load_font(resolve_face(READOUT_FONT), size)
+            font = self._font_cache = load_font(resolve_face(READOUT_FONT), self.box.text_size)
         return font
 
     def __getstate__(self) -> dict:
@@ -174,28 +171,16 @@ class SpectrumPainter:
         plate.putalpha(mask.filter(ImageFilter.GaussianBlur(feather * 0.6)))
         return plate
 
-    def _base(self, freqs: np.ndarray, style: dict) -> Image.Image:
-        """Static parts: backplate, baseline and frequency labels (full clip, 1x)."""
+    def _base(self, style: dict) -> Image.Image:
+        """Static parts: backplate and baseline (full clip, 1x). No frequency
+        axis labels: they cluttered the frame without telling viewers much (#98)."""
         img = self._plate(float(style["backplate"]))
         layer = Image.new("RGBA", (self.box.width, self.box.height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(layer)
-        # Axis labels share the readouts' monospace face so the HUD reads as one
-        # instrument (#82).
-        font = load_font(resolve_face(READOUT_FONT), max(6, int(self.box.label_height * 0.7)))
-        lo, hi = math.log(freqs[0]), math.log(freqs[-1])
-        draw.line(
+        ImageDraw.Draw(layer).line(
             [(0, self.box.plot_height - 1), (self.box.width - 1, self.box.plot_height - 1)],
             fill=(220, 210, 210, 120),
             width=1,
         )
-        for hz in AXIS_TICKS:
-            if not freqs[0] <= hz <= freqs[-1]:
-                continue
-            x = (math.log(hz) - lo) / (hi - lo) * (self.box.width - 1)
-            label = f"{hz / 1000:g}k" if hz >= 1000 else str(hz)
-            text_w = draw.textlength(label, font=font)
-            tx = min(max(0, x - text_w / 2), self.box.width - text_w)
-            draw.text((tx, self.box.plot_height + 2), label, font=font, fill=(236, 230, 226, 225))
         img.alpha_composite(layer, dest=(self.ox, self.oy))
         return img
 

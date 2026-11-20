@@ -1549,7 +1549,7 @@
           "spectrum_y": {
             "type": "number",
             "title": "Spectrum Y",
-            "default": 0.5
+            "default": 1.0
           },
           "backplate": {
             "type": "number",

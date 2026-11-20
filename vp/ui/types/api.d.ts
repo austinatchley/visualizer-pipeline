@@ -614,7 +614,7 @@ export interface components {
             spectrum_height: number;
             /**
              * Spectrum Y
-             * @default 0.5
+             * @default 1
              */
             spectrum_y: number;
             /**

@@ -16,7 +16,13 @@ from .aspects import ASPECTS, Aspect
 from .fonts import style_faces
 from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import Plan, full_window, plan_timeline, preview_slice, select_hook
-from .reactive import ReactiveCancelled, ReactiveClip, render_reactive, wants_reactive
+from .reactive import (
+    ReactiveCancelled,
+    ReactiveClip,
+    render_reactive,
+    spectrum_box,
+    wants_reactive,
+)
 from .schematic import draw_linework, seed_for
 from .schematic import generate as generate_schematic
 from .status import invalidate, record, render_fingerprint
@@ -205,6 +211,20 @@ def output_size(aspect: Aspect, preview: bool = False) -> tuple[int, int]:
     return aspect.width, aspect.height
 
 
+TITLE_CLEARANCE = 0.06  # of the short side: room for note callouts above the plot
+
+
+def title_bottom(style: dict, size: tuple[int, int]) -> int | None:
+    """Where the title block must end to clear a spectrum in the lower half of
+    the frame (#98), or None when the spectrum is off or higher up."""
+    if not style["spectrum"]:
+        return None
+    box = spectrum_box(size, style)
+    if box.y + box.height / 2 <= size[1] / 2:
+        return None
+    return box.y - round(min(size) * TITLE_CLEARANCE)
+
+
 def prepare_assets(
     track: Track,
     size: tuple[int, int],
@@ -233,6 +253,7 @@ def prepare_assets(
         line_spacing=float(style["line_spacing"]),
         show_title=bool(style["show_title"]),
         overlay=vgm_img,
+        block_bottom=title_bottom(style, size),
     )
 
     texture = None

@@ -100,8 +100,8 @@ flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
   `drawtext`/`subtitles`.
 - **Typography.** `vp/fonts.py` is the OFL face registry; `font`/`meta_font`,
   `text_case`, `tracking`, and `line_spacing` are style keys. `title_font` is an
-  advanced path override. Licenses live in `vp/assets/fonts/licenses/`. Readouts, note
-  callouts, and spectrum axis labels always use `fonts.READOUT_FONT` (JetBrains Mono).
+  advanced path override. Licenses live in `vp/assets/fonts/licenses/`. Readouts and note
+  callouts always use `fonts.READOUT_FONT` (JetBrains Mono).
 - **Textures.** `vp/textures.py` discovers the `textures/` library and resolves relative
   `style.texture` names; the studio validates dropdown choices. CLI `--texture PATH`
   still accepts custom image files.

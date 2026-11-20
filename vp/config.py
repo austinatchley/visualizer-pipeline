@@ -58,7 +58,7 @@ DEFAULT_STYLE = {
     "watermark_y": 0.0,
     "spectrum": True,
     "spectrum_height": 0.22,
-    "spectrum_y": 0.5,
+    "spectrum_y": 1.0,
     "backplate": 0.6,
     "accent_color": "#d9708f",
     "show_clock": True,
@@ -283,7 +283,7 @@ STYLE_FIELDS: dict[str, dict] = {
         "min": 0.0,
         "max": 1.0,
         "step": 0.01,
-        "help": "Spectrum vertical center as a fraction of frame height",
+        "help": "Spectrum vertical position: 0 = top, 0.5 = centered, 1 = bottom edge",
     },
     "backplate": {
         "type": "float",

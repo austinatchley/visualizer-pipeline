@@ -262,7 +262,10 @@ def build_hud(
     line_spacing: float = 1.12,
     show_title: bool = True,
     overlay: Image.Image | None = None,
+    block_bottom: int | None = None,
 ) -> Path:
+    """`block_bottom`, when given, caps how low the title block sits (it only
+    ever moves the block up), e.g. to clear a bottom-anchored spectrum."""
     font_face = font_face or resolve_face(None, font_path)
     meta_font_face = meta_font_face or font_face
 
@@ -298,7 +301,10 @@ def build_hud(
             gap = 0
             meta_height = 0
 
-        title_top = layout.block_bottom - title_height - (gap + meta_height if meta else 0)
+        bottom = layout.block_bottom
+        if block_bottom is not None:
+            bottom = min(bottom, block_bottom)
+        title_top = bottom - title_height - (gap + meta_height if meta else 0)
         shadow = max(2, layout.fontsize // 40)
         _draw_text_block(
             draw,
