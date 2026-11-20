@@ -218,7 +218,7 @@ def test_vgm_preset_loads():
     assert style["grade"] == "sunset"
     assert style["show_title"] is False
     assert style["watermark"] is True
-    assert style["watermark_text"] == "VGM"
+    assert style["watermark_text"] == "postbag"
     assert style["watermark_font"] == "anton"
 
 
@@ -230,7 +230,8 @@ def test_vgm_grade_validation():
 
 def test_watermark_text_is_stringable():
     assert resolve_style({"watermark_text": "xyz"})["watermark_text"] == "xyz"
-    assert resolve_style({"watermark_text": None})["watermark_text"] is None
+    # null falls back to the default text; `watermark: false` turns it off (#92)
+    assert resolve_style({"watermark_text": None})["watermark_text"] == "postbag"
 
 
 def test_vgm_numeric_bounds_validation():

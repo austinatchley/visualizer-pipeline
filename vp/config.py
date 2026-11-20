@@ -49,7 +49,7 @@ DEFAULT_STYLE = {
     "grade": "none",
     "show_title": True,
     "watermark": False,
-    "watermark_text": None,
+    "watermark_text": "postbag",
     "watermark_font": "anton",
     "watermark_opacity": 0.15,
     "watermark_width": 0.95,
@@ -220,7 +220,7 @@ STYLE_FIELDS: dict[str, dict] = {
     },
     "watermark_text": {
         "type": "text",
-        "help": "Watermark text (null = off)",
+        "help": "Watermark text (default: postbag; toggle with watermark)",
     },
     "watermark_font": {
         "type": "choice",

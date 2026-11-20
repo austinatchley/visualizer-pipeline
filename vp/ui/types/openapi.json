@@ -1486,7 +1486,8 @@
                 "type": "null"
               }
             ],
-            "title": "Watermark Text"
+            "title": "Watermark Text",
+            "default": "postbag"
           },
           "watermark_font": {
             "type": "string",
