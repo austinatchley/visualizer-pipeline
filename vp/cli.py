@@ -10,13 +10,12 @@ from pathlib import Path
 
 from .analyze import beatmap_cache_path, load_beatmap
 from .aspects import ASPECTS
-from .config import PRESETS_DIR, STYLE_FIELDS
+from .config import STYLE_FIELDS, preset_names
 from .manifest import IMAGES_DIRNAME, discover_tracks, manifest_path, write_manifest
 from .plan import plan_timeline
 from .render import plan_variants, render
 from .status import is_current, render_fingerprint
 from .track import load_track
-from .vibe import finalize_auto_style
 
 
 def _aspects(value: str) -> list[str]:
@@ -58,7 +57,7 @@ def _add_style_args(p: argparse.ArgumentParser) -> None:
                 kwargs["type"] = int
             kwargs["choices"] = choices
         elif kind == "preset":
-            kwargs["choices"] = _preset_choices()
+            kwargs["choices"] = preset_names()
         elif kind == "path":
             kwargs["metavar"] = "PATH"
         elif kind == "texture":
@@ -68,10 +67,6 @@ def _add_style_args(p: argparse.ArgumentParser) -> None:
         else:  # text
             kwargs["metavar"] = "TEXT"
         group.add_argument(_style_flag(key), help=help_text, **kwargs)
-
-
-def _preset_choices() -> list[str]:
-    return sorted(p.stem for p in PRESETS_DIR.glob("*.json")) + ["auto"]
 
 
 def _add_hook_args(p: argparse.ArgumentParser) -> None:
@@ -154,8 +149,6 @@ def _render_track(track, beatmap, args, aspects, verbose: bool = True):
     if variant_jobs > 1 and len(variants) > 1:
         # The 16:9 full render is the long pole while hooks are short; running
         # them concurrently cuts wall-clock for `--aspect all` (issue #12).
-        # Finalize `auto` once up front so concurrent renders don't race.
-        finalize_auto_style(track, beatmap)
         with ThreadPoolExecutor(max_workers=min(variant_jobs, len(variants))) as pool:
             results = list(pool.map(work, variants))
     else:
@@ -183,8 +176,6 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
 
 def _cmd_inspect(args: argparse.Namespace) -> int:
     track, beatmap = _prepare(Path(args.track), args)
-    requested = track.style.get("preset")
-    finalize_auto_style(track, beatmap)
     out_dir = _out_dir(track, args)
     variants = plan_variants(track, beatmap, out_dir, _aspects(args.aspect))
 
@@ -193,10 +184,8 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
         f"  audio: {track.audio.name}  {beatmap['duration']:.2f}s  "
         f"{beatmap['tempo']:.1f} BPM  {len(beatmap['beats'])} beats"
     )
-    preset_note = f"{track.style['preset']}"
-    if requested == "auto":
-        preset_note += " (auto from audio)"
-    print(f"  preset: {preset_note}  fps: {track.style['fps']}  images: {len(track.images)}")
+    style = track.style
+    print(f"  preset: {style['preset']}  fps: {style['fps']}  images: {len(track.images)}")
     print(f"  hook: {track.hook['mode']}  target: {track.hook['target']:.0f}s")
 
     for variant in variants:

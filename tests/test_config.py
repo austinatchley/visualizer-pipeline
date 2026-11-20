@@ -2,19 +2,47 @@ import pytest
 
 from vp.config import (
     STYLE_FIELDS,
-    explicit_style,
     resolve_hook,
     resolve_overrides,
     resolve_style,
 )
 
 
-def test_clean_preset_defaults():
+def test_default_is_the_datahud_look():
+    """#88: no options set renders the data-HUD look."""
     style = resolve_style()
-    assert style["preset"] == "clean"
+    assert style["preset"] == "datahud"
     assert style["beats_per_cut"] == 8
     assert style["fps"] == 30
-    assert style["supersample"] == 2
+    assert style["spectrum"] is True
+    assert style["backplate"] > 0
+    assert style["dim"] > 0
+    assert style["show_title"] is True
+    assert style["watermark"] is False
+
+
+def test_preset_names_lead_with_the_default():
+    from vp.config import preset_names
+
+    names = preset_names()
+    assert names[0] == "datahud"
+    assert "vgm" in names
+    assert not {"clean", "punchy", "balanced", "auto"} & set(names)
+
+
+@pytest.mark.parametrize("name", ["clean", "punchy", "balanced", "auto"])
+def test_retired_presets_fall_back_to_the_default_with_a_warning(name):
+    with pytest.warns(UserWarning, match="retired"):
+        style = resolve_style({"preset": name, "grain": 0.3})
+    assert style["preset"] == "datahud"
+    assert style["grain"] == 0.3  # explicit values still apply
+
+
+def test_vgm_layers_on_the_default_look():
+    style = resolve_style(preset="vgm")
+    assert style["preset"] == "vgm"
+    assert style["watermark"] is True
+    assert style["spectrum"] is True  # inherited from the default
 
 
 def test_track_style_overrides_preset():
@@ -24,29 +52,13 @@ def test_track_style_overrides_preset():
 
 
 def test_flags_win_over_track_style():
-    style = resolve_style({"beats_per_cut": 4}, flags={"beats_per_cut": 2, "preset": "clean"})
+    style = resolve_style({"beats_per_cut": 4}, flags={"beats_per_cut": 2, "preset": "vgm"})
     assert style["beats_per_cut"] == 2
 
 
-def test_punchy_preset_overrides():
-    style = resolve_style(preset="punchy")
-    assert style["preset"] == "punchy"
-    assert style["beats_per_cut"] == 4
-    assert style["crossfade"] == 0.25
-    assert style["contrast"] == 1.15
-    assert style["beat_punch"] == 0.06
-
-
-def test_balanced_preset_combines():
-    style = resolve_style(preset="balanced")
-    assert style["preset"] == "balanced"
-    assert style["beats_per_cut"] == 6
-    assert style["contrast"] == 1.08
-
-
 def test_flags_pick_preset():
-    style = resolve_style(flags={"preset": "punchy"})
-    assert style["preset"] == "punchy"
+    style = resolve_style(flags={"preset": "vgm"})
+    assert style["preset"] == "vgm"
 
 
 def test_unknown_preset_raises():
@@ -265,9 +277,3 @@ def test_retired_waveform_key_is_dropped_with_a_warning():
         style = resolve_style({"waveform": True, "grain": 0.2})
     assert "waveform" not in style
     assert style["grain"] == 0.2
-
-
-def test_retired_key_is_not_explicit():
-    with pytest.warns(UserWarning):
-        assert resolve_style({"waveform": False})
-    assert explicit_style({"waveform": True, "grain": 0.2}) == {"grain": 0.2}

@@ -41,7 +41,7 @@ vp batch   tracks --jobs 2            # render every track folder
 vp ui --tracks tracks                 # local web studio (optional [ui] extra)
 ```
 
-Useful flags: `--preset clean|punchy|balanced|vgm|auto`, `--hook auto|full|START-END`,
+Useful flags: `--preset datahud|vgm`, `--hook auto|full|START-END`,
 `--bpm`, `--tempo-multiplier 0.5|1|2`, `--force`, `--reanalyze`, `--out DIR`, plus one
 flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
 `vp render --help`).
@@ -68,7 +68,7 @@ flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
 | `vp/ui/types/` | Dev-only `tsc` types: generated `openapi.json` + `api.d.ts`, hand-written `studio.d.ts` (aliases + client state) |
 | `scripts/gen_api_types.py` | Regenerates `vp/ui/types/openapi.json` and `api.d.ts` from the Pydantic models |
 | `vp/ui/models.py` | Pydantic request/response models; `Style` is generated from `STYLE_FIELDS` (the `/openapi.json` contract) |
-| `presets/*.json` | `clean`, `punchy`, `balanced` style overrides |
+| `presets/*.json` | Style overrides on the built-in `datahud` default (`vgm`) |
 | `textures/*.png` | Starter texture library (dropdown choices in the studio) |
 | `tests/` | Unit, CLI, ffprobe, reactive-layer, and UI tests |
 | `scripts/make_fixtures.py` | Deterministic synthetic tracks for tests |
@@ -79,6 +79,12 @@ flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
 
 - **One style schema.** Add a key to `DEFAULT_STYLE` *and* `config.STYLE_FIELDS`; validation,
   the UI controls, and the CLI flags all derive from it. Presets may only contain style keys.
+- **The default is the product.** `DEFAULT_STYLE` is the data-HUD look (`datahud`); a
+  track with no options must render postable output. New layers default *on*, and every
+  change to the default look gets checked on the real-beat fixtures, not only the
+  synthetic ones. `presets/*.json` (`vgm`) are overrides on top of it. Removed presets go
+  in `config.RETIRED_PRESETS` (they warn and fall back) and removed keys in
+  `RETIRED_STYLE_KEYS`.
 - **Aspects.** 16:9 is always full-length; 9:16 and 1:1 use hooks. Hooks are 30–60 s
   (default 45) and auto-scored; short tracks render full and omit the `_hook` suffix.
 - **Audio.** `loudnorm -14 LUFS`, true peak -1.5 dBTP, then `aresample=48000`. AAC 192k.
@@ -131,9 +137,9 @@ flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
 The data-HUD epic is **#80**; its plan is in `DESIGN.md` §12 (M5). Direction: the
 reactive data-HUD is the *default* look (no options set → ready to post for most
 beats), and features that don't serve it are removed. Done: the engine and spectrum
-layer (#81), overlays above the grade (#86), and the waveform removal (#87). Next: make
-the data-HUD the default and retire `clean`/`punchy`/`balanced`/`auto`
-(#88), then readouts (#82), the schematic background (#83), and clips (#14). Features
+layer (#81), overlays above the grade (#86), the waveform removal (#87), and the
+data-HUD default (#88). Next: readouts (#82), the schematic background (#83), and
+clips (#14), each on by default when it lands. Features
 stop for the user's review before merging. Test on the user's real beats as well as the
 synthetic regression tracks: copy them into the track folder layout under the
 gitignored `fixtures/` and never modify the originals.

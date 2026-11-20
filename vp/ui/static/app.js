@@ -39,6 +39,14 @@ function currentTrack() {
 }
 
 /**
+ * The built-in default preset name, from the server's default style.
+ * @returns {string}
+ */
+function defaultPreset() {
+  return String(state.boot?.defaults?.preset ?? "datahud");
+}
+
+/**
  * Fetch a studio API route and parse its JSON. Callers annotate the result with
  * the matching generated response type (vp/ui/types/studio.d.ts aliases them).
  * @param {string} path
@@ -173,13 +181,13 @@ function makeControl(key, spec, value) {
     for (const name of state.boot.presets || []) {
       sel.add(new Option(name, name));
     }
-    const current = value == null ? "clean" : String(value);
+    const current = value == null ? defaultPreset() : String(value);
     if (![...sel.options].some((option) => option.value === current)) {
       sel.add(new Option(`Custom: ${current}`, current));
     }
     sel.value = current;
     out.textContent = current;
-    sel.addEventListener("change", () => onChange(sel.value || "clean"));
+    sel.addEventListener("change", () => onChange(sel.value || defaultPreset()));
   } else if (spec.type === "texture") {
     el.innerHTML =
       `<header><label>${key}${hint}</label><output></output></header>` +
@@ -523,7 +531,7 @@ async function saveStyle(silent = false) {
 
 async function resetStyle() {
   if (!state.current) return;
-  const preset = state.model.preset || "clean";
+  const preset = state.model.preset || defaultPreset();
   try {
     state.model = await api(`/api/style?preset=${encodeURIComponent(preset)}`);
     renderControls();

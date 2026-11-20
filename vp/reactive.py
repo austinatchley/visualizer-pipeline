@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 from .audio import decode_mono
 from .fonts import load_font, style_faces
@@ -83,11 +83,35 @@ def spectrum_box(size: tuple[int, int], style: dict) -> SpectrumBox:
     width, height = size
     box_w = int(width * 0.88)
     plot_h = max(8, int(height * float(style["spectrum_height"])))
-    label_h = max(6, int(min(width, height) * 0.035))
+    label_h = max(6, int(min(width, height) * 0.04))
     center = float(style["spectrum_y"]) * height
     y = int(round(center - plot_h / 2))
     y = max(0, min(height - plot_h - label_h, y))
     return SpectrumBox((width - box_w) // 2, y, box_w, plot_h, label_h)
+
+
+@dataclass(frozen=True)
+class ClipRect:
+    """The encoded clip in output pixels: the layer box plus the backplate margin."""
+
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+PLATE_ALPHA = 0.75  # plate opacity at backplate = 1.0
+PLATE_RGB = (10, 9, 12)
+
+
+def clip_rect(size: tuple[int, int], box: SpectrumBox, style: dict) -> ClipRect:
+    """Grow the box by the backplate's feather margin, clamped to the frame."""
+    width, height = size
+    pad = int(min(width, height) * 0.05) if float(style["backplate"]) > 0 else 0
+    x0, y0 = max(0, box.x - pad), max(0, box.y - pad)
+    x1 = min(width, box.x + box.width + pad)
+    y1 = min(height, box.y + box.height + pad)
+    return ClipRect(x0, y0, x1 - x0, y1 - y0)
 
 
 def _x_of(freqs: np.ndarray, width: float) -> np.ndarray:
@@ -98,8 +122,12 @@ def _x_of(freqs: np.ndarray, width: float) -> np.ndarray:
 class SpectrumPainter:
     """Draws one spectrum frame at `SUPERSAMPLE`x, then downsamples to the box."""
 
-    def __init__(self, box: SpectrumBox, freqs: np.ndarray, style: dict):
+    def __init__(
+        self, box: SpectrumBox, freqs: np.ndarray, style: dict, clip: ClipRect | None = None
+    ):
         self.box = box
+        self.clip = clip or ClipRect(box.x, box.y, box.width, box.height)
+        self.ox, self.oy = box.x - self.clip.x, box.y - self.clip.y
         self.ss = SUPERSAMPLE
         self.w = box.width * self.ss
         self.h = box.plot_height * self.ss
@@ -112,16 +140,33 @@ class SpectrumPainter:
         self.line_w = max(2, round(self.h / 140))
         self.base = self._base(freqs, style)
 
+    def _plate(self, strength: float) -> Image.Image:
+        """A soft dark plate under the layer so it reads on bright footage (#88)."""
+        clip, box = self.clip, self.box
+        plate = Image.new("RGBA", (clip.width, clip.height), (*PLATE_RGB, 0))
+        if strength <= 0:
+            return plate
+        feather = max(1, min(clip.width - box.width, clip.height - box.height) // 2)
+        mask = Image.new("L", (clip.width, clip.height), 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (self.ox, self.oy, self.ox + box.width - 1, self.oy + box.height - 1),
+            radius=feather,
+            fill=round(255 * min(1.0, strength) * PLATE_ALPHA),
+        )
+        plate.putalpha(mask.filter(ImageFilter.GaussianBlur(feather * 0.6)))
+        return plate
+
     def _base(self, freqs: np.ndarray, style: dict) -> Image.Image:
-        """Static parts: faint baseline and frequency labels (full box, 1x)."""
-        img = Image.new("RGBA", (self.box.width, self.box.height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
+        """Static parts: backplate, baseline and frequency labels (full clip, 1x)."""
+        img = self._plate(float(style["backplate"]))
+        layer = Image.new("RGBA", (self.box.width, self.box.height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(layer)
         _, meta_face = style_faces(style)
-        font = load_font(meta_face, max(6, int(self.box.label_height * 0.62)))
+        font = load_font(meta_face, max(6, int(self.box.label_height * 0.78)))
         lo, hi = math.log(freqs[0]), math.log(freqs[-1])
         draw.line(
             [(0, self.box.plot_height - 1), (self.box.width - 1, self.box.plot_height - 1)],
-            fill=(220, 210, 210, 70),
+            fill=(220, 210, 210, 120),
             width=1,
         )
         for hz in AXIS_TICKS:
@@ -131,7 +176,8 @@ class SpectrumPainter:
             label = f"{hz / 1000:g}k" if hz >= 1000 else str(hz)
             text_w = draw.textlength(label, font=font)
             tx = min(max(0, x - text_w / 2), self.box.width - text_w)
-            draw.text((tx, self.box.plot_height + 2), label, font=font, fill=(200, 190, 190, 160))
+            draw.text((tx, self.box.plot_height + 2), label, font=font, fill=(236, 230, 226, 225))
+        img.alpha_composite(layer, dest=(self.ox, self.oy))
         return img
 
     def _points(self, levels: np.ndarray) -> list[tuple[float, float]]:
@@ -148,7 +194,7 @@ class SpectrumPainter:
         draw.line(main_pts, fill=self.main_rgba, width=self.line_w + 1, joint="curve")
         plot = plot.resize((self.box.width, self.box.plot_height), Image.Resampling.BOX)
         out = self.base.copy()
-        out.alpha_composite(plot)
+        out.alpha_composite(plot, dest=(self.ox, self.oy))
         return out
 
 
@@ -257,12 +303,13 @@ def render_reactive(
     fps = int(style["fps"])
     data = compute_spectrum(audio, window, fps)
     box = spectrum_box(size, style)
-    painter = SpectrumPainter(box, data.freqs, style)
+    clip = clip_rect(size, box, style)
+    painter = SpectrumPainter(box, data.freqs, style, clip)
     n = len(data.main)
     workers = default_workers() if workers is None else workers
 
     proc = subprocess.Popen(
-        encode_command(out, (box.width, box.height), fps),
+        encode_command(out, (clip.width, clip.height), fps),
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -286,4 +333,4 @@ def render_reactive(
         proc.kill()
         proc.wait()
         raise
-    return ReactiveClip(out, box.x, box.y)
+    return ReactiveClip(out, clip.x, clip.y)

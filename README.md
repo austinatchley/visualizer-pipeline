@@ -87,7 +87,7 @@ Everything is optional. Only include what differs from the defaults.
   "audio": "audio.wav",
   "images": ["images/01.jpg", "images/02.jpg", "images/03.jpg"],
   "style": {
-    "preset": "clean",
+    "preset": "datahud",
     "beats_per_cut": 8,
     "crossfade": 0.35,
     "zoom": 0.10,
@@ -119,7 +119,7 @@ Everything is optional. Only include what differs from the defaults.
 
 | Key | Default | Notes |
 |---|---|---|
-| `preset` | `clean` | `clean`, `punchy`, `balanced`, `vgm`, or `auto` (picks `clean`/`punchy` from the audio) |
+| `preset` | `datahud` | `datahud` (the default look) or `vgm`. Retired names (`clean`, `punchy`, `balanced`, `auto`) fall back to `datahud` with a warning |
 | `beats_per_cut` | `8` | Base interval; energy-reactive cuts scale it |
 | `crossfade` | `0.35` | Seconds; clamped to 40% of the shortest segment |
 | `fade_in` | `0.4` | Seconds of fade from black + audio fade-in at the start; `0` = off |
@@ -127,12 +127,13 @@ Everything is optional. Only include what differs from the defaults.
 | `zoom` | `0.10` | Ken Burns amount (`1.0 → 1.1`) |
 | `fps` | `30` | `24`, `30`, or `60` |
 | `supersample` | `2` | Pre-zoom upscale factor (1–4); higher = sharper/slower |
-| `contrast` | `1.0` | Luma contrast (`0.5–2.0`); `punchy` uses `1.15` |
-| `saturation` | `1.0` | Color saturation (`0–2`); `0` renders true monochrome |
-| `beat_punch` | `0.0` | Extra zoom at each cut/downbeat that decays (`0–0.3`) |
-| `color_punch` | `0.0` | Saturation spike at each cut that decays over ~0.3s (`0–1`); baseline follows energy |
-| `vignette` | `0.0` | Edge darkening strength (`0–1`); `0` = off |
-| `grain` | `0.0` | Film-grain amount (`0–1`); `0` = off, fixed seed |
+| `contrast` | `1.0` | Luma contrast (`0.5–2.0`) |
+| `saturation` | `1.0` | Color saturation (`0–2`); `0` renders true monochrome (and scales `color_punch` down with it) |
+| `beat_punch` | `0.06` | Extra zoom at each cut/downbeat that decays (`0–0.3`) |
+| `color_punch` | `0.2` | Saturation spike at each cut that decays over ~0.3s (`0–1`); baseline follows energy |
+| `dim` | `0.15` | Darken the footage under the overlays (`0–0.6`); scales toward black, so bright skies drop most |
+| `vignette` | `0.25` | Edge darkening strength (`0–1`); `0` = off |
+| `grain` | `0.15` | Luma film-grain amount (`0–1`); `0` = off, fixed seed |
 | `texture` | `null` | Texture name from `textures/` (or a custom image path) |
 | `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
 | `title_font` | system Arial Bold | Path to a `.ttf`; overrides `font` |
@@ -150,25 +151,23 @@ Everything is optional. Only include what differs from the defaults.
 | `watermark_width` | `0.95` | Watermark width as a fraction of frame width |
 | `watermark_stroke` | `0.06` | Watermark outline thickness as a fraction of font size |
 | `watermark_x` / `watermark_y` | `0.0` | Watermark offset (`-1..1`; `0` = center, magnitude bleeds off-frame) |
-| `spectrum` | `false` | Music-reactive spectrum analyzer layer (log-frequency curve with trailing lines), drawn per frame. Adds a drawing pass: roughly +35% render time |
+| `spectrum` | `true` | Music-reactive spectrum analyzer layer (log-frequency curve with trailing lines), drawn per frame. Adds a drawing pass: roughly +35% render time |
 | `spectrum_height` | `0.22` | Plot height as a fraction of frame height (`0.05–0.6`) |
 | `spectrum_y` | `0.5` | Plot vertical center as a fraction of frame height (`0–1`) |
+| `backplate` | `0.6` | Soft dark plate behind the reactive layers so they read on bright images (`0–1`); `0` = off |
 | `accent_color` | `#d9708f` | Accent for reactive layers (`#rrggbb`); the studio shows a color picker |
 
-Presets only set style keys and can be overridden per-track or per-command:
+The defaults *are* the look: a track with no `style` renders the **data-HUD**
+(`datahud`). The footage is dimmed and graded underneath, and a music-reactive
+spectrum sits on a soft backplate, with crisp text on top. It aims to be ready to post
+for most beats without changes. Every key above is a knob for tuning to taste.
 
-- **`clean`** — the v1 defaults: calm Ken Burns, energy-reactive crossfades.
-- **`punchy`** — shorter cuts, a decaying scale punch on each downbeat, higher contrast.
-- **`balanced`** — a middle ground between the two.
-- **`vgm`** — graded held footage with a giant translucent `VGM` watermark:
-  `grade: sunset`, `show_title: false`, `watermark: true`, `grain: 0.08`,
-  `vignette: 0.2`.
+Presets are style overrides layered on the defaults, and can themselves be overridden
+per track or per command:
 
-Set `style.preset: "auto"` (or `--preset auto`) to let the audio pick the look:
-loud, dynamic, fast tracks map to `punchy`; calmer tracks map to `clean`. The choice is
-deterministic and shown by `vp inspect`; an explicit preset always wins over `auto`. Any
-style value you set yourself (in `track.json` or as a flag) is kept on top of the chosen
-preset, even if it equals the default.
+- **`vgm`** — the data-HUD with a sunset grade and a giant translucent `VGM`
+  watermark instead of the title: `grade: sunset`, `show_title: false`,
+  `watermark: true`, `grain: 0.08`, `vignette: 0.2`.
 
 ### Fonts
 

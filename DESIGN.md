@@ -13,7 +13,8 @@ YouTube without editing every track by hand. The pipeline must be:
 - **Cheap per track** — a new beat needs a folder and 3 images, nothing else.
 - **Aspect-native** — one edit, rendered as 16:9 full and 9:16 / 1:1 short hooks.
 - **Musical** — cuts and motion are keyed to the beat and to the track's energy.
-- **Vibe-aware** — the look can follow the music (presets per track now, auto later).
+- **Ready by default** — with no options set, the data-HUD look should be postable for
+  most beats; settings are for tuning, not required setup (#88).
 
 Non-goal (v1): a timeline editor, real-time/live visuals, generated imagery.
 
@@ -62,7 +63,7 @@ Rules:
   "audio": "audio.wav",
   "images": ["images/01.jpg", "images/02.jpg", "images/03.jpg"],
   "style": {
-    "preset": "clean",
+    "preset": "datahud",
     "beats_per_cut": 8,
     "crossfade": 0.35,
     "zoom": 0.10,
@@ -217,16 +218,14 @@ Layers, bottom to top:
 Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfade cuts +
 `beat_punch` + title fade. This is what makes it look intentional instead of random.
 
-**Presets and vibe.** `clean`, `punchy`, and `balanced` ship in `presets/*.json`, and
-`style.preset` lets each track pick a look. Style keys are declared once in
-`config.STYLE_FIELDS`; validation and the UI controls both read it, so new keys appear
-everywhere automatically. `style.preset: "auto"` maps the beatmap's tempo, energy
-mean/variance, and transient balance to `clean` or `punchy` deterministically
-(`vp/vibe.py`, #19); explicit presets always win over `auto`, and `vp inspect` reports the
-chosen preset. The chosen preset is re-resolved under the track's explicit values
-(`Track.style_explicit`: track.json `style` + flags), so pinned values survive even when
-they equal a default (#46). Studio jobs send a full style model, so there values that
-differ from the defaults count as explicit.
+**Default look and presets.** `DEFAULT_STYLE` *is* the data-HUD look (`datahud`, #88):
+`dim`, a light vignette, luma grain, small beat and color punches, the spectrum layer on a
+`backplate`, and the title HUD. `presets/*.json` hold overrides layered on top of it;
+`vgm` is the one variant. Style keys are declared once in `config.STYLE_FIELDS`;
+validation and the UI controls both read it, so new keys appear everywhere
+automatically. The `clean`/`punchy`/`balanced` presets and the audio-picked `auto`
+(#19) were retired in #88: `config.RETIRED_PRESETS` maps them to the default with a
+warning, so older manifests keep rendering.
 
 **Typography.** `vp/fonts.py` is the bundled OFL face registry (Redaction 50, Tiny5 Duo,
 Pixelify Sans, Silkscreen, Syne, Instrument Serif, Anton) plus the system `clean`
@@ -360,7 +359,7 @@ visualizer-pipeline/
     ui/                       # local web studio
       server.py  static/
   presets/
-    clean.json  punchy.json  balanced.json
+    vgm.json                  # overrides on the built-in datahud default
   textures/                   # starter texture library + picker choices
   tests/
     test_config.py  test_plan.py  test_analyze.py  test_windows.py
@@ -406,8 +405,10 @@ visualizer-pipeline/
 
 ## 11. Decisions (locked, status updated post-v1)
 
-- **D1 — Visual preset.** Shipped: `clean`, `punchy`, and `balanced` presets with
-  per-track `style.preset`, plus deterministic vibe-aware `auto` selection (#19).
+- **D1 — Visual preset.** Revised in #88: the data-HUD look is the default
+  (`DEFAULT_STYLE`, preset name `datahud`), and `vgm` is the one variant. The earlier
+  `clean`/`punchy`/`balanced` presets and `auto` are retired, and their names fall back to
+  the default with a warning.
 - **D2 — Cut strategy.** Energy-reactive: hold through low-energy sections, cut faster on
   high-energy/drops. Fixed interval is the fallback and `overrides.cuts` is the escape
   hatch.
@@ -426,9 +427,8 @@ visualizer-pipeline/
 - **D11 — Length/versioning.** 16:9 is the full track; 9:16 and 1:1 are 30–60 s hooks
   (default 45 s), auto-selected or manually overridden.
 - **D12 — Formats.** 9:16, 1:1, and 16:9 at 30 fps.
-- **D13 — Vibe tailoring.** Per-track presets plus deterministic `style.preset: "auto"`
-  (#19): tempo band, energy mean/variance, and transient balance map to `clean`/`punchy`;
-  explicit presets always win.
+- **D13 — Vibe tailoring.** Retired with `auto` in #88. The music shapes the look
+  through the reactive layers and energy-reactive cuts instead of a preset switch.
 - **D14 — Color/effects.** `contrast`, `saturation`, `beat_punch`, `color_punch`,
   `vignette`, `grain`, `texture`, and `texture_blend` shipped via `config.STYLE_FIELDS`.
   The `textures/` library feeds a studio dropdown; relative names resolve through
@@ -485,15 +485,14 @@ visualizer-pipeline/
   frame. We borrow the instrument-readout genre, not any artist's template. Features
   that don't serve this look are removed. Done: the reactive overlay engine and the
   spectrum analyzer (#81); overlays composite above the grade (#86); the scrolling
-  waveform is removed (#87). Next, one PR each, in order:
-  1. **Data-HUD by default (#88):** the default style becomes a dimmed, graded base with
-     the spectrum and crisp overlays, tuned on the user's real beats. Retire the
-     `clean`/`punchy`/`balanced` presets and `--preset auto`; `vgm` stays as the variant.
-  2. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
+  waveform is removed (#87); the data-HUD is the default, with `dim`, a spectrum
+  `backplate`, luma grain, and the old presets and `auto` retired (#88). Next, one PR
+  each, in order:
+  1. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
      beatmap; bump `ANALYSIS_VERSION`), peak-note callouts on the spectrum, band meters,
      and beat/downbeat indicators, on by default. Bundle an OFL monospace font for them.
-  3. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
+  2. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
      on beats and energy, on by default.
-  4. **Video clips as segments (#14).**
+  3. **Video clips as segments (#14).**
   After the epic: multiple hook windows (#52), the posting kit (#53), and section
   detection (#11; the regression tracks show the intro → verse change gets no cut).

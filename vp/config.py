@@ -13,8 +13,17 @@ ANALYSIS_VERSION = 3
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PRESETS_DIR = PROJECT_ROOT / "presets"
 
+# The default look is the data-HUD (#88): a dimmed, graded base under crisp,
+# music-reactive overlays. It lives in DEFAULT_STYLE itself, so every preset
+# file is a set of overrides on top of it.
+DEFAULT_PRESET = "datahud"
+
+# Presets that were removed. A manifest that names one renders the default
+# look with a warning instead of failing (#88).
+RETIRED_PRESETS = {"clean", "punchy", "balanced", "auto"}
+
 DEFAULT_STYLE = {
-    "preset": "clean",
+    "preset": DEFAULT_PRESET,
     "beats_per_cut": 8,
     "crossfade": 0.35,
     "fade_in": 0.4,
@@ -30,10 +39,11 @@ DEFAULT_STYLE = {
     "supersample": 2,
     "contrast": 1.0,
     "saturation": 1.0,
-    "beat_punch": 0.0,
-    "color_punch": 0.0,
-    "vignette": 0.0,
-    "grain": 0.0,
+    "beat_punch": 0.06,
+    "color_punch": 0.2,
+    "dim": 0.15,
+    "vignette": 0.25,
+    "grain": 0.15,
     "texture": None,
     "texture_blend": "multiply",
     "grade": "none",
@@ -46,9 +56,10 @@ DEFAULT_STYLE = {
     "watermark_stroke": 0.06,
     "watermark_x": 0.0,
     "watermark_y": 0.0,
-    "spectrum": False,
+    "spectrum": True,
     "spectrum_height": 0.22,
     "spectrum_y": 0.5,
+    "backplate": 0.6,
     "accent_color": "#d9708f",
 }
 
@@ -167,6 +178,13 @@ STYLE_FIELDS: dict[str, dict] = {
         "step": 0.01,
         "help": "Saturation boost at each cut that decays (~0.3s); 0 = off",
     },
+    "dim": {
+        "type": "float",
+        "min": 0.0,
+        "max": 0.6,
+        "step": 0.01,
+        "help": "Darken the footage under the overlays (0 = off)",
+    },
     "vignette": {
         "type": "float",
         "min": 0.0,
@@ -259,6 +277,13 @@ STYLE_FIELDS: dict[str, dict] = {
         "step": 0.01,
         "help": "Spectrum vertical center as a fraction of frame height",
     },
+    "backplate": {
+        "type": "float",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.05,
+        "help": "Soft dark plate behind the reactive layers so they read on bright images; 0 = off",
+    },
     "accent_color": {
         "type": "color",
         "help": "Accent color for reactive layers (#rrggbb)",
@@ -287,10 +312,19 @@ _HOOK_KEYS = set(DEFAULT_HOOK)
 _OVERRIDE_KEYS = set(DEFAULT_OVERRIDES)
 
 
+def preset_names() -> list[str]:
+    """Selectable presets: the built-in default, then every presets/*.json."""
+    return [DEFAULT_PRESET] + sorted(
+        p.stem for p in PRESETS_DIR.glob("*.json") if p.stem != DEFAULT_PRESET
+    )
+
+
 def load_preset(name: str) -> dict:
+    if name == DEFAULT_PRESET:
+        return {}  # the default look is DEFAULT_STYLE itself
     path = PRESETS_DIR / f"{name}.json"
     if not path.is_file():
-        available = sorted(p.stem for p in PRESETS_DIR.glob("*.json"))
+        available = preset_names()
         raise ValueError(f"unknown preset {name!r}; available: {', '.join(available) or '(none)'}")
     data = json.loads(path.read_text())
     if not isinstance(data, dict):
@@ -374,13 +408,12 @@ def _validate_style(style: dict) -> dict:
     return style
 
 
-def _drop_retired(track_style: dict | None, warn: bool = True) -> dict:
+def _drop_retired(track_style: dict | None) -> dict:
     style = dict(track_style or {})
     for key, reason in RETIRED_STYLE_KEYS.items():
         if key in style:
             del style[key]
-            if warn:
-                warnings.warn(f"ignoring style.{key}: {reason}", UserWarning, stacklevel=3)
+            warnings.warn(f"ignoring style.{key}: {reason}", UserWarning, stacklevel=3)
     return style
 
 
@@ -397,9 +430,14 @@ def resolve_style(
         raise ValueError(f"unknown style keys in track.json: {sorted(unknown)}")
 
     name = preset or flags.get("preset") or track_style.get("preset") or DEFAULT_STYLE["preset"]
-    # `auto` is resolved to a concrete preset once the beatmap exists (issue #19);
-    # until then it resolves over the neutral defaults so `load_track` works.
-    preset_data = {} if name == "auto" else load_preset(name)
+    if name in RETIRED_PRESETS:
+        warnings.warn(
+            f"preset {name!r} was retired; using the default {DEFAULT_PRESET!r} look",
+            UserWarning,
+            stacklevel=2,
+        )
+        name = DEFAULT_PRESET
+    preset_data = load_preset(name)
     style_flags = {
         k: v for k, v in flags.items() if k in _STYLE_KEYS and k != "preset" and v is not None
     }
@@ -410,25 +448,6 @@ def resolve_style(
     style.update(style_flags)
     style["preset"] = name
     return _validate_style(style)
-
-
-def explicit_style(track_style: dict | None = None, flags: dict | None = None) -> dict:
-    """The style values a user set explicitly (track.json `style` + CLI flags),
-    excluding `preset`. Lets `auto` re-resolve over the chosen preset without
-    losing explicit values that happen to equal a default (issue #46)."""
-    explicit = {
-        k: v
-        for k, v in _drop_retired(track_style, warn=False).items()
-        if k in _STYLE_KEYS and k != "preset" and v is not None
-    }
-    explicit.update(
-        {
-            k: v
-            for k, v in (flags or {}).items()
-            if k in _STYLE_KEYS and k != "preset" and v is not None
-        }
-    )
-    return explicit
 
 
 def resolve_hook(

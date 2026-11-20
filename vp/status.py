@@ -3,7 +3,7 @@
 A render is skipped only when its *fingerprint* matches the one recorded in the
 sidecar written next to the output after the last successful render. The
 fingerprint covers everything that determines the output bytes: the resolved
-style (after preset and `auto` resolution), HUD text, aspect, window, preview
+style (after preset resolution), HUD text, aspect, window, preview
 flag, cut overrides, the beatmap, the identity of every input file (audio,
 images, texture, fonts), and the renderer version.
 
@@ -22,9 +22,8 @@ from pathlib import Path
 from . import __version__
 from .fonts import resolve_face, style_faces
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
-from .vibe import finalize_auto_style
 
-RENDER_VERSION = 3
+RENDER_VERSION = 4
 SIDECAR_SUFFIX = ".vp.json"
 
 
@@ -62,7 +61,6 @@ def render_fingerprint(
     textures_dir: str | Path = DEFAULT_TEXTURES_DIR,
 ) -> str:
     """Stable sha256 of everything that determines a render's output."""
-    finalize_auto_style(track, beatmap)
     style = track.style
     payload = {
         "render_version": RENDER_VERSION,

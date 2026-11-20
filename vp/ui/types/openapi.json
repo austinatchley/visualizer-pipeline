@@ -1280,7 +1280,7 @@
           "preset": {
             "type": "string",
             "title": "Preset",
-            "default": "clean"
+            "default": "datahud"
           },
           "beats_per_cut": {
             "type": "integer",
@@ -1411,22 +1411,27 @@
           "beat_punch": {
             "type": "number",
             "title": "Beat Punch",
-            "default": 0.0
+            "default": 0.06
           },
           "color_punch": {
             "type": "number",
             "title": "Color Punch",
-            "default": 0.0
+            "default": 0.2
+          },
+          "dim": {
+            "type": "number",
+            "title": "Dim",
+            "default": 0.15
           },
           "vignette": {
             "type": "number",
             "title": "Vignette",
-            "default": 0.0
+            "default": 0.25
           },
           "grain": {
             "type": "number",
             "title": "Grain",
-            "default": 0.0
+            "default": 0.15
           },
           "texture": {
             "anyOf": [
@@ -1530,7 +1535,7 @@
           "spectrum": {
             "type": "boolean",
             "title": "Spectrum",
-            "default": false
+            "default": true
           },
           "spectrum_height": {
             "type": "number",
@@ -1541,6 +1546,11 @@
             "type": "number",
             "title": "Spectrum Y",
             "default": 0.5
+          },
+          "backplate": {
+            "type": "number",
+            "title": "Backplate",
+            "default": 0.6
           },
           "accent_color": {
             "type": "string",

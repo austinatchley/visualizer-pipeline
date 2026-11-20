@@ -122,7 +122,7 @@ def test_style_fields_cover_defaults():
 def test_boot_endpoint(client):
     data = client.get("/api/boot").json()
     assert set(data["fields"]) == set(data["defaults"])
-    assert "clean" in data["presets"]
+    assert data["presets"][0] == "datahud"
     assert "vertical" in data["aspects"]
     assert data["textures"] == [{"path": "grain.png", "label": "Grain"}]
     assert data["fields"]["texture"]["type"] == "texture"
@@ -148,7 +148,7 @@ def test_list_and_detail(client):
 def test_save_style_writes_minimal_diff(client):
     res = client.post(
         "/api/tracks/demo_track/style",
-        json={"style": resolve_style({"zoom": 0.2, "preset": "clean"})},
+        json={"style": resolve_style({"zoom": 0.2, "preset": "datahud"})},
     )
     assert res.status_code == 200
     saved = res.json()["saved"]
@@ -162,20 +162,20 @@ def test_save_style_writes_minimal_diff(client):
 def test_save_style_rejects_invalid(client):
     res = client.post(
         "/api/tracks/demo_track/style",
-        json={"style": {"contrast": 5.0, "preset": "clean"}},
+        json={"style": {"contrast": 5.0, "preset": "datahud"}},
     )
     assert res.status_code == 400
 
 
 def test_save_style_accepts_library_texture(client):
-    style = resolve_style({"preset": "clean", "texture": "grain.png"})
+    style = resolve_style({"preset": "datahud", "texture": "grain.png"})
     res = client.post("/api/tracks/demo_track/style", json={"style": style})
     assert res.status_code == 200, res.text
     assert res.json()["saved"].get("texture") == "grain.png"
 
 
 def test_unknown_texture_is_rejected(client):
-    style = {"preset": "clean", "texture": "missing.png"}
+    style = {"preset": "datahud", "texture": "missing.png"}
     res = client.post("/api/tracks/demo_track/style", json={"style": style})
     assert res.status_code == 400
     assert "unknown texture" in res.json()["detail"]
@@ -196,7 +196,7 @@ def test_unknown_texture_is_rejected(client):
 
 
 def test_preview_with_spectrum_does_not_break(client):
-    style = {"preset": "punchy", "spectrum": True, "contrast": 1.1}
+    style = {"preset": "vgm", "spectrum": True, "contrast": 1.1}
     res = client.post(
         "/api/tracks/demo_track/preview",
         json={"aspect": "horizontal", "style": style},
@@ -211,7 +211,7 @@ def test_preview_with_library_texture(client):
         "/api/tracks/demo_track/preview",
         json={
             "aspect": "vertical",
-            "style": {"preset": "clean", "texture": "grain.png"},
+            "style": {"preset": "datahud", "texture": "grain.png"},
         },
     )
     assert res.status_code == 200, res.text
@@ -222,7 +222,7 @@ def test_preview_with_library_texture(client):
 def test_preview_renders_short_no_audio(client):
     res = client.post(
         "/api/tracks/demo_track/preview",
-        json={"aspect": "vertical", "style": resolve_style({"preset": "punchy"})},
+        json={"aspect": "vertical", "style": resolve_style({"preset": "vgm"})},
     )
     assert res.status_code == 200
     url = res.json()["url"]
@@ -256,7 +256,7 @@ def test_preview_renders_all_aspects(client):
         "/api/tracks/demo_track/preview",
         json={
             "aspects": ["vertical", "square", "horizontal"],
-            "style": {"preset": "clean"},
+            "style": {"preset": "datahud"},
         },
     )
     assert res.status_code == 200
@@ -270,7 +270,7 @@ def test_preview_renders_all_aspects(client):
 def test_preview_rejects_unknown_aspect_in_list(client):
     res = client.post(
         "/api/tracks/demo_track/preview",
-        json={"aspects": ["vertical", "bogus"], "style": {"preset": "clean"}},
+        json={"aspects": ["vertical", "bogus"], "style": {"preset": "datahud"}},
     )
     assert res.status_code == 400
 
@@ -312,7 +312,7 @@ def _wait_job(client, job_id, timeout=40.0):
 
 
 def test_render_job_lifecycle_and_skip(client):
-    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    body = {"aspect": "vertical", "style": {"preset": "datahud"}, "preview": True}
     job1 = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
     assert job1["status"] == "done", job1.get("error")
     assert job1["url"]
@@ -324,11 +324,11 @@ def test_render_job_lifecycle_and_skip(client):
 
 def test_render_job_rerenders_when_style_changes(client):
     """Issue #40: a job with an unsaved style change must not be skipped."""
-    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    body = {"aspect": "vertical", "style": {"preset": "datahud"}, "preview": True}
     job1 = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
     assert job1["status"] == "done", job1.get("error")
 
-    body["style"] = {"preset": "clean", "zoom": 0.2}
+    body["style"] = {"preset": "datahud", "zoom": 0.2}
     job2 = _wait_job(client, client.post("/api/tracks/demo_track/render", json=body).json()["id"])
     assert job2["status"] == "done", job2.get("error")
 
@@ -349,7 +349,7 @@ def test_job_url_hidden_until_complete(client):
 def test_render_job_accepts_library_texture(client):
     body = {
         "aspect": "vertical",
-        "style": {"preset": "clean", "texture": "grain.png"},
+        "style": {"preset": "datahud", "texture": "grain.png"},
         "preview": True,
     }
     job = _wait_job(
@@ -368,7 +368,7 @@ def test_render_job_failed_reports_error(client):
 
 
 def test_cancel_job_endpoint(client):
-    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    body = {"aspect": "vertical", "style": {"preset": "datahud"}, "preview": True}
     job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
     res = client.post(f"/api/jobs/{job_id}/cancel")
     assert res.status_code == 200
@@ -377,7 +377,7 @@ def test_cancel_job_endpoint(client):
 
 
 def test_cancel_pending_job_is_immediate(client):
-    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": True}
+    body = {"aspect": "vertical", "style": {"preset": "datahud"}, "preview": True}
     _preview_lock.acquire()
     try:
         job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
@@ -591,13 +591,13 @@ def test_ab_preview_jobs_render_distinct_files(client):
         assert job["status"] in ("done", "skipped"), job.get("error")
         return job["url"]
 
-    url_a = run({"preset": "clean"})
-    url_b = run({"preset": "punchy"})
+    url_a = run({"preset": "datahud"})
+    url_b = run({"preset": "vgm"})
     assert url_a != url_b
     for url in (url_a, url_b):
         assert (out / url.removeprefix("/api/files/")).is_file()
 
-    assert run({"preset": "clean"}) == url_a  # same look reuses its clip
+    assert run({"preset": "datahud"}) == url_a  # same look reuses its clip
     after = sorted(exports.rglob("*")) if exports.exists() else []
     assert after == before
 
@@ -684,12 +684,12 @@ def test_preview_not_blocked_by_running_export(client):
         res = _run_with_timeout(
             lambda: client.post(
                 "/api/tracks/demo_track/preview",
-                json={"aspect": "vertical", "style": {"preset": "clean"}},
+                json={"aspect": "vertical", "style": {"preset": "datahud"}},
             )
         )
         assert res.status_code == 200, res.text
 
-        body = {"aspect": "vertical", "style": {"preset": "clean", "zoom": 0.3}, "preview": True}
+        body = {"aspect": "vertical", "style": {"preset": "datahud", "zoom": 0.3}, "preview": True}
         job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
         job = _run_with_timeout(lambda: _wait_job(client, job_id))
         assert job["status"] == "done", job.get("error")
@@ -699,7 +699,7 @@ def test_preview_not_blocked_by_running_export(client):
 
 def test_export_job_waits_for_export_lane(client):
     """Exports still run one at a time."""
-    body = {"aspect": "vertical", "style": {"preset": "clean"}, "preview": False}
+    body = {"aspect": "vertical", "style": {"preset": "datahud"}, "preview": False}
     _export_lock.acquire()
     try:
         job_id = client.post("/api/tracks/demo_track/render", json=body).json()["id"]
