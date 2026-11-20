@@ -85,4 +85,4 @@ jobs:
         run: python scripts/make_fixtures.py
 
       - name: Run tests
-        run: pytest -q
+        run: pytest -q --durations=10

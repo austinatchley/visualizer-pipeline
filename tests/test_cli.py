@@ -9,6 +9,8 @@ FIXTURES = ROOT / "fixtures"
 SHORT = FIXTURES / "d_short"
 LONG = FIXTURES / "a_landscape"
 
+pytestmark = pytest.mark.usefixtures("small_exports")
+
 
 def _require(path: Path) -> None:
     if not path.is_dir():

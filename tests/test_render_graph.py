@@ -178,3 +178,12 @@ def test_graph_is_well_formed(name):
     has_audio = "[aout]" in graph
     assert has_audio is (not preview)
     assert ("-c:a" in cmd) is has_audio
+
+
+def test_full_res_output_sizes():
+    """E2E tests export at preview size (`small_exports`); deliverable sizes live here."""
+    from vp.aspects import ASPECTS
+
+    assert output_size(ASPECTS["vertical"]) == (1080, 1920)
+    assert output_size(ASPECTS["square"]) == (1080, 1080)
+    assert output_size(ASPECTS["horizontal"]) == (1920, 1080)
