@@ -20,9 +20,9 @@ from .reactive import (
     ReactiveCancelled,
     ReactiveClip,
     render_reactive,
-    spectrum_box,
     wants_reactive,
 )
+from .readouts import ReadoutPainter, wants_readouts
 from .schematic import draw_linework, seed_for
 from .schematic import generate as generate_schematic
 from .status import invalidate, record, render_fingerprint
@@ -211,18 +211,15 @@ def output_size(aspect: Aspect, preview: bool = False) -> tuple[int, int]:
     return aspect.width, aspect.height
 
 
-TITLE_CLEARANCE = 0.06  # of the short side: room for note callouts above the plot
+TITLE_GAP = 0.035  # of the short side: space between the readout strip and the title
 
 
-def title_bottom(style: dict, size: tuple[int, int]) -> int | None:
-    """Where the title block must end to clear a spectrum in the lower half of
-    the frame (#98), or None when the spectrum is off or higher up."""
-    if not style["spectrum"]:
+def title_top(style: dict, size: tuple[int, int]) -> int | None:
+    """The title starts just below the readout strip (#98); None (the layout's
+    default, the strip's top) when the readouts are off."""
+    if not wants_readouts(style):
         return None
-    box = spectrum_box(size, style)
-    if box.y + box.height / 2 <= size[1] / 2:
-        return None
-    return box.y - round(min(size) * TITLE_CLEARANCE)
+    return ReadoutPainter(size, style, {}).bottom + round(min(size) * TITLE_GAP)
 
 
 def prepare_assets(
@@ -253,7 +250,7 @@ def prepare_assets(
         line_spacing=float(style["line_spacing"]),
         show_title=bool(style["show_title"]),
         overlay=vgm_img,
-        block_bottom=title_bottom(style, size),
+        top=title_top(style, size),
     )
 
     texture = None

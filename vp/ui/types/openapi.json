@@ -1346,7 +1346,7 @@
               "mono"
             ],
             "title": "Font",
-            "default": "clean"
+            "default": "redaction"
           },
           "meta_font": {
             "type": "string",

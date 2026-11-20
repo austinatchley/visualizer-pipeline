@@ -31,7 +31,7 @@ DEFAULT_STYLE = {
     "zoom": 0.10,
     "fps": 30,
     "title_font": None,
-    "font": "clean",
+    "font": "redaction",
     "meta_font": "auto",
     "text_case": "preserve",
     "tracking": 0.0,

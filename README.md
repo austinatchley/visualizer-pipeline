@@ -137,7 +137,7 @@ Everything is optional. Only include what differs from the defaults.
 | `texture` | `null` | Texture name from `textures/` (or a custom image path) |
 | `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
 | `title_font` | system Arial Bold | Path to a `.ttf`; overrides `font` |
-| `font` | `clean` | Bundled face: `redaction`, `redaction-regular`, `redaction-italic`, `tiny5`, `tiny5-round`, `tiny5-jitter`, `pixelify`, `silkscreen`, `syne`, `instrument`, `anton`, `mono`, or `clean` |
+| `font` | `redaction` | Bundled face: `redaction`, `redaction-regular`, `redaction-italic`, `tiny5`, `tiny5-round`, `tiny5-jitter`, `pixelify`, `silkscreen`, `syne`, `instrument`, `anton`, `mono`, or `clean` |
 | `meta_font` | `auto` | Face for artist/handle; `auto` matches the title |
 | `text_case` | `preserve` | `preserve`, `upper`, or `lower` |
 | `tracking` | `0.0` | Letter spacing in em (`-0.05`–`0.25`) |

@@ -475,7 +475,7 @@ export interface components {
             title_font?: string | null;
             /**
              * Font
-             * @default clean
+             * @default redaction
              * @enum {string}
              */
             font: "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton" | "mono";
