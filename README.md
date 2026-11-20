@@ -137,7 +137,7 @@ Everything is optional. Only include what differs from the defaults.
 | `texture` | `null` | Texture name from `textures/` (or a custom image path) |
 | `texture_blend` | `multiply` | `multiply`, `overlay`, `screen`, or `softlight` |
 | `title_font` | system Arial Bold | Path to a `.ttf`; overrides `font` |
-| `font` | `clean` | Bundled face: `redaction`, `redaction-regular`, `redaction-italic`, `tiny5`, `tiny5-round`, `tiny5-jitter`, `pixelify`, `silkscreen`, `syne`, `instrument`, `anton`, or `clean` |
+| `font` | `clean` | Bundled face: `redaction`, `redaction-regular`, `redaction-italic`, `tiny5`, `tiny5-round`, `tiny5-jitter`, `pixelify`, `silkscreen`, `syne`, `instrument`, `anton`, `mono`, or `clean` |
 | `meta_font` | `auto` | Face for artist/handle; `auto` matches the title |
 | `text_case` | `preserve` | `preserve`, `upper`, or `lower` |
 | `tracking` | `0.0` | Letter spacing in em (`-0.05`–`0.25`) |
@@ -156,10 +156,17 @@ Everything is optional. Only include what differs from the defaults.
 | `spectrum_y` | `0.5` | Plot vertical center as a fraction of frame height (`0–1`) |
 | `backplate` | `0.6` | Soft dark plate behind the reactive layers so they read on bright images (`0–1`); `0` = off |
 | `accent_color` | `#d9708f` | Accent for reactive layers (`#rrggbb`); the studio shows a color picker |
+| `show_clock` | `true` | Readout: track position / total (`01:35 / 02:36`) |
+| `show_tempo` | `true` | Readout: BPM and detected key (`99  C# MIN`) |
+| `show_beats` | `true` | Readout: four beat-in-bar cells; the downbeat lights in the accent color |
+| `show_meters` | `true` | Readout: sub / low / mid / high band meters |
+| `show_notes` | `true` | Note callouts (`C#3 138Hz`) on the spectrum's strongest low peaks; needs `spectrum` |
 
 The defaults *are* the look: a track with no `style` renders the **data-HUD**
 (`datahud`). The footage is dimmed and graded underneath, and a music-reactive
-spectrum sits on a soft backplate, with crisp text on top. It aims to be ready to post
+spectrum sits on a soft backplate with note callouts on its peaks. An instrument strip
+across the top shows the clock, beat cells, BPM, key, and band meters in a bundled
+monospace face (JetBrains Mono), with crisp text on top. It aims to be ready to post
 for most beats without changes. Every key above is a knob for tuning to taste.
 
 Presets are style overrides layered on the defaults, and can themselves be overridden
@@ -180,6 +187,7 @@ Bundled under `vp/assets/fonts/` (all SIL OFL, licenses included):
 - **Syne** — ExtraBold experimental geometric
 - **Instrument Serif** — editorial contrast
 - **Anton** — condensed impact
+- **JetBrains Mono** — SemiBold monospace (`mono`); the data readouts always use it
 
 `clean` falls back to system Arial/DejaVu. Set `title_font` to a path to override the
 dropdown for a specific track.

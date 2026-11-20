@@ -122,6 +122,10 @@ Use `librosa` at 22050 Hz mono. Extract:
 - per-beat `energy` (RMS interpolated at beat times, normalized 0–1)
 - bar (4-beat) and phrase (16-beat) energy aggregates, normalized
 - onset novelty per beat (for section/drop detection)
+- musical `key` (#82): mean harmonic CQT chroma matched against Krumhansl-Kessler
+  profiles picks the scale; a major key and its relative minor share one, so the
+  chroma of the first ~4 s of harmony (the opening chord) breaks the tie
+  (`vp/music.py`, weight `OPENING_WEIGHT`). Am-F-C-G reads as A minor, not C major.
 
 Cache to `<track>/.vp/beatmap.json` (BPM-hinted analyses to `beatmap-bpm<N>.json`). The
 beatmap records the audio file's size/mtime (`source`) and `bpm_hint`; it is reused only
@@ -144,7 +148,8 @@ fixture at 140 BPM reads 92.3). Provide `overrides.bpm`, `overrides.tempo_multip
   "beat_energy": [0.12, 0.88, ...],
   "bar_energy": [0.31, 0.74, ...],
   "phrase_energy": [0.28, 0.81, ...],
-  "onset_novelty": [0.05, 0.62, ...]
+  "onset_novelty": [0.05, 0.62, ...],
+  "key": {"tonic": 9, "mode": "minor", "name": "A minor", "confidence": 0.61}
 }
 ```
 
@@ -210,6 +215,12 @@ Layers, bottom to top:
    attack/release ballistics, a short lag trail and a slow peak-hold trail). Frames are
    drawn with Pillow at 2× in the layer's box only, in parallel worker processes, piped
    to a lossless FFV1+alpha clip, and overlaid at the box position before the HUD.
+   Each layer encodes its own clip: the spectrum (with note callouts) and the readout
+   strip (#82, `vp/readouts.py`). Note callouts come from a 16384-point FFT (2.7 Hz bins,
+   parabolic peak refinement, 40–800 Hz) tracked into two slots with hold, fade, and
+   naming hysteresis so labels don't flicker; band meters average the spectrum's display
+   curve per band. Readout state (clock, beat-in-bar, beat flash, band levels) is
+   precomputed per frame, so drawing stays a pure function of the frame index.
 4. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
    Pre-rendered as a transparent PNG with Pillow (Homebrew ffmpeg has no `drawtext`),
    faded in with alpha.
@@ -220,7 +231,7 @@ Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfad
 
 **Default look and presets.** `DEFAULT_STYLE` *is* the data-HUD look (`datahud`, #88):
 `dim`, a light vignette, luma grain, small beat and color punches, the spectrum layer on a
-`backplate`, and the title HUD. `presets/*.json` hold overrides layered on top of it;
+`backplate` with note callouts, the readout strip, and the title HUD. `presets/*.json` hold overrides layered on top of it;
 `vgm` is the one variant. Style keys are declared once in `config.STYLE_FIELDS`;
 validation and the UI controls both read it, so new keys appear everywhere
 automatically. The `clean`/`punchy`/`balanced` presets and the audio-picked `auto`
@@ -486,13 +497,11 @@ visualizer-pipeline/
   that don't serve this look are removed. Done: the reactive overlay engine and the
   spectrum analyzer (#81); overlays composite above the grade (#86); the scrolling
   waveform is removed (#87); the data-HUD is the default, with `dim`, a spectrum
-  `backplate`, luma grain, and the old presets and `auto` retired (#88). Next, one PR
-  each, in order:
-  1. **Readouts (#82):** elapsed / total clock, BPM, detected key (cached in the
-     beatmap; bump `ANALYSIS_VERSION`), peak-note callouts on the spectrum, band meters,
-     and beat/downbeat indicators, on by default. Bundle an OFL monospace font for them.
-  2. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
+  `backplate`, luma grain, and the old presets and `auto` retired (#88); readouts
+  (#82): clock, BPM, detected key, beat cells, band meters, and spectrum note callouts,
+  each with a `show_*` toggle, in bundled JetBrains Mono. Next, one PR each, in order:
+  1. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
      on beats and energy, on by default.
-  3. **Video clips as segments (#14).**
+  2. **Video clips as segments (#14).**
   After the epic: multiple hook windows (#52), the posting kit (#53), and section
   detection (#11; the regression tracks show the intro → verse change gets no cut).

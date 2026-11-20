@@ -106,3 +106,11 @@ def test_analysis_is_deterministic(analyzed):
     again = analyze_audio(audio)
     assert again["tempo"] == beatmap["tempo"]
     assert again["beats"] == beatmap["beats"]
+
+
+@pytest.mark.parametrize("name", SPECS)
+def test_key_is_a_minor(analyzed, name):
+    """The tracks play Am-F-C-G: the same notes as C major, so this checks the
+    relative-minor tie-break on the opening chord (#82)."""
+    _, _, beatmap = analyzed[name]
+    assert beatmap["key"]["name"] == "A minor", f"{name}: detected {beatmap['key']}"

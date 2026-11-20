@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .fonts import FONT_CHOICES
 
-ANALYSIS_VERSION = 3
+ANALYSIS_VERSION = 4  # 4: musical key (#82)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PRESETS_DIR = PROJECT_ROOT / "presets"
@@ -61,6 +61,11 @@ DEFAULT_STYLE = {
     "spectrum_y": 0.5,
     "backplate": 0.6,
     "accent_color": "#d9708f",
+    "show_clock": True,
+    "show_tempo": True,
+    "show_beats": True,
+    "show_meters": True,
+    "show_notes": True,
 }
 
 # Style keys that were removed. Older track.json files may still set them: they
@@ -288,6 +293,14 @@ STYLE_FIELDS: dict[str, dict] = {
         "type": "color",
         "help": "Accent color for reactive layers (#rrggbb)",
     },
+    "show_clock": {"type": "bool", "help": "Readout: elapsed / total track time"},
+    "show_tempo": {"type": "bool", "help": "Readout: BPM and detected musical key"},
+    "show_beats": {"type": "bool", "help": "Readout: beat-in-bar indicator, downbeat in accent"},
+    "show_meters": {"type": "bool", "help": "Readout: sub / low / mid / high band meters"},
+    "show_notes": {
+        "type": "bool",
+        "help": "Note callouts on the spectrum's strongest low peaks (needs spectrum)",
+    },
 }
 
 DEFAULT_HOOK = {
@@ -349,6 +362,17 @@ def _coerce_choice(value, choices) -> object:
         except (TypeError, ValueError):
             return value
     return value
+
+
+def parse_color(value: str) -> tuple[int, int, int]:
+    """`#rrggbb` (or `rrggbb`) to an RGB tuple; raises ValueError otherwise."""
+    text = str(value).strip().removeprefix("#")
+    if len(text) != 6:
+        raise ValueError(f"color must be #rrggbb, got {value!r}")
+    try:
+        return int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16)
+    except ValueError:
+        raise ValueError(f"color must be #rrggbb, got {value!r}") from None
 
 
 def _normalize_color(value) -> str:
