@@ -17,6 +17,8 @@ from .fonts import style_faces
 from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import Plan, full_window, plan_timeline, preview_slice, select_hook
 from .reactive import ReactiveCancelled, ReactiveClip, render_reactive, wants_reactive
+from .schematic import draw_linework, seed_for
+from .schematic import generate as generate_schematic
 from .status import invalidate, record, render_fingerprint
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 from .track import Track
@@ -169,6 +171,7 @@ class RenderAssets:
 
     hud: Path
     texture: Path | None = None  # already cover-cropped to the output size
+    schematic: Path | None = None  # static circuit linework, full frame (#83)
     reactive: tuple[ReactiveClip, ...] = ()  # per-frame layers, bottom first (#81, #82)
 
 
@@ -236,7 +239,12 @@ def prepare_assets(
     texture_path = resolve_texture(style["texture"], textures_dir)
     if texture_path:
         texture = _cover_image(texture_path, width, height, tmp / "texture.png")
-    return RenderAssets(hud, texture)
+    schematic = None
+    if style["schematic"] and float(style["schematic_opacity"]) > 0:
+        board = generate_schematic(size, seed_for(track.id), float(style["schematic_density"]))
+        schematic = tmp / "schematic.png"
+        draw_linework(board, float(style["schematic_opacity"])).save(schematic)
+    return RenderAssets(hud, texture, schematic)
 
 
 def _segment_chain(
@@ -321,7 +329,8 @@ def build_graph(
     duration = plan.duration
     segments = plan.segments
 
-    # Inputs: one image per segment, then audio, HUD, texture, reactive clips. Every
+    # Inputs: one image per segment, then audio, HUD, texture, schematic linework,
+    # reactive clips. Every
     # input adds exactly one "-i", so indices follow an explicit counter.
     inputs: list[str] = []
     for seg in segments:
@@ -337,6 +346,10 @@ def build_graph(
     if assets.texture:
         tex_idx, index = index, index + 1
         inputs += _still_input(assets.texture, fps, duration)
+    sch_idx = None
+    if assets.schematic:
+        sch_idx, index = index, index + 1
+        inputs += _still_input(assets.schematic, fps, duration)
     re_idx: list[int] = []
     for clip in assets.reactive:
         re_idx.append(index)
@@ -365,9 +378,19 @@ def build_graph(
         parts.append(f"[{prev}]format=rgb24," + ",".join(grade) + "[graded]")
         prev = "graded"
 
-    for n, (idx, clip) in enumerate(zip(re_idx, assets.reactive, strict=True)):
+    if sch_idx is not None:
         parts.append(
-            f"[{idx}:v]format=rgba,"
+            f"[{sch_idx}:v]format=rgba,"
+            f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
+            f"settb=AVTB,setpts=PTS-STARTPTS[sch]"
+        )
+        parts.append(f"[{prev}][sch]overlay=0:0:format=auto[vs]")
+        prev = "vs"
+
+    for n, (idx, clip) in enumerate(zip(re_idx, assets.reactive, strict=True)):
+        scale = f"scale={clip.scale_to[0]}:{clip.scale_to[1]}," if clip.scale_to else ""
+        parts.append(
+            f"[{idx}:v]format=rgba,{scale}"
             f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
             f"settb=AVTB,setpts=PTS-STARTPTS[re{n}]"
         )
@@ -547,6 +570,7 @@ def render(
                     beatmap,
                     overlay_progress,
                     cancel,
+                    seed=seed_for(track.id),
                 )
             except ReactiveCancelled:
                 raise RenderCancelled("render cancelled") from None

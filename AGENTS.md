@@ -62,6 +62,7 @@ flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
 | `vp/spectrum.py` | Pure numpy per-frame log-frequency spectrum (filterbank, normalization, ballistics, trails) |
 | `vp/reactive.py` | Per-frame reactive layers: parallel Pillow drawing → one FFV1+alpha clip per layer, overlaid by `build_graph` |
 | `vp/readouts.py` | Readout strip (clock, beat cells, BPM/key, band meters): per-frame state + painter |
+| `vp/schematic.py` | Schematic background: seeded board generation, static linework PNG, per-frame node glows |
 | `vp/music.py` | Pure note naming and key detection from chroma (relative-minor tie-break) |
 | `vp/render.py` | `prepare_assets` (PNGs) → pure `build_graph`/`build_command` → `run_ffmpeg`; variants, preview |
 | `vp/status.py` | Render fingerprints + `.vp.json` sidecars for idempotency (CLI + UI) |
@@ -130,7 +131,9 @@ flag per style key (`--font anton`, `--title-font PATH`, `--spectrum`, ...; see
   files. A test (stale `openapi.json`) and the CI typecheck job (stale `api.d.ts`) enforce it.
 - **Reactive layers.** Anything that moves with the music per frame is drawn in
   `vp/reactive.py` (not ffmpeg filters), one clip per layer covering that layer's box
-  (spectrum, readout strip). Painters load fonts lazily and drop them when pickled. Drawing
+  (schematic nodes, spectrum, readout strip; a layer may draw at reduced resolution and
+  set `scale_to`). Static linework (the schematic traces) is a PNG, not a reactive layer.
+  Painters load fonts lazily and drop them when pickled. Drawing
   must be a pure function of the frame index: the process pool's output is tested to be
   byte-identical to the serial path. The pool uses forkserver/spawn, never fork (the
   studio renders from threads).
@@ -142,8 +145,8 @@ The data-HUD epic is **#80**; its plan is in `DESIGN.md` §12 (M5). Direction: t
 reactive data-HUD is the *default* look (no options set → ready to post for most
 beats), and features that don't serve it are removed. Done: the engine and spectrum
 layer (#81), overlays above the grade (#86), the waveform removal (#87), and the
-data-HUD default (#88), and the readouts (#82). Next: the schematic background (#83)
-and clips (#14), each on by default when it lands. Features
+data-HUD default (#88), the readouts (#82), and the schematic background (#83). Next:
+clips (#14). Features
 stop for the user's review before merging. Test on the user's real beats as well as the
 synthetic regression tracks: copy them into the track folder layout under the
 gitignored `fixtures/` and never modify the originals.

@@ -1585,6 +1585,21 @@
             "type": "boolean",
             "title": "Show Notes",
             "default": true
+          },
+          "schematic": {
+            "type": "boolean",
+            "title": "Schematic",
+            "default": true
+          },
+          "schematic_density": {
+            "type": "number",
+            "title": "Schematic Density",
+            "default": 0.5
+          },
+          "schematic_opacity": {
+            "type": "number",
+            "title": "Schematic Opacity",
+            "default": 0.24
           }
         },
         "additionalProperties": false,

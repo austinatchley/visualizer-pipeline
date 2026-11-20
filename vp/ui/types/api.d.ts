@@ -652,6 +652,21 @@ export interface components {
              * @default true
              */
             show_notes: boolean;
+            /**
+             * Schematic
+             * @default true
+             */
+            schematic: boolean;
+            /**
+             * Schematic Density
+             * @default 0.5
+             */
+            schematic_density: number;
+            /**
+             * Schematic Opacity
+             * @default 0.24
+             */
+            schematic_opacity: number;
         };
         /**
          * StyleFieldSpec

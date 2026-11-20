@@ -91,9 +91,28 @@ def _cases():
     )
     # Readouts on (the default, #82): the spectrum and the readout strip clips.
     yield "readouts", {}, "horizontal", False, {"reactive": True, "readouts": True}
+    # Everything the default look draws (#83): linework still + nodes, spectrum, readouts.
+    yield (
+        "schematic",
+        {},
+        "horizontal",
+        False,
+        {"reactive": True, "readouts": True, "schematic": True},
+    )
 
 
 CASES = {name: rest for name, *rest in _cases()}
+
+
+def _clips(extra: dict, size: tuple[int, int]) -> tuple[ReactiveClip, ...]:
+    if not extra.get("reactive"):
+        return ()
+    clips = [ReactiveClip(Path("/tmp/vp/spectrum.mkv"), 65, 749)]
+    if extra.get("readouts"):
+        clips.append(ReactiveClip(Path("/tmp/vp/readouts.mkv"), 0, 120))
+    if extra.get("schematic"):  # nodes: half-res, scaled up, under the rest
+        clips.insert(0, ReactiveClip(Path("/tmp/vp/schematic.mkv"), 0, 0, size))
+    return tuple(clips)
 
 
 def _command(style, aspect_key, preview, extra) -> list[str]:
@@ -105,14 +124,8 @@ def _command(style, aspect_key, preview, extra) -> list[str]:
     assets = RenderAssets(
         hud=Path("/tmp/vp/hud.png"),
         texture=Path("/tmp/vp/texture.png") if extra.get("texture") else None,
-        reactive=tuple(
-            ReactiveClip(Path(f"/tmp/vp/{name}.mkv"), x, y)
-            for name, x, y in (("spectrum", 65, 749), ("readouts", 0, 120))[
-                : 2 if extra.get("readouts") else 1
-            ]
-        )
-        if extra.get("reactive")
-        else (),
+        schematic=Path("/tmp/vp/schematic.png") if extra.get("schematic") else None,
+        reactive=_clips(extra, size),
     )
     graph = build_graph(track, plan, BEATMAP, size, assets, preview)
     return build_command(graph, int(track.style["fps"]), plan.duration, Path("/out/x.mp4"), preview)
