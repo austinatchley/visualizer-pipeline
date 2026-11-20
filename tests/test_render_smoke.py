@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from vp.analyze import load_beatmap
-from vp.aspects import HORIZONTAL, VERTICAL
-from vp.render import plan_variants, render
+from vp.aspects import ASPECTS, HORIZONTAL, VERTICAL
+from vp.render import output_size, plan_variants, render
 from vp.track import load_track
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -16,10 +16,17 @@ FIXTURES = ROOT / "fixtures"
 SHORT = FIXTURES / "d_short"
 LONG = FIXTURES / "a_landscape"
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
-    reason="ffmpeg/ffprobe not installed",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
+        reason="ffmpeg/ffprobe not installed",
+    ),
+    pytest.mark.usefixtures("small_exports"),
+]
+
+
+def _small(key: str) -> tuple[int, int]:
+    return output_size(ASPECTS[key], preview=True)
 
 
 def _require(path: Path) -> None:
@@ -102,14 +109,9 @@ def styled_renders(tmp_path_factory):
 
 
 def test_resolutions(short_renders):
-    expected = {
-        "vertical": (1080, 1920),
-        "square": (1080, 1080),
-        "horizontal": (1920, 1080),
-    }
-    for key, size in expected.items():
+    for key in ("vertical", "square", "horizontal"):
         video = _video(_probe(short_renders[key].path))
-        assert (video["width"], video["height"]) == size
+        assert (video["width"], video["height"]) == _small(key)
 
 
 def test_fps_and_duration(short_renders):
@@ -147,21 +149,21 @@ def test_hook_window_and_alignment(hook_render):
 def test_punchy_preset_renders(styled_renders):
     punchy, *_ = styled_renders
     video = _video(_probe(punchy))
-    assert (video["width"], video["height"]) == (1080, 1920)
+    assert (video["width"], video["height"]) == _small("vertical")
     assert video["pix_fmt"] == "yuv420p"
 
 
 def test_spectrum_overlay_renders(styled_renders):
     _, overlays, *_ = styled_renders
     video = _video(_probe(overlays))
-    assert (video["width"], video["height"]) == (1920, 1080)
+    assert (video["width"], video["height"]) == _small("horizontal")
     assert float(_probe(overlays)["format"]["duration"]) <= 12.0 + 0.15
 
 
 def test_vgm_preset_renders(styled_renders):
     _, _, vgm, *_ = styled_renders
     video = _video(_probe(vgm))
-    assert (video["width"], video["height"]) == (1080, 1920)
+    assert (video["width"], video["height"]) == _small("vertical")
     assert video["pix_fmt"] == "yuv420p"
     assert Fraction(_video(_probe(vgm))["r_frame_rate"]) == 30
 
@@ -169,7 +171,7 @@ def test_vgm_preset_renders(styled_renders):
 def test_analog_grade_renders(styled_renders):
     *_, analog = styled_renders
     video = _video(_probe(analog))
-    assert (video["width"], video["height"]) == (1080, 1920)
+    assert (video["width"], video["height"]) == _small("vertical")
     assert video["pix_fmt"] == "yuv420p"
     assert Fraction(_video(_probe(analog))["r_frame_rate"]) == 30
 

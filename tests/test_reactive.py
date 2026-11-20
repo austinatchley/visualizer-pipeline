@@ -19,9 +19,10 @@ def _style(**kw):
 
 def test_wants_reactive_only_when_a_layer_is_on():
     assert reactive.wants_reactive(resolve_style())  # on by default (#88)
-    off = {k: False for k in ("show_clock", "show_tempo", "show_beats", "show_meters")}
+    off = {k: False for k in ("show_clock", "show_tempo", "show_beats", "show_meters", "schematic")}
     assert not reactive.wants_reactive(_style(spectrum=False, **off))
     assert reactive.wants_reactive(_style(spectrum=False))  # readouts alone
+    assert reactive.wants_reactive(_style(spectrum=False, **{**off, "schematic": True}))
 
 
 def test_clip_is_the_box_without_a_backplate():
@@ -112,7 +113,8 @@ def test_parallel_drawing_matches_serial_bytes(tmp_path):
     parallel = reactive.render_reactive(
         audio, window, size, style, tmp_path / "p", beatmap, workers=2
     )
-    assert [c.path.name for c in serial] == ["spectrum.mkv", "readouts.mkv"]
+    assert [c.path.name for c in serial] == ["schematic.mkv", "spectrum.mkv", "readouts.mkv"]
+    assert serial[0].scale_to == size and serial[1].scale_to is None
     for one, two in zip(serial, parallel, strict=True):
         a, b = _framemd5(one.path), _framemd5(two.path)
         assert len(a) == 8 * 30 >= reactive.PARALLEL_MIN_FRAMES
@@ -120,18 +122,18 @@ def test_parallel_drawing_matches_serial_bytes(tmp_path):
         assert len(set(a)) > 10  # the layer actually moves
         assert (one.x, one.y) == (two.x, two.y)
     clip = reactive.clip_rect(size, reactive.spectrum_box(size, style), style)
-    assert (serial[0].x, serial[0].y) == (clip.x, clip.y)
+    assert (serial[1].x, serial[1].y) == (clip.x, clip.y)
 
 
 def test_layers_follow_the_toggles(tmp_path):
     audio, size = _audio(tmp_path, seconds=2.0), (270, 480)
     names = lambda style: [l.name for l in reactive.build_layers(audio, (0, 1), size, style)[0]]  # noqa: E731,E741
-    assert names(_style()) == ["spectrum", "readouts"]
-    assert names(_style(spectrum=False)) == ["readouts"]
-    off = {k: False for k in ("show_clock", "show_tempo", "show_beats", "show_meters")}
+    assert names(_style()) == ["schematic", "spectrum", "readouts"]
+    assert names(_style(spectrum=False, schematic=False)) == ["readouts"]
+    off = {k: False for k in ("show_clock", "show_tempo", "show_beats", "show_meters", "schematic")}
     assert names(_style(**off)) == ["spectrum"]
     assert not reactive.wants_reactive(_style(spectrum=False, **off))
-    layer = reactive.build_layers(audio, (0, 1), size, _style(show_notes=False))[0][0]
+    layer = reactive.build_layers(audio, (0, 1), size, _style(show_notes=False))[0][1]
     assert layer.notes is None
 
 

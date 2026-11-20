@@ -31,6 +31,7 @@ from .config import parse_color
 from .fonts import READOUT_FONT, load_font, resolve_face
 from .music import NOTE_NAMES
 from .readouts import ReadoutFrames, ReadoutPainter, readout_frames, wants_readouts
+from .schematic import NodePainter, generate
 from .spectrum import (
     SAMPLE_RATE,
     NotePeaks,
@@ -58,10 +59,11 @@ class ReactiveClip:
     path: Path
     x: int
     y: int
+    scale_to: tuple[int, int] | None = None  # clips drawn at reduced resolution
 
 
 def wants_reactive(style: dict) -> bool:
-    return bool(style["spectrum"]) or wants_readouts(style)
+    return bool(style["spectrum"]) or bool(style["schematic"]) or wants_readouts(style)
 
 
 @dataclass(frozen=True)
@@ -346,6 +348,31 @@ class Layer(Protocol):
 
     def frame(self, k: int) -> Image.Image: ...
 
+    @property
+    def scale_to(self) -> tuple[int, int] | None: ...
+
+
+@dataclass
+class SchematicLayer:
+    """Pulsing schematic nodes, drawn at NODE_SCALE and scaled up by ffmpeg."""
+
+    painter: NodePainter
+    data: ReadoutFrames
+    out_size: tuple[int, int]
+    name: str = "schematic"
+
+    @property
+    def box(self) -> ClipRect:
+        return ClipRect(0, 0, *self.painter.size)
+
+    @property
+    def scale_to(self) -> tuple[int, int] | None:
+        return self.out_size
+
+    def frame(self, k: int) -> Image.Image:
+        d = self.data
+        return self.painter.frame(d.bands[k], float(d.flash[k]), int(d.beat_pos[k]))
+
 
 @dataclass
 class SpectrumLayer:
@@ -353,6 +380,7 @@ class SpectrumLayer:
     data: SpectrumFrames
     notes: NotePeaks | None = None
     name: str = "spectrum"
+    scale_to: tuple[int, int] | None = None
 
     @property
     def box(self) -> ClipRect:
@@ -378,6 +406,7 @@ class ReadoutLayer:
     painter: ReadoutPainter
     data: ReadoutFrames
     name: str = "readouts"
+    scale_to: tuple[int, int] | None = None
 
     @property
     def box(self) -> ClipRect:
@@ -397,21 +426,29 @@ def build_layers(
     size: tuple[int, int],
     style: dict,
     beatmap: dict | None = None,
+    seed: int = 0,
 ) -> tuple[list[Layer], int]:
-    """Analyze the window once and build every enabled layer; returns (layers, frames)."""
+    """Analyze the window once and build every enabled layer, bottom first;
+    returns (layers, frames). `seed` picks the schematic board."""
     fps = int(style["fps"])
     samples, lead = _decode_window(audio, window)
     n = _frames_for(float(window[1]) - float(window[0]), fps)
     data = spectrum_frames(samples, fps, n, SAMPLE_RATE, lead)
+    beatmap = beatmap or {}
+    frames = None
+    if style["schematic"] or wants_readouts(style):
+        frames = readout_frames(beatmap, window, fps, band_levels(data.main, data.freqs))
     layers: list[Layer] = []
+    if style["schematic"]:
+        board = generate(size, seed, float(style["schematic_density"]))
+        painter = NodePainter(board, parse_color(style["accent_color"]))
+        layers.append(SchematicLayer(painter, frames, size))
     if style["spectrum"]:
         box = spectrum_box(size, style)
         painter = SpectrumPainter(box, data.freqs, style, clip_rect(size, box, style))
         notes = note_peaks(samples, fps, n, SAMPLE_RATE, lead) if style["show_notes"] else None
         layers.append(SpectrumLayer(painter, data, notes))
     if wants_readouts(style):
-        beatmap = beatmap or {}
-        frames = readout_frames(beatmap, window, fps, band_levels(data.main, data.freqs))
         layers.append(ReadoutLayer(ReadoutPainter(size, style, beatmap), frames))
     return layers, n
 
@@ -471,11 +508,12 @@ def render_reactive(
     progress: Callable[[float], None] | None = None,
     cancel: Callable[[], bool] | None = None,
     workers: int | None = None,
+    seed: int = 0,
 ) -> list[ReactiveClip]:
     """Draw and encode every enabled reactive layer for `window` into
     `out_dir/<layer>.mkv`; returns the clips in overlay order."""
     fps = int(style["fps"])
-    layers, n = build_layers(audio, window, size, style, beatmap)
+    layers, n = build_layers(audio, window, size, style, beatmap, seed)
     if not layers:
         return []
     workers = default_workers() if workers is None else workers
@@ -518,6 +556,6 @@ def render_reactive(
             proc.wait()
         raise
     return [
-        ReactiveClip(path, layer.box.x, layer.box.y)
+        ReactiveClip(path, layer.box.x, layer.box.y, layer.scale_to)
         for layer, path in zip(layers, paths, strict=True)
     ]

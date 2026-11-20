@@ -221,6 +221,14 @@ Layers, bottom to top:
    naming hysteresis so labels don't flicker; band meters average the spectrum's display
    curve per band. Readout state (clock, beat-in-bar, beat flash, band levels) is
    precomputed per frame, so drawing stays a pure function of the frame index.
+   The schematic background (#83, `vp/schematic.py`) is split by cost: its linework
+   (self-avoiding orthogonal walks with 45° corners, sprouting from chip outlines, on a
+   grid of 40 cells across the short side, thinned toward the frame center) never
+   moves, so it is one full-frame PNG composited above the grade; its nodes are a
+   half-resolution reactive clip that ffmpeg scales up, under the other layers. The
+   board is seeded from the track id (crc32), and the grid is in cells, not pixels, so
+   previews show the same board. Nodes follow their band meter at half strength and
+   ~30% of them flash to full accent on downbeats.
 4. **HUD** — bottom gradient, title, and a smaller meta line (`artist · handle`).
    Pre-rendered as a transparent PNG with Pillow (Homebrew ffmpeg has no `drawtext`),
    faded in with alpha.
@@ -231,7 +239,8 @@ Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfad
 
 **Default look and presets.** `DEFAULT_STYLE` *is* the data-HUD look (`datahud`, #88):
 `dim`, a light vignette, luma grain, small beat and color punches, the spectrum layer on a
-`backplate` with note callouts, the readout strip, and the title HUD. `presets/*.json` hold overrides layered on top of it;
+`backplate` with note callouts, the schematic background, the readout strip, and the
+title HUD. `presets/*.json` hold overrides layered on top of it;
 `vgm` is the one variant. Style keys are declared once in `config.STYLE_FIELDS`;
 validation and the UI controls both read it, so new keys appear everywhere
 automatically. The `clean`/`punchy`/`balanced` presets and the audio-picked `auto`
@@ -499,9 +508,8 @@ visualizer-pipeline/
   waveform is removed (#87); the data-HUD is the default, with `dim`, a spectrum
   `backplate`, luma grain, and the old presets and `auto` retired (#88); readouts
   (#82): clock, BPM, detected key, beat cells, band meters, and spectrum note callouts,
-  each with a `show_*` toggle, in bundled JetBrains Mono. Next, one PR each, in order:
-  1. **Schematic background (#83):** seeded circuit-trace linework whose nodes pulse
-     on beats and energy, on by default.
-  2. **Video clips as segments (#14).**
+  each with a `show_*` toggle, in bundled JetBrains Mono; the schematic background
+  (#83): seeded circuit linework with nodes pulsing on bands and downbeats. Next:
+  1. **Video clips as segments (#14).**
   After the epic: multiple hook windows (#52), the posting kit (#53), and section
   detection (#11; the regression tracks show the intro → verse change gets no cut).

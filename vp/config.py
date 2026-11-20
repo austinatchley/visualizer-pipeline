@@ -66,6 +66,9 @@ DEFAULT_STYLE = {
     "show_beats": True,
     "show_meters": True,
     "show_notes": True,
+    "schematic": True,
+    "schematic_density": 0.5,
+    "schematic_opacity": 0.24,
 }
 
 # Style keys that were removed. Older track.json files may still set them: they
@@ -300,6 +303,24 @@ STYLE_FIELDS: dict[str, dict] = {
     "show_notes": {
         "type": "bool",
         "help": "Note callouts on the spectrum's strongest low peaks (needs spectrum)",
+    },
+    "schematic": {
+        "type": "bool",
+        "help": "Circuit-trace background; its nodes pulse with the bands and downbeats",
+    },
+    "schematic_density": {
+        "type": "float",
+        "min": 0.1,
+        "max": 1.0,
+        "step": 0.05,
+        "help": "How many traces the schematic background draws",
+    },
+    "schematic_opacity": {
+        "type": "float",
+        "min": 0.0,
+        "max": 0.6,
+        "step": 0.01,
+        "help": "Schematic linework opacity; 0 hides the traces (nodes still pulse)",
     },
 }
 

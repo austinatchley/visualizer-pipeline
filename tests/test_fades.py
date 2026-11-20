@@ -15,6 +15,9 @@ ROOT = Path(__file__).resolve().parent.parent
 SHORT = ROOT / "fixtures" / "d_short"
 
 
+pytestmark = pytest.mark.usefixtures("small_exports")
+
+
 def test_fade_keys_are_in_the_schema_with_previous_defaults():
     assert DEFAULT_STYLE["fade_in"] == 0.4
     assert DEFAULT_STYLE["fade_out"] == 0.8

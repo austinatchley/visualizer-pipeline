@@ -36,6 +36,7 @@ pytestmark = [
         not _has_asyncio_backend(),
         reason="asyncio backend unavailable (TestClient needs ssl/networking)",
     ),
+    pytest.mark.usefixtures("small_exports"),
 ]
 
 

@@ -161,10 +161,14 @@ Everything is optional. Only include what differs from the defaults.
 | `show_beats` | `true` | Readout: four beat-in-bar cells; the downbeat lights in the accent color |
 | `show_meters` | `true` | Readout: sub / low / mid / high band meters |
 | `show_notes` | `true` | Note callouts (`C#3 138Hz`) on the spectrum's strongest low peaks; needs `spectrum` |
+| `schematic` | `true` | Circuit-trace background: seeded linework (one board per track, thinning toward the middle) whose nodes glow with the band meters and flash on downbeats |
+| `schematic_density` | `0.5` | How many traces the board draws (`0.1–1`) |
+| `schematic_opacity` | `0.24` | Linework opacity (`0–0.6`); `0` hides the traces, nodes still pulse |
 
 The defaults *are* the look: a track with no `style` renders the **data-HUD**
 (`datahud`). The footage is dimmed and graded underneath, and a music-reactive
-spectrum sits on a soft backplate with note callouts on its peaks. An instrument strip
+spectrum sits on a soft backplate with note callouts on its peaks, over a faint
+circuit-board schematic whose nodes pulse with the music. An instrument strip
 across the top shows the clock, beat cells, BPM, key, and band meters in a bundled
 monospace face (JetBrains Mono), with crisp text on top. It aims to be ready to post
 for most beats without changes. Every key above is a knob for tuning to taste.
