@@ -566,8 +566,11 @@ export interface components {
              * @default false
              */
             watermark: boolean;
-            /** Watermark Text */
-            watermark_text?: string | null;
+            /**
+             * Watermark Text
+             * @default postbag
+             */
+            watermark_text: string | null;
             /**
              * Watermark Font
              * @default anton

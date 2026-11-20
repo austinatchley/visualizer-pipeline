@@ -145,7 +145,7 @@ Everything is optional. Only include what differs from the defaults.
 | `grade` | `none` | Film grade (`none`, `sunset`, `night`, `fog`, or `analog` — the warm poison cast) |
 | `show_title` | `true` | Show the title/artist/handle HUD |
 | `watermark` | `false` | Giant translucent watermark overlay (on/off) |
-| `watermark_text` | `null` | Watermark text (`null` = off) |
+| `watermark_text` | `postbag` | Watermark text; `watermark` turns it on/off |
 | `watermark_font` | `anton` | Watermark typeface (any bundled face) |
 | `watermark_opacity` | `0.15` | Watermark opacity (`0–0.5`) |
 | `watermark_width` | `0.95` | Watermark width as a fraction of frame width |
@@ -165,7 +165,7 @@ for most beats without changes. Every key above is a knob for tuning to taste.
 Presets are style overrides layered on the defaults, and can themselves be overridden
 per track or per command:
 
-- **`vgm`** — the data-HUD with a sunset grade and a giant translucent `VGM`
+- **`vgm`** — the data-HUD with a sunset grade and a giant translucent `postbag`
   watermark instead of the title: `grade: sunset`, `show_title: false`,
   `watermark: true`, `grain: 0.08`, `vignette: 0.2`.
 

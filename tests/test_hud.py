@@ -138,9 +138,17 @@ def test_vgm_overlay_empty_is_transparent():
     assert build_vgm_overlay((SQUARE.width, SQUARE.height), VgmConfig()).getbbox() is None
     # toggle on but no text -> nothing drawn
     assert (
-        build_vgm_overlay((SQUARE.width, SQUARE.height), VgmConfig(watermark=True)).getbbox()
+        build_vgm_overlay(
+            (SQUARE.width, SQUARE.height), VgmConfig(watermark=True, watermark_text=None)
+        ).getbbox()
         is None
     )
+
+
+def test_watermark_on_draws_the_default_text():
+    assert VgmConfig().watermark_text == "postbag"  # #92
+    img = build_vgm_overlay((SQUARE.width, SQUARE.height), VgmConfig(watermark=True))
+    assert img.getbbox() is not None
 
 
 def test_vgm_overlay_off_with_text_is_transparent():
