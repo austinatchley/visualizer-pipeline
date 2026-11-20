@@ -58,3 +58,26 @@ def test_saturation_expr_decays_to_base():
     assert value(0) == pytest.approx(1.3)
     assert value(9) < value(0)
     assert value(30 * 5) == pytest.approx(1.0, abs=0.01)
+
+
+def test_zoom_is_still_without_ken_burns_or_hits():
+    from vp.render import _zoom_expr
+
+    assert _zoom_expr(0, 30, 90, 1.0, 0.04) == "1"
+    assert _zoom_expr(1, 30, 90, 1.0, 0.04, []) == "1"
+
+
+def test_zoom_punches_only_at_hit_frames():
+    from vp.render import _zoom_expr
+
+    expr = _zoom_expr(0, 30, 90, 1.0, 0.04, [12, 60])
+    assert expr.startswith("1+0.0400*(")
+    assert "if(gte(on,12)" in expr and "if(gte(on,60)" in expr
+    assert _zoom_expr(0, 30, 90, 1.0, 0.0, [12]) == "1"  # beat_punch 0 = off
+
+
+def test_ken_burns_still_alternates_when_enabled():
+    from vp.render import _zoom_expr
+
+    assert _zoom_expr(0, 30, 90, 1.1, 0.0).startswith("min(1+")
+    assert _zoom_expr(1, 30, 90, 1.1, 0.0).startswith("max(1.10000-")

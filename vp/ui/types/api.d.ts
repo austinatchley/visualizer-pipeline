@@ -462,7 +462,7 @@ export interface components {
             fade_out: number;
             /**
              * Zoom
-             * @default 0.1
+             * @default 0
              */
             zoom: number;
             /**
@@ -519,7 +519,7 @@ export interface components {
             saturation: number;
             /**
              * Beat Punch
-             * @default 0.06
+             * @default 0.04
              */
             beat_punch: number;
             /**
