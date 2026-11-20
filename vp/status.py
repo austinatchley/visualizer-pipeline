@@ -20,10 +20,11 @@ import os
 from pathlib import Path
 
 from . import __version__
-from .fonts import resolve_face, style_faces
+from .fonts import READOUT_FONT, resolve_face, style_faces
+from .readouts import wants_readouts
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 
-RENDER_VERSION = 4
+RENDER_VERSION = 5
 SIDECAR_SUFFIX = ".vp.json"
 
 
@@ -49,6 +50,8 @@ def _font_files(style: dict) -> list[Path | None]:
     faces = [title.path, meta.path]
     if style["watermark"]:
         faces.append(resolve_face(style["watermark_font"]).path)
+    if wants_readouts(style) or (style["spectrum"] and style["show_notes"]):
+        faces.append(resolve_face(READOUT_FONT).path)
     return faces
 
 

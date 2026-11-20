@@ -169,7 +169,7 @@ class RenderAssets:
 
     hud: Path
     texture: Path | None = None  # already cover-cropped to the output size
-    reactive: ReactiveClip | None = None  # per-frame layers (issue #81)
+    reactive: tuple[ReactiveClip, ...] = ()  # per-frame layers, bottom first (#81, #82)
 
 
 @dataclass(frozen=True)
@@ -321,7 +321,7 @@ def build_graph(
     duration = plan.duration
     segments = plan.segments
 
-    # Inputs: one image per segment, then audio, HUD, texture, reactive clip. Every
+    # Inputs: one image per segment, then audio, HUD, texture, reactive clips. Every
     # input adds exactly one "-i", so indices follow an explicit counter.
     inputs: list[str] = []
     for seg in segments:
@@ -337,10 +337,11 @@ def build_graph(
     if assets.texture:
         tex_idx, index = index, index + 1
         inputs += _still_input(assets.texture, fps, duration)
-    re_idx = None
-    if assets.reactive:
-        re_idx, index = index, index + 1
-        inputs += ["-i", str(assets.reactive.path)]
+    re_idx: list[int] = []
+    for clip in assets.reactive:
+        re_idx.append(index)
+        index += 1
+        inputs += ["-i", str(clip.path)]
 
     parts = [
         _segment_chain(seg, i, style, size, beatmap, window_start) for i, seg in enumerate(segments)
@@ -364,15 +365,14 @@ def build_graph(
         parts.append(f"[{prev}]format=rgb24," + ",".join(grade) + "[graded]")
         prev = "graded"
 
-    if re_idx is not None:
-        clip = assets.reactive
+    for n, (idx, clip) in enumerate(zip(re_idx, assets.reactive, strict=True)):
         parts.append(
-            f"[{re_idx}:v]format=rgba,"
+            f"[{idx}:v]format=rgba,"
             f"fade=t=in:st={HUD_FADE_IN}:d={HUD_FADE_DUR}:alpha=1,"
-            f"settb=AVTB,setpts=PTS-STARTPTS[re]"
+            f"settb=AVTB,setpts=PTS-STARTPTS[re{n}]"
         )
-        parts.append(f"[{prev}][re]overlay={clip.x}:{clip.y}:format=auto[vr]")
-        prev = "vr"
+        parts.append(f"[{prev}][re{n}]overlay={clip.x}:{clip.y}:format=auto[vr{n}]")
+        prev = f"vr{n}"
 
     parts.append(
         f"[{hud_idx}:v]format=rgba,"
@@ -538,18 +538,19 @@ def render(
 
             overlay_progress(0.0)  # report the start before the first chunk lands
             try:
-                clip = render_reactive(
+                clips = render_reactive(
                     track.audio,
                     plan.window,
                     size,
                     track.style,
-                    tmp / "reactive.mkv",
+                    tmp / "reactive",
+                    beatmap,
                     overlay_progress,
                     cancel,
                 )
             except ReactiveCancelled:
                 raise RenderCancelled("render cancelled") from None
-            assets = replace(assets, reactive=clip)
+            assets = replace(assets, reactive=tuple(clips))
             if progress is not None:
                 encode_progress = lambda pct, stage: progress(40.0 + 0.6 * pct, stage)  # noqa: E731
         graph = build_graph(track, plan, beatmap, size, assets, preview)

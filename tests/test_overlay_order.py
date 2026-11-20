@@ -59,8 +59,11 @@ def test_grade_runs_before_every_overlay():
     root = Path("/tracks/demo")
     track = _track(root, [root / "images/01.jpg"], {**HEAVY, "grade": "night"})
     size = output_size(ASPECTS["vertical"])
-    clip = ReactiveClip(path=root / "re.mkv", x=0, y=0)
-    assets = RenderAssets(hud=root / "hud.png", reactive=clip)
+    clips = (
+        ReactiveClip(path=root / "spectrum.mkv", x=0, y=0),
+        ReactiveClip(path=root / "readouts.mkv", x=0, y=0),
+    )
+    assets = RenderAssets(hud=root / "hud.png", reactive=clips)
     plan = plan_for(track, BEATMAP, (0.0, 20.0))
     chains = build_graph(track, plan, BEATMAP, size, assets).filter_complex.split(";")
 

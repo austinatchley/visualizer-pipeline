@@ -1342,7 +1342,8 @@
               "silkscreen",
               "syne",
               "instrument",
-              "anton"
+              "anton",
+              "mono"
             ],
             "title": "Font",
             "default": "clean"
@@ -1362,7 +1363,8 @@
               "silkscreen",
               "syne",
               "instrument",
-              "anton"
+              "anton",
+              "mono"
             ],
             "title": "Meta Font",
             "default": "auto"
@@ -1503,7 +1505,8 @@
               "silkscreen",
               "syne",
               "instrument",
-              "anton"
+              "anton",
+              "mono"
             ],
             "title": "Watermark Font",
             "default": "anton"
@@ -1557,6 +1560,31 @@
             "type": "string",
             "title": "Accent Color",
             "default": "#d9708f"
+          },
+          "show_clock": {
+            "type": "boolean",
+            "title": "Show Clock",
+            "default": true
+          },
+          "show_tempo": {
+            "type": "boolean",
+            "title": "Show Tempo",
+            "default": true
+          },
+          "show_beats": {
+            "type": "boolean",
+            "title": "Show Beats",
+            "default": true
+          },
+          "show_meters": {
+            "type": "boolean",
+            "title": "Show Meters",
+            "default": true
+          },
+          "show_notes": {
+            "type": "boolean",
+            "title": "Show Notes",
+            "default": true
           }
         },
         "additionalProperties": false,

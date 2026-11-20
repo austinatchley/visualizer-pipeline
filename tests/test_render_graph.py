@@ -89,6 +89,8 @@ def _cases():
         False,
         {"reactive": True},
     )
+    # Readouts on (the default, #82): the spectrum and the readout strip clips.
+    yield "readouts", {}, "horizontal", False, {"reactive": True, "readouts": True}
 
 
 CASES = {name: rest for name, *rest in _cases()}
@@ -103,9 +105,14 @@ def _command(style, aspect_key, preview, extra) -> list[str]:
     assets = RenderAssets(
         hud=Path("/tmp/vp/hud.png"),
         texture=Path("/tmp/vp/texture.png") if extra.get("texture") else None,
-        reactive=ReactiveClip(Path("/tmp/vp/reactive.mkv"), 65, 749)
+        reactive=tuple(
+            ReactiveClip(Path(f"/tmp/vp/{name}.mkv"), x, y)
+            for name, x, y in (("spectrum", 65, 749), ("readouts", 0, 120))[
+                : 2 if extra.get("readouts") else 1
+            ]
+        )
         if extra.get("reactive")
-        else None,
+        else (),
     )
     graph = build_graph(track, plan, BEATMAP, size, assets, preview)
     return build_command(graph, int(track.style["fps"]), plan.duration, Path("/out/x.mp4"), preview)

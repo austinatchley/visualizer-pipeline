@@ -478,13 +478,13 @@ export interface components {
              * @default clean
              * @enum {string}
              */
-            font: "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton";
+            font: "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton" | "mono";
             /**
              * Meta Font
              * @default auto
              * @enum {string}
              */
-            meta_font: "auto" | "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton";
+            meta_font: "auto" | "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton" | "mono";
             /**
              * Text Case
              * @default preserve
@@ -576,7 +576,7 @@ export interface components {
              * @default anton
              * @enum {string}
              */
-            watermark_font: "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton";
+            watermark_font: "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton" | "mono";
             /**
              * Watermark Opacity
              * @default 0.15
@@ -627,6 +627,31 @@ export interface components {
              * @default #d9708f
              */
             accent_color: string;
+            /**
+             * Show Clock
+             * @default true
+             */
+            show_clock: boolean;
+            /**
+             * Show Tempo
+             * @default true
+             */
+            show_tempo: boolean;
+            /**
+             * Show Beats
+             * @default true
+             */
+            show_beats: boolean;
+            /**
+             * Show Meters
+             * @default true
+             */
+            show_meters: boolean;
+            /**
+             * Show Notes
+             * @default true
+             */
+            show_notes: boolean;
         };
         /**
          * StyleFieldSpec

@@ -7,6 +7,10 @@ import os
 from pathlib import Path
 
 from .config import ANALYSIS_VERSION
+from .music import detect_key
+
+KEY_HOP = 2048
+OPENING_SECONDS = 4.0  # harmony the key tie-break listens to (see music.detect_key)
 
 
 def _group_mean(values: list[float], size: int) -> list[float]:
@@ -29,6 +33,23 @@ def audio_source(audio: Path) -> dict:
     this matches, so replacing the audio invalidates it (issue #43)."""
     stat = Path(audio).stat()
     return {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+
+
+def analyze_key(y, sr: int) -> dict | None:
+    """Musical key from harmonic chroma; the opening seconds of the harmony
+    break the tie between a major key and its relative minor."""
+    import librosa
+    import numpy as np
+
+    if len(y) < sr or not np.any(y):
+        return None
+    harmonic = librosa.effects.harmonic(y, margin=2.0)
+    chroma = librosa.feature.chroma_cqt(y=harmonic, sr=sr, hop_length=KEY_HOP)
+    rms = librosa.feature.rms(y=harmonic, hop_length=KEY_HOP)[0]
+    loud = rms > 0.25 * float(np.percentile(rms, 95))
+    start = int(np.argmax(loud)) if loud.any() else 0
+    span = max(1, int(OPENING_SECONDS * sr / KEY_HOP))
+    return detect_key(chroma.mean(axis=1), chroma[:, start : start + span].mean(axis=1))
 
 
 def analyze_audio(audio: Path, sr: int = 22050, bpm: float | None = None) -> dict:
@@ -75,6 +96,7 @@ def analyze_audio(audio: Path, sr: int = 22050, bpm: float | None = None) -> dic
             "downbeats": beats[::4],
             "beat_energy": beat_energy,
             "onset_novelty": onset_novelty,
+            "key": analyze_key(y, sr),
         }
     )
 

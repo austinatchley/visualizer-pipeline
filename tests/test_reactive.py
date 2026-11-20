@@ -19,7 +19,9 @@ def _style(**kw):
 
 def test_wants_reactive_only_when_a_layer_is_on():
     assert reactive.wants_reactive(resolve_style())  # on by default (#88)
-    assert not reactive.wants_reactive(_style(spectrum=False))
+    off = {k: False for k in ("show_clock", "show_tempo", "show_beats", "show_meters")}
+    assert not reactive.wants_reactive(_style(spectrum=False, **off))
+    assert reactive.wants_reactive(_style(spectrum=False))  # readouts alone
 
 
 def test_clip_is_the_box_without_a_backplate():
@@ -101,16 +103,50 @@ def _framemd5(path):
 @needs_ffmpeg
 def test_parallel_drawing_matches_serial_bytes(tmp_path):
     audio, style, size = _audio(tmp_path), _style(), (270, 480)
-    serial = reactive.render_reactive(audio, (0.5, 8.5), size, style, tmp_path / "s.mkv", workers=1)
-    parallel = reactive.render_reactive(
-        audio, (0.5, 8.5), size, style, tmp_path / "p.mkv", workers=2
+    beatmap = {"duration": 9.0, "tempo": 120.0, "beats": [0.5 * i for i in range(18)]}
+    beatmap["downbeats"] = beatmap["beats"][::4]
+    window = (0.5, 8.5)
+    serial = reactive.render_reactive(
+        audio, window, size, style, tmp_path / "s", beatmap, workers=1
     )
-    a, b = _framemd5(serial.path), _framemd5(parallel.path)
-    assert len(a) == 8 * 30 >= reactive.PARALLEL_MIN_FRAMES
-    assert a == b
-    assert len(set(a)) > 10  # the layer actually moves
+    parallel = reactive.render_reactive(
+        audio, window, size, style, tmp_path / "p", beatmap, workers=2
+    )
+    assert [c.path.name for c in serial] == ["spectrum.mkv", "readouts.mkv"]
+    for one, two in zip(serial, parallel, strict=True):
+        a, b = _framemd5(one.path), _framemd5(two.path)
+        assert len(a) == 8 * 30 >= reactive.PARALLEL_MIN_FRAMES
+        assert a == b
+        assert len(set(a)) > 10  # the layer actually moves
+        assert (one.x, one.y) == (two.x, two.y)
     clip = reactive.clip_rect(size, reactive.spectrum_box(size, style), style)
-    assert (serial.x, serial.y) == (clip.x, clip.y)
+    assert (serial[0].x, serial[0].y) == (clip.x, clip.y)
+
+
+def test_layers_follow_the_toggles(tmp_path):
+    audio, size = _audio(tmp_path, seconds=2.0), (270, 480)
+    names = lambda style: [l.name for l in reactive.build_layers(audio, (0, 1), size, style)[0]]  # noqa: E731,E741
+    assert names(_style()) == ["spectrum", "readouts"]
+    assert names(_style(spectrum=False)) == ["readouts"]
+    off = {k: False for k in ("show_clock", "show_tempo", "show_beats", "show_meters")}
+    assert names(_style(**off)) == ["spectrum"]
+    assert not reactive.wants_reactive(_style(spectrum=False, **off))
+    layer = reactive.build_layers(audio, (0, 1), size, _style(show_notes=False))[0][0]
+    assert layer.notes is None
+
+
+def test_note_callouts_draw_on_the_spectrum():
+    size = (1080, 1920)
+    style = _style()
+    box = reactive.spectrum_box(size, style)
+    freqs = np.geomspace(40, 16000, 160)
+    painter = reactive.SpectrumPainter(box, freqs, style, reactive.clip_rect(size, box, style))
+    main = np.full(160, 0.5)
+    bare = np.asarray(painter.frame(main, main, main))
+    labeled = np.asarray(painter.frame(main, main, main, [(110.0, 45, 1.0), (115.0, 46, 1.0)]))
+    assert not np.array_equal(bare, labeled)
+    faded = np.asarray(painter.frame(main, main, main, [(110.0, 45, 0.0)]))
+    assert np.array_equal(bare, faded)
 
 
 @needs_ffmpeg
@@ -121,7 +157,7 @@ def test_cancel_stops_the_overlay_pass(tmp_path):
             (0.0, 8.0),
             (270, 480),
             _style(),
-            tmp_path / "c.mkv",
+            tmp_path / "c",
             cancel=lambda: True,
             workers=1,
         )

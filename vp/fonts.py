@@ -65,7 +65,13 @@ FONT_FACES: dict[str, FontFace] = {
         "instrument", "Instrument Serif", FONT_DIR / "InstrumentSerif-Regular.ttf"
     ),
     "anton": FontFace("anton", "Anton", FONT_DIR / "Anton-Regular.ttf"),
+    "mono": FontFace(
+        "mono", "JetBrains Mono SemiBold", FONT_DIR / "JetBrainsMono-Variable.ttf", (600,)
+    ),
 }
+
+# Face for the data readouts and spectrum note callouts (#82).
+READOUT_FONT = "mono"
 
 FONT_CHOICES = list(FONT_FACES)
 
