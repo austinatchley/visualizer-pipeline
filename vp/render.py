@@ -16,7 +16,13 @@ from .aspects import ASPECTS, Aspect
 from .fonts import style_faces
 from .hud import VgmConfig, build_hud, build_vgm_overlay
 from .plan import Plan, full_window, plan_timeline, preview_slice, select_hook
-from .reactive import ReactiveCancelled, ReactiveClip, render_reactive, wants_reactive
+from .reactive import (
+    ReactiveCancelled,
+    ReactiveClip,
+    render_reactive,
+    wants_reactive,
+)
+from .readouts import ReadoutPainter, wants_readouts
 from .schematic import draw_linework, seed_for
 from .schematic import generate as generate_schematic
 from .status import invalidate, record, render_fingerprint
@@ -205,6 +211,17 @@ def output_size(aspect: Aspect, preview: bool = False) -> tuple[int, int]:
     return aspect.width, aspect.height
 
 
+TITLE_GAP = 0.035  # of the short side: space between the readout strip and the title
+
+
+def title_top(style: dict, size: tuple[int, int]) -> int | None:
+    """The title starts just below the readout strip (#98); None (the layout's
+    default, the strip's top) when the readouts are off."""
+    if not wants_readouts(style):
+        return None
+    return ReadoutPainter(size, style, {}).bottom + round(min(size) * TITLE_GAP)
+
+
 def prepare_assets(
     track: Track,
     size: tuple[int, int],
@@ -233,6 +250,7 @@ def prepare_assets(
         line_spacing=float(style["line_spacing"]),
         show_title=bool(style["show_title"]),
         overlay=vgm_img,
+        top=title_top(style, size),
     )
 
     texture = None

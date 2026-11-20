@@ -87,6 +87,15 @@ class Rect:
     height: int
 
 
+def strip_origin(size: tuple[int, int]) -> tuple[int, int]:
+    """(left margin, top) of the readout strip; the title aligns to it too (#98)."""
+    width, height = size
+    vertical = height > width * 1.2
+    horizontal = width > height * 1.2
+    margin = round(width * (0.06 if horizontal else 0.07))
+    return margin, round(height * (0.085 if vertical else 0.06))
+
+
 class ReadoutPainter:
     """Lays out the strip once, draws the static parts into `base`, and draws
     the moving parts per frame. `rect` is the encoded clip in output pixels."""
@@ -94,8 +103,6 @@ class ReadoutPainter:
     def __init__(self, size: tuple[int, int], style: dict, beatmap: dict):
         width, height = size
         unit = min(width, height)
-        vertical = height > width * 1.2
-        horizontal = width > height * 1.2
         self.show = {k: bool(style[f"show_{k}"]) for k in ("clock", "tempo", "beats", "meters")}
         self.accent = parse_color(style["accent_color"])
         self.total = format_clock(float(beatmap.get("duration") or 0.0))
@@ -105,8 +112,7 @@ class ReadoutPainter:
 
         self.fv = max(6, round(unit * 0.032))  # value text size
         self.ft = max(5, round(unit * 0.017))  # tag text size
-        top = round(height * (0.085 if vertical else 0.06))
-        margin = round(width * (0.06 if horizontal else 0.07))
+        margin, top = strip_origin(size)
         self.row_tag = top
         self.row_val = top + round(self.ft * 1.6)
         self.cell = max(3, round(self.fv * 0.42))

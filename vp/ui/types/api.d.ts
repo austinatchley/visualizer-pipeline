@@ -475,7 +475,7 @@ export interface components {
             title_font?: string | null;
             /**
              * Font
-             * @default clean
+             * @default redaction
              * @enum {string}
              */
             font: "clean" | "redaction" | "redaction-regular" | "redaction-italic" | "tiny5" | "tiny5-round" | "tiny5-jitter" | "pixelify" | "silkscreen" | "syne" | "instrument" | "anton" | "mono";
@@ -614,7 +614,7 @@ export interface components {
             spectrum_height: number;
             /**
              * Spectrum Y
-             * @default 0.5
+             * @default 1
              */
             spectrum_y: number;
             /**

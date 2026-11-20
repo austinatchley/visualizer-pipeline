@@ -11,13 +11,14 @@ from PIL import Image, ImageDraw, ImageFont
 from .aspects import Aspect
 from .config import DEFAULT_STYLE
 from .fonts import FontFace, load_font, resolve_face
+from .readouts import strip_origin
 
 
 @dataclass(frozen=True)
 class HudLayout:
     fontsize: int
     max_width: int
-    block_bottom: int
+    top: int
     align: str
     x: int
 
@@ -170,29 +171,15 @@ def build_vgm_overlay(size: tuple[int, int], cfg: VgmConfig) -> Image.Image:
 
 
 def layout_for(aspect: Aspect) -> HudLayout:
+    """Top-left title, aligned with the readout strip's left margin (#98)."""
+    x, top = strip_origin((aspect.width, aspect.height))
     if aspect.kind == "vertical":
-        return HudLayout(
-            fontsize=int(aspect.width * 0.085),
-            max_width=int(aspect.width * 0.86),
-            block_bottom=int(aspect.height * 0.80),
-            align="center",
-            x=aspect.width // 2,
-        )
-    if aspect.kind == "square":
-        return HudLayout(
-            fontsize=int(aspect.width * 0.09),
-            max_width=int(aspect.width * 0.82),
-            block_bottom=int(aspect.height * 0.82),
-            align="center",
-            x=aspect.width // 2,
-        )
-    return HudLayout(
-        fontsize=int(aspect.height * 0.075),
-        max_width=int(aspect.width * 0.55),
-        block_bottom=int(aspect.height * 0.87),
-        align="left",
-        x=int(aspect.width * 0.06),
-    )
+        fontsize, max_width = int(aspect.width * 0.08), int(aspect.width * 0.86)
+    elif aspect.kind == "square":
+        fontsize, max_width = int(aspect.width * 0.075), int(aspect.width * 0.6)
+    else:
+        fontsize, max_width = int(aspect.height * 0.065), int(aspect.width * 0.45)
+    return HudLayout(fontsize=fontsize, max_width=max_width, top=top, align="left", x=x)
 
 
 def _line_height(font: ImageFont.FreeTypeFont, line_spacing: float = 1.12) -> int:
@@ -262,7 +249,10 @@ def build_hud(
     line_spacing: float = 1.12,
     show_title: bool = True,
     overlay: Image.Image | None = None,
+    top: int | None = None,
 ) -> Path:
+    """`top`, when given, overrides where the title block starts (e.g. just
+    below the readout strip)."""
     font_face = font_face or resolve_face(None, font_path)
     meta_font_face = meta_font_face or font_face
 
@@ -292,13 +282,11 @@ def build_hud(
             meta_size = int(layout.fontsize * 0.40)
             meta_font = load_font(meta_font_face, meta_size)
             gap = int(layout.fontsize * 0.28)
-            meta_height = _block_height([meta], meta_font)
         else:
             meta_font = None
             gap = 0
-            meta_height = 0
 
-        title_top = layout.block_bottom - title_height - (gap + meta_height if meta else 0)
+        title_top = layout.top if top is None else top
         shadow = max(2, layout.fontsize // 40)
         _draw_text_block(
             draw,

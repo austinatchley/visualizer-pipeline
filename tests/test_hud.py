@@ -12,6 +12,7 @@ from vp.hud import (
     meta_line,
     wrap_to_width,
 )
+from vp.readouts import strip_origin
 
 
 def load_font(size: int = 80):
@@ -42,13 +43,14 @@ def test_layout_per_aspect():
     square = layout_for(SQUARE)
     horizontal = layout_for(HORIZONTAL)
 
-    assert vertical.align == "center"
-    assert square.align == "center"
-    assert horizontal.align == "left"
-    assert square.fontsize == int(SQUARE.width * 0.09)
+    # Top-left, aligned with the readout strip in every aspect (#98).
+    for aspect, layout in ((VERTICAL, vertical), (SQUARE, square), (HORIZONTAL, horizontal)):
+        assert layout.align == "left"
+        assert (layout.x, layout.top) == strip_origin((aspect.width, aspect.height))
+        assert layout.top < aspect.height * 0.1
+    assert square.fontsize == int(SQUARE.width * 0.075)
     assert vertical.fontsize > horizontal.fontsize
     assert horizontal.max_width < HORIZONTAL.width
-    assert horizontal.x == int(HORIZONTAL.width * 0.06)
 
 
 @pytest.mark.parametrize(
