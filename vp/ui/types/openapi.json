@@ -1413,7 +1413,7 @@
           "beat_punch": {
             "type": "number",
             "title": "Beat Punch",
-            "default": 0.03
+            "default": 0.01
           },
           "color_punch": {
             "type": "number",

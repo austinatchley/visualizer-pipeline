@@ -519,7 +519,7 @@ export interface components {
             saturation: number;
             /**
              * Beat Punch
-             * @default 0.03
+             * @default 0.01
              */
             beat_punch: number;
             /**

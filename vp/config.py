@@ -39,7 +39,7 @@ DEFAULT_STYLE = {
     "supersample": 2,
     "contrast": 1.0,
     "saturation": 1.0,
-    "beat_punch": 0.03,
+    "beat_punch": 0.01,
     "color_punch": 0.2,
     "dim": 0.15,
     "vignette": 0.25,
