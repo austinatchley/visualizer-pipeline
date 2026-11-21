@@ -72,8 +72,39 @@ def test_zoom_punches_only_at_hit_frames():
 
     expr = _zoom_expr(0, 30, 90, 1.0, 0.04, [12, 60])
     assert expr.startswith("1+0.0400*(")
-    assert "if(gte(on,12)" in expr and "if(gte(on,60)" in expr
+    assert "if(lt(on,12),0," in expr and "if(lt(on,60),0," in expr
     assert _zoom_expr(0, 30, 90, 1.0, 0.0, [12]) == "1"  # beat_punch 0 = off
+
+
+def _envelope(f, a, fps, on):
+    """Evaluate the punch envelope in Python, mirroring the ffmpeg expression."""
+    from vp.render import PUNCH_DECAY
+
+    if on < f:
+        return 0.0
+    if on < f + a:
+        t = (on - f) / a
+        return t * t * (3 - 2 * t)
+    return math.exp(-(on - (f + a)) / fps * PUNCH_DECAY)
+
+
+def test_punch_eases_in_without_a_jump_and_settles():
+    from vp.render import PUNCH_ATTACK, _punch_term
+
+    fps = 30
+    a = round(PUNCH_ATTACK * fps)
+    term = _punch_term(10, a, fps)
+    assert term.startswith("if(lt(on,10),0,") and f"if(lt(on,{10 + a})," in term
+    env = [_envelope(10, a, fps, on) for on in range(0, 90)]
+    steps = [abs(y - x) for x, y in zip(env, env[1:], strict=False)]
+    assert max(steps) < 0.35  # no one-frame jump to full strength
+    assert env[10 + a] == 1.0 and env[89] < 0.05  # peaks after the attack, then settles
+
+
+def test_punch_from_before_the_cut_continues_into_the_segment():
+    from vp.render import _punch_term
+
+    assert _punch_term(-6, 5, 30).startswith("if(lt(on,-6),0,if(lt(on,-1),")
 
 
 def test_ken_burns_still_alternates_when_enabled():

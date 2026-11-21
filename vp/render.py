@@ -111,7 +111,13 @@ def _cover_image(src: Path, width: int, height: int, out: Path) -> Path:
     return out
 
 
-PUNCH_DECAY = 4.0  # 1/s: a hit's zoom punch settles in roughly half a second
+# A hit's zoom punch eases in over PUNCH_ATTACK (smoothstep, no one-frame jump),
+# then relaxes exponentially at PUNCH_DECAY (1/s): settled within about a second.
+PUNCH_ATTACK = 0.15
+PUNCH_DECAY = 3.0
+# Punches still settling when a cut lands carry into the next segment, so both
+# sides of a crossfade sit at the same zoom.
+PUNCH_CARRY = 1.5
 
 
 def _zoom_expr(
@@ -128,8 +134,18 @@ def _zoom_expr(
         base = f"min(1+{rate:.6f}*on,{max_zoom:.5f})"
     if not punch or not hits:
         return base
-    kicks = "+".join(f"if(gte(on,{f}),exp(-(on-{f})/{fps}*{PUNCH_DECAY}),0)" for f in hits)
+    a = max(1, round(PUNCH_ATTACK * fps))
+    kicks = "+".join(_punch_term(f, a, fps) for f in hits)
     return f"{base}+{punch:.4f}*({kicks})"
+
+
+def _punch_term(f: int, a: int, fps: int) -> str:
+    """Envelope of one punch starting at segment frame `f` (may be negative for a
+    hit before the cut): 0 before, smoothstep up over `a` frames, then decay."""
+    t = f"(on-({f}))/{a}"
+    rise = f"{t}*{t}*(3-2*{t})"
+    fall = f"exp(-(on-({f + a}))/{fps}*{PUNCH_DECAY})"
+    return f"if(lt(on,{f}),0,if(lt(on,{f + a}),{rise},{fall}))"
 
 
 def _mean_beat_energy(beatmap: dict, start: float, end: float) -> float:
@@ -287,7 +303,8 @@ def _segment_chain(
     frames = max(2, math.ceil(seg.duration * fps) + 2)
     abs_start = window_start + seg.offset
     hits = [
-        round((t - abs_start) * fps) for t in big_hits(beatmap, abs_start, abs_start + seg.duration)
+        round((t - abs_start) * fps)
+        for t in big_hits(beatmap, abs_start - PUNCH_CARRY, abs_start + seg.duration)
     ]
     zexpr = _zoom_expr(i, fps, frames, 1.0 + float(style["zoom"]), float(style["beat_punch"]), hits)
     chain = [
