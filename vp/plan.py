@@ -34,6 +34,37 @@ class Plan:
         return [b.time for b in self.boundaries]
 
 
+HIT_QUANTILE = 0.9  # big hits: the top 10% of beats by energy x onset sharpness
+HIT_MIN_GAP = 1.0  # seconds between punches; the stronger hit wins
+
+
+def big_hits(beatmap: dict, start: float, end: float) -> list[float]:
+    """Absolute times of the track's big hits in [start, end): beats that are
+    both loud (`beat_energy`) and sharp (`onset_novelty`). The cutoff is taken
+    over the whole track, so a hook window punches on the same hits as the full
+    render. Stronger hits claim their spot first; none are closer than
+    HIT_MIN_GAP."""
+    beats = [float(b) for b in beatmap.get("beats") or []]
+    energy_raw = beatmap.get("beat_energy") or []
+    novelty_raw = beatmap.get("onset_novelty") or []
+    n = min(len(beats), len(energy_raw), len(novelty_raw))
+    if n == 0:
+        return []
+    energy = np.asarray(energy_raw[:n], float)
+    novelty = np.asarray(novelty_raw[:n], float)
+    strength = energy * novelty
+    cutoff = float(np.quantile(strength, HIT_QUANTILE))
+    if cutoff <= 0:
+        return []
+    kept: list[float] = []
+    for i in sorted(range(n), key=lambda k: (-strength[k], beats[k])):
+        if strength[i] < cutoff:
+            break
+        if all(abs(beats[i] - t) >= HIT_MIN_GAP for t in kept):
+            kept.append(beats[i])
+    return sorted(t for t in kept if start <= t < end)
+
+
 def full_window(duration: float) -> tuple[float, float]:
     return (0.0, float(duration))
 

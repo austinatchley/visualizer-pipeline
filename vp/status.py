@@ -24,7 +24,7 @@ from .fonts import READOUT_FONT, resolve_face, style_faces
 from .readouts import wants_readouts
 from .textures import DEFAULT_TEXTURES_DIR, resolve_texture
 
-RENDER_VERSION = 7
+RENDER_VERSION = 8
 SIDECAR_SUFFIX = ".vp.json"
 
 

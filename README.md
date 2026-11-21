@@ -90,7 +90,7 @@ Everything is optional. Only include what differs from the defaults.
     "preset": "datahud",
     "beats_per_cut": 8,
     "crossfade": 0.35,
-    "zoom": 0.10,
+    "zoom": 0.0,
     "fps": 30,
     "supersample": 2,
     "title_font": null,
@@ -124,12 +124,12 @@ Everything is optional. Only include what differs from the defaults.
 | `crossfade` | `0.35` | Seconds; clamped to 40% of the shortest segment |
 | `fade_in` | `0.4` | Seconds of fade from black + audio fade-in at the start; `0` = off |
 | `fade_out` | `0.8` | Seconds of fade to black + audio fade-out at the end; `0` = off. Both shrink proportionally on clips shorter than their sum |
-| `zoom` | `0.10` | Ken Burns amount (`1.0 → 1.1`) |
+| `zoom` | `0` | Ken Burns drift per cut (`1.0 → 1+zoom`, alternating in/out); `0` = still |
 | `fps` | `30` | `24`, `30`, or `60` |
 | `supersample` | `2` | Pre-zoom upscale factor (1–4); higher = sharper/slower |
 | `contrast` | `1.0` | Luma contrast (`0.5–2.0`) |
 | `saturation` | `1.0` | Color saturation (`0–2`); `0` renders true monochrome (and scales `color_punch` down with it) |
-| `beat_punch` | `0.06` | Extra zoom at each cut/downbeat that decays (`0–0.3`) |
+| `beat_punch` | `0.01` | Gentle zoom punch on big hits (loud, sharp beats): eases in over 0.15 s, settles within ~1 s (`0–0.3`) |
 | `color_punch` | `0.2` | Saturation spike at each cut that decays over ~0.3s (`0–1`); baseline follows energy |
 | `dim` | `0.15` | Darken the footage under the overlays (`0–0.6`); scales toward black, so bright skies drop most |
 | `vignette` | `0.25` | Edge darkening strength (`0–1`); `0` = off |

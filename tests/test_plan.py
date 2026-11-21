@@ -212,3 +212,39 @@ def test_preview_slice_handles_short_window():
     sliced = preview_slice(plan, 3, seconds=4.0)
     assert sliced.window[0] == 0.0
     assert sliced.window[1] == pytest.approx(3.0)
+
+
+def _hit_beatmap():
+    # 40 beats at 0.5 s; three stand out by energy x sharpness, two of them
+    # 0.5 s apart so the gap rule must drop the weaker.
+    beats = [i * 0.5 for i in range(40)]
+    energy = [0.3] * 40
+    novelty = [0.1] * 40
+    for i, (e, n) in {8: (0.9, 0.9), 9: (0.8, 0.8), 30: (1.0, 1.0)}.items():
+        energy[i], novelty[i] = e, n
+    energy[20], novelty[20] = 0.6, 0.7
+    return {"beats": beats, "beat_energy": energy, "onset_novelty": novelty, "duration": 20.0}
+
+
+def test_big_hits_pick_loud_sharp_beats_spaced_apart():
+    from vp.plan import big_hits
+
+    hits = big_hits(_hit_beatmap(), 0.0, 20.0)
+    assert hits == [4.0, 10.0, 15.0]  # beat 9 (4.5 s) loses to the stronger beat 8
+
+
+def test_big_hits_cutoff_is_track_wide_so_windows_agree():
+    from vp.plan import big_hits
+
+    bm = _hit_beatmap()
+    assert big_hits(bm, 9.0, 16.0) == [10.0, 15.0]
+    assert big_hits(bm, 0.0, 4.0) == []  # half-open window
+
+
+def test_big_hits_without_onset_data_is_empty():
+    from vp.plan import big_hits
+
+    assert big_hits({"beats": [0.0, 1.0], "beat_energy": [0.5, 0.9]}, 0.0, 2.0) == []
+    assert (
+        big_hits({"beats": [0.0, 1.0], "beat_energy": [0, 0], "onset_novelty": [0, 0]}, 0, 2) == []
+    )

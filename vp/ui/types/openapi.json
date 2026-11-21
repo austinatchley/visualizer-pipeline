@@ -1305,7 +1305,7 @@
           "zoom": {
             "type": "number",
             "title": "Zoom",
-            "default": 0.1
+            "default": 0.0
           },
           "fps": {
             "type": "integer",
@@ -1413,7 +1413,7 @@
           "beat_punch": {
             "type": "number",
             "title": "Beat Punch",
-            "default": 0.06
+            "default": 0.01
           },
           "color_punch": {
             "type": "number",

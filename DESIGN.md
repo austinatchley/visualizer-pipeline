@@ -66,7 +66,7 @@ Rules:
     "preset": "datahud",
     "beats_per_cut": 8,
     "crossfade": 0.35,
-    "zoom": 0.10,
+    "zoom": 0.0,
     "fps": 30,
     "title_font": null
   },
@@ -204,7 +204,9 @@ Select a short window from the full track:
 Layers, bottom to top:
 
 1. **Base image** — cover-crop to the aspect, supersampled `style.supersample` (2×),
-   Ken Burns zoom (`1.0 ↔ 1+zoom`), alternating direction each segment.
+   held still by default; a gentle `beat_punch` zoom fires on big hits (the loudest,
+   sharpest beats, `plan.big_hits`). An optional Ken Burns drift (`zoom`, off by
+   default) alternates direction each segment (#100).
 2. **Grade / effects** — `contrast`, optional `vignette`, fixed-seed `grain`, and an
    optional `texture` image from the `textures/` library blended with `texture_blend`
    (`multiply|overlay|screen|softlight`).
@@ -234,8 +236,8 @@ Layers, bottom to top:
    faded in with alpha.
 5. **Global fade** — 0.4 s in, 0.8 s out (video + audio).
 
-Moves are intentionally few and reused: Ken Burns + beat/energy-aligned crossfade cuts +
-`beat_punch` + title fade. This is what makes it look intentional instead of random.
+Moves are intentionally few and reused: beat/energy-aligned crossfade cuts + `beat_punch`
+on big hits + title fade. No looping zoom: the image only moves when the music hits (#100). This is what makes it look intentional instead of random.
 
 **Default look and presets.** `DEFAULT_STYLE` *is* the data-HUD look (`datahud`, #88):
 `dim`, a light vignette, luma grain, small beat and color punches, the spectrum layer on a
@@ -270,7 +272,7 @@ Text wraps to width using font metrics. Default font: `Arial Bold.ttf`; configur
 Build one `ffmpeg -filter_complex` graph per variant:
 
 ```
-[image per segment] → scale (supersample×) cover crop → zoompan (Ken Burns + beat_punch)
+[image per segment] → scale (supersample×) cover crop → zoompan (big-hit punches; optional Ken Burns)
 → per-segment eq (color_punch saturation spike) → settb/setpts → xfade chain (beat offsets)
 → texture blend → grade (grade/saturation/vignette/grain/contrast), footage only (#86)
 → [optional reactive layer clip, FFV1+alpha, drawn per frame in a first pass]
